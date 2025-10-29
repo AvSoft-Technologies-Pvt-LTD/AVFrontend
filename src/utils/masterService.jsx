@@ -36,7 +36,7 @@ export const getSpecializationsBySymptoms = (params) =>
 // Enhanced specializations API call with better error handling
 export const getSpecializationsByPracticeType = (practiceTypeId) =>axiosInstance.get('/master/specializations/by-practice-type', { params: { practiceTypeId },});
 export const getAllSpecializations = () =>axiosInstance.get('/master/specializations');
-
+export const getAllSymptoms = () =>axiosInstance.get(`/symptoms`);
 export const getAvailableTests = () => axiosInstance.get('/master/available-tests');
 export const getCenterTypes = () => axiosInstance.get('/master/center-type');
 export const getHospitalTypes = () => axiosInstance.get('/master/hospitalType');

@@ -3,7 +3,7 @@ import { useSelector } from "react-redux";
 import axios from "axios";
 import { useNavigate, useLocation } from "react-router-dom";
 import { FaChevronLeft, FaChevronRight, FaMapMarkerAlt, FaStethoscope, FaCalendarAlt, FaClock, FaUser, FaHospital } from 'react-icons/fa';
-import { getHospitalDropdown, getSpecializationsBySymptoms } from '../utils/masterService';
+import { getHospitalDropdown, getSpecializationsBySymptoms, getAllSymptoms } from '../utils/masterService';
 import { ArrowLeft, ChevronDown } from "lucide-react";
 
 const MultiStepForm = () => {
@@ -55,6 +55,9 @@ const MultiStepForm = () => {
 
   const [state, setState] = useState(getInitialState);
   const [formSteps, setFormSteps] = useState([]);
+  const [symptomsDropdownOpen, setSymptomsDropdownOpen] = useState(false);
+  const [symptomsSearch, setSymptomsSearch] = useState("");
+  const [allSymptoms, setAllSymptoms] = useState([]);
 
   const updateState = (updates) => {
     setState(prev => {
@@ -100,10 +103,24 @@ const MultiStepForm = () => {
     }
   };
 
+  const fetchAllSymptoms = async () => {
+    try {
+      const response = await getAllSymptoms();
+      const symptoms = Array.isArray(response.data)
+        ? response.data.map(item => item.name || item.label || item)
+        : [];
+      setAllSymptoms(symptoms);
+    } catch (error) {
+      console.error("Failed to fetch symptoms:", error);
+      setAllSymptoms([]);
+    }
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         await fetchHospitals();
+        await fetchAllSymptoms();
         const doctorsRes = await axios.get("https://mocki.io/v1/2524ace5-ef9b-474f-a365-b5a4037ca247");
         updateState({ doctors: doctorsRes.data || [], loadingCities: false });
         if (state.selectedState) {
@@ -129,6 +146,24 @@ const MultiStepForm = () => {
     };
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (state.symptoms) {
+      const fetchSpecializations = async () => {
+        try {
+          const response = await getSpecializationsBySymptoms({ q: state.symptoms });
+          const specialties = Array.isArray(response.data)
+            ? response.data.map(item => item.name || item.label || item)
+            : [];
+          updateState({ specialties });
+        } catch (error) {
+          console.error("Failed to fetch specializations:", error);
+          updateState({ specialties: [] });
+        }
+      };
+      fetchSpecializations();
+    }
+  }, [state.symptoms]);
 
   useEffect(() => {
     if (!state.doctors || !Array.isArray(state.doctors)) {
@@ -223,15 +258,17 @@ const MultiStepForm = () => {
     });
   };
 
-  const handleLocationChange = (e) => {
-    updateState({
-      location: e.target.value,
-      fullAddress: "",
-      pincode: "",
-      pincodeError: "",
-      isCurrentLocation: false,
-    });
-  };
+const handleLocationChange = (e) => {
+  const newLocation = e.target.value;
+  const shouldResetPincode = newLocation === "current-location" || !state.pincode;
+  updateState({
+    location: newLocation,
+    fullAddress: "",
+    pincode: shouldResetPincode ? "" : state.pincode, // Keep pincode if it was used
+    pincodeError: "",
+    isCurrentLocation: newLocation === "current-location"
+  });
+};
 
   const scrollRef = useRef(null);
   const [currentGroup, setCurrentGroup] = useState(0);
@@ -273,27 +310,6 @@ const MultiStepForm = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const handleSymptomsChange = async (e) => {
-    const val = e.target.value;
-    updateState({
-      symptoms: val,
-      specialties: [],
-      specialty: ""
-    });
-    if (val.trim()) {
-      try {
-        const response = await getSpecializationsBySymptoms({ q: val });
-        const specialties = Array.isArray(response.data)
-          ? response.data.map(item => item.name || item.label || item)
-          : [];
-        updateState({ specialties });
-      } catch (error) {
-        console.error("Failed to fetch specializations:", error);
-        updateState({ specialties: [] });
-      }
-    }
-  };
-
   const handlePayment = async () => {
     const userId = localStorage.getItem("userId");
     const payload = {
@@ -316,13 +332,11 @@ const MultiStepForm = () => {
         message: `New appointment with ${user?.firstName || "a patient"} on ${state.selectedDate} at ${state.selectedTime}. Symptoms: ${state.symptoms || "None"}. ${state.consultationType === "Virtual" ? "Virtual consultation" : `Location: ${state.location || "Not specified"}`}.`
       }
     };
-
     updateState({
       isLoading: true,
       showBookingModal: false,
       showConfirmationModal: true
     });
-
     try {
       const bookingResponse = await axios.post("https://67e3e1e42ae442db76d2035d.mockapi.io/register/book", payload);
       try {
@@ -677,13 +691,53 @@ const MultiStepForm = () => {
             )}
             <div className={`space-y-2 w-full ${state.consultationType === "Physical" ? "md:w-1/2" : ""}`}>
               <label className="text-sm font-medium text-slate-700">Symptoms</label>
-              <input
-                type="text"
-                value={state.symptoms}
-                onChange={handleSymptomsChange}
-                placeholder="Describe your symptoms"
-                className="w-full p-3 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200 text-sm bg-white"
-              />
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSymptomsDropdownOpen(!symptomsDropdownOpen);
+                    setSymptomsSearch("");
+                  }}
+                  className="w-full p-3 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200 text-sm bg-white text-left flex justify-between items-center"
+                >
+                  <span className="truncate">
+                    {state.symptoms || "Select Symptoms"}
+                  </span>
+                  <ChevronDown className="w-4 h-4 text-slate-500" />
+                </button>
+                {symptomsDropdownOpen && (
+                  <div className="absolute z-[1000] mt-1 max-h-60 w-full overflow-auto rounded-xl bg-white shadow border border-slate-200">
+                    <input
+                      type="text"
+                      placeholder="Search symptoms..."
+                      value={symptomsSearch}
+                      onChange={(e) => setSymptomsSearch(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border-b border-slate-100 outline-none"
+                    />
+                    {allSymptoms.filter(symptom =>
+                      symptom.toLowerCase().includes(symptomsSearch.toLowerCase())
+                    ).length === 0 && (
+                      <div className="px-4 py-2 text-sm text-slate-500">No results</div>
+                    )}
+                    {allSymptoms
+                      .filter(symptom =>
+                        symptom.toLowerCase().includes(symptomsSearch.toLowerCase())
+                      )
+                      .map(symptom => (
+                        <div
+                          key={symptom}
+                          onClick={() => {
+                            updateState({ symptoms: symptom });
+                            setSymptomsDropdownOpen(false);
+                          }}
+                          className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm"
+                        >
+                          {symptom}
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           {safeSpecialties.length > 0 && (
