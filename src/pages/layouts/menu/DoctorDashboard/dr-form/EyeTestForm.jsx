@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, Save, Printer, Plus, Trash2, Edit, Check, X } from 'lucide-react';
+import { Eye, Save, Printer, Plus, Trash2, Edit, Check, X, Loader2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { getVisionTypes, createBulkEyeTests } from "../../../../../utils/masterService";
 import { usePatientContext } from '../../../../../context-api/PatientContext';
 import { useSelector } from 'react-redux';
 
-const EyeTestForm = ({ data, onPrint }) => {
-  const { activeTab, patients } = usePatientContext();
+const EyeTestForm = ({ data,onSave, onPrint }) => {
+  const { activeTab, patient } = usePatientContext();
   const doctorId = useSelector((state) => state.auth.doctorId);
   const [rows, setRows] = useState(data?.rows || []);
   const [editingRow, setEditingRow] = useState(null);
@@ -28,12 +28,7 @@ const EyeTestForm = ({ data, onPrint }) => {
     product: '',
   });
   const [visionTypes, setVisionTypes] = useState([]);
-
-  useEffect(() => {
-    console.log("Active Tab:", activeTab);
-    console.log("Patient ID:", patients[0]?.id);
-    console.log("Doctor ID from Redux:", doctorId); // Log doctorId to console
-  }, [activeTab, patients, doctorId]);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (data?.rows) setRows(data.rows);
@@ -138,19 +133,20 @@ const EyeTestForm = ({ data, onPrint }) => {
   };
 
   const handleSave = async () => {
-    if (!doctorId) {
-      toast.error("Doctor not logged in. Please log in again.", {
+    if (rows.length === 0) {
+      toast.warning("No records to save.", {
         position: 'top-right',
         autoClose: 2000,
       });
       return;
     }
 
+    setIsSaving(true);
     try {
       const payload = rows.map(row => ({
-        patientId: patients[0]?.id || 1,
-        doctorId: doctorId || 1, // Use doctorId from Redux
-        context: activeTab,
+        patientId: patient?.patientId,
+        doctorId: doctorId || 1,
+        context: activeTab.toUpperCase(),
         testDate: row.testDate,
         visionTypeId: row.visionTypeId || 1,
         remark: row.remarks || "No remarks",
@@ -168,7 +164,7 @@ const EyeTestForm = ({ data, onPrint }) => {
       }));
       console.log("Payload being sent:", payload);
       const response = await createBulkEyeTests(payload);
-      console.log("API response:", response);
+      console.log("API response:", response.data);
       if (!response.data) {
         toast.warning("API returned an empty response. Check backend logs.", {
           position: 'top-right',
@@ -176,6 +172,7 @@ const EyeTestForm = ({ data, onPrint }) => {
         });
         return;
       }
+      onSave('eye', { rows });
       toast.success("Eye test records saved successfully!", {
         position: 'top-right',
         autoClose: 2000,
@@ -187,6 +184,8 @@ const EyeTestForm = ({ data, onPrint }) => {
         position: 'top-right',
         autoClose: 2000,
       });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -201,9 +200,10 @@ const EyeTestForm = ({ data, onPrint }) => {
         <div className="flex items-center gap-3 text-white">
           <button
             onClick={handleSave}
-            className="hover:bg-[var(--primary-color)] hover:bg-opacity-20 p-2 rounded-lg transition-colors"
+            disabled={isSaving}
+            className="hover:bg-[var(--primary-color)] hover:bg-opacity-20 p-2 rounded-lg transition-colors disabled:opacity-50"
           >
-            <Save className="w-5 h-5" />
+            {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
           </button>
           <button
             onClick={() => onPrint('eye')}

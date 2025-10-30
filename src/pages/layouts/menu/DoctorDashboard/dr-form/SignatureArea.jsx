@@ -1,62 +1,129 @@
-// ------------------------------
-// File: DrForm/SignatureArea.jsx
-// ------------------------------
 import React from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { Save, X } from "lucide-react";
+import { uploadDoctorSignature } from "../../../../../utils/masterService";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { usePatientContext } from "../../../../../context-api/PatientContext";
 
-const SignatureArea = ({ signaturePadRef, doctorSignature, setDoctorSignature }) => {
+const SignatureArea = ({ signaturePadRef, doctorSignature, setDoctorSignature, doctorId = 1 }) => {
+  const { patient, activeTab } = usePatientContext();
+
   const handleSignatureUpload = (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = ({ target }) => {
-        if (target?.result) {
-          setDoctorSignature(target.result);
-          localStorage.setItem("doctorSignature", target.result);
-        }
-      };
-      reader.readAsDataURL(file);
+      setDoctorSignature(file);
+      const url = URL.createObjectURL(file);
+      localStorage.setItem("doctorSignature", url);
+    }
+  };
+
+  const handleSaveSignature = () => {
+    if (signaturePadRef.current && !signaturePadRef.current.isEmpty()) {
+      const dataURL = signaturePadRef.current.toDataURL();
+      fetch(dataURL)
+        .then((res) => res.blob())
+        .then((blob) => {
+          const file = new File([blob], "signature.png", { type: "image/png" });
+          setDoctorSignature(file);
+          localStorage.setItem("doctorSignature", dataURL);
+          uploadNow(file);
+        });
+      return;
+    }
+    if (doctorSignature) {
+      uploadNow(doctorSignature);
+      return;
+    }
+    toast.warning("⚠ No signature found!");
+  };
+
+  const uploadNow = async (file) => {
+    try {
+      const formData = new FormData();
+      formData.append("patientId", patient?.patientId );
+      formData.append("doctorId", doctorId);
+      formData.append("context", activeTab?.toUpperCase() );
+      formData.append("doctor_signature", file);
+      const res = await uploadDoctorSignature(formData);
+      console.log("✅ Uploaded successfully:", res.data);
+      toast.success("✅ Signature uploaded successfully!");
+    } catch (error) {
+      console.error("❌ Upload failed:", error);
+      toast.error("❌ Upload Failed");
     }
   };
 
   const handleClearSignature = () => {
-    if (signaturePadRef.current) signaturePadRef.current.clear();
+    signaturePadRef.current?.clear();
     setDoctorSignature(null);
     localStorage.removeItem("doctorSignature");
-  };
-
-  const handleSaveSignature = () => {
-    if (signaturePadRef.current) {
-      const signatureData = signaturePadRef.current.toDataURL();
-      setDoctorSignature(signatureData);
-      localStorage.setItem("doctorSignature", signatureData);
-    }
+    toast.info("🧹 Signature cleared");
   };
 
   return (
     <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-8 animate-fadeIn">
-      <h3 className="text-base sm:text-lg font-medium sm:font-semibold mb-4">Digital Signature</h3>
+      <ToastContainer />
+      <h3 className="text-base sm:text-lg font-medium sm:font-semibold mb-4">
+        Digital Signature
+      </h3>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
+        {/* Upload Section */}
         <div className="space-y-3 sm:space-y-4">
-          <label className="block text-[10px] sm:text-sm font-medium text-[var(--primary-color)] mb-2">Upload Signature:</label>
-          <input type="file" accept="image/*" onChange={handleSignatureUpload} className="input-field" />
+          <label className="block text-[10px] sm:text-sm font-medium text-[var(--primary-color)] mb-2">
+            Upload Signature:
+          </label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleSignatureUpload}
+            className="input-field"
+          />
           {doctorSignature && (
             <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-              <span className="text-sm font-medium text-blue-800">Preview:</span>
-              <img src={doctorSignature} alt="Doctor's Signature" className="h-12 border border-blue-300 rounded shadow-sm" />
+              <span className="text-sm font-medium text-blue-800">
+                Preview:
+              </span>
+              <img
+                src={
+                  typeof doctorSignature === "string"
+                    ? doctorSignature
+                    : URL.createObjectURL(doctorSignature)
+                }
+                alt="Doctor Signature"
+                className="h-12 border border-blue-300 rounded shadow-sm"
+              />
             </div>
           )}
         </div>
-
+        {/* Canvas Section */}
         <div className="space-y-3 sm:space-y-4">
-          <label className="block text-[10px] sm:text-sm font-medium text-[var(--primary-color)]">Or Draw Signature:</label>
+          <label className="block text-[10px] sm:text-sm font-medium text-[var(--primary-color)]">
+            Or Draw Signature:
+          </label>
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-2 sm:p-4">
-            <SignatureCanvas ref={signaturePadRef} canvasProps={{ width: 400, height: 100, className: "w-full bg-white" }} />
+            <SignatureCanvas
+              ref={signaturePadRef}
+              canvasProps={{
+                width: 400,
+                height: 100,
+                className: "w-full bg-white",
+              }}
+            />
           </div>
           <div className="flex gap-2 sm:gap-3">
-            <button onClick={handleSaveSignature} className="flex items-center gap-2 px-3 py-2 bg-[var(--primary-color)] text-white rounded-lg"><Save/> Save</button>
-            <button onClick={handleClearSignature} className="flex items-center gap-2 px-3 py-2 bg-gray-500 text-white rounded-lg"><X/> Clear</button>
+            <button
+              onClick={handleSaveSignature}
+              className="flex items-center gap-2 px-3 py-2 bg-[var(--primary-color)] text-white rounded-lg"
+            >
+              <Save /> Save
+            </button>
+            <button
+              onClick={handleClearSignature}
+              className="flex items-center gap-2 px-3 py-2 bg-gray-500 text-white rounded-lg"
+            >
+              <X /> Clear
+            </button>
           </div>
         </div>
       </div>
@@ -65,3 +132,6 @@ const SignatureArea = ({ signaturePadRef, doctorSignature, setDoctorSignature })
 };
 
 export default SignatureArea;
+
+
+

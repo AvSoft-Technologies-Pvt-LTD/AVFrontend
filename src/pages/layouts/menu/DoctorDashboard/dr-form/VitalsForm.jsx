@@ -1,7 +1,3 @@
-
-
-
-
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Heart,
@@ -40,13 +36,8 @@ const VitalsForm = ({
   onPrint,
   setIsChartOpen,
   setChartVital,
-  hospitalName,
-  ptemail,
-  drEmail,
-  diagnosis,
-  type,
 }) => {
-  const { patients, activeTab } = usePatientContext();
+  const { patient, activeTab } = usePatientContext();
   const doctorId = useSelector((state) => state.auth.doctorId);
   const emptyVitals = {
     heartRate: "",
@@ -64,43 +55,85 @@ const VitalsForm = ({
   const [warnings, setWarnings] = useState({});
   const [loading, setLoading] = useState(false);
   const [vitalsRecords, setVitalsRecords] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch vitals records
-useEffect(() => {
-  const fetchVitalsRecords = async () => {
-    const validDoctorId = doctorId || 1; // 👈 use default doctor ID 1
-    const patientId = patients[0]?.id;
-    const context = activeTab?.toUpperCase();
-
-    if (patients.length > 0 && validDoctorId && context) {
-      console.log("Calling API with:", {
-        doctorId: validDoctorId,
-        patientId,
-        context,
-      });
-
+  useEffect(() => {
+    const fetchVitalsRecords = async () => {
+      setIsLoading(true);
+      const validDoctorId = doctorId || 1;
+      const patientId = patient?.patientId;
+      const context = activeTab?.toUpperCase();
+      if (!patientId || !validDoctorId || !context) {
+        console.warn("Missing required parameters for getIpdVitals");
+        setIsLoading(false);
+        return;
+      }
       try {
         const response = await getIpdVitals(validDoctorId, patientId, context);
-        console.log("Fetched vitals records:::::::::::::::::", response.data);
-        setVitalsRecords(response.data?.content || response.data || []);
+        const records = Array.isArray(response.data) ? response.data : response.data?.content || [];
+        const formattedRecords = records.map((r, index) => {
+          let recDate;
+          try {
+            if (Array.isArray(r.recordedAt)) {
+              const [year, month, day, hour, minute, second] = r.recordedAt;
+              recDate = new Date(year, month - 1, day, hour, minute, second);
+            } else {
+              recDate = new Date(r.recordedAt);
+            }
+            if (isNaN(recDate.getTime())) throw new Error("Invalid Date Object");
+          } catch (error) {
+            return {
+              ...r,
+              formattedDate: "Invalid Date",
+              formattedTime: "Invalid Time",
+              timeSlot: "Unknown",
+            };
+          }
+          const istString = recDate.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+          const istDate = new Date(istString);
+          const formattedDate = istDate.toLocaleDateString("en-IN", {
+            timeZone: "Asia/Kolkata",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+          });
+          const formattedTime = istDate.toLocaleTimeString("en-IN", {
+            timeZone: "Asia/Kolkata",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true,
+          });
+          const istHour = istDate.getHours();
+          let timeSlot;
+          if (istHour < 12) timeSlot = "Morning";
+          else if (istHour < 17) timeSlot = "Afternoon";
+          else timeSlot = "Evening";
+          return {
+            ...r,
+            formattedDate,
+            formattedTime,
+            timeSlot,
+          };
+        });
+        setVitalsRecords(formattedRecords);
       } catch (error) {
         console.error("Failed to fetch vitals records:", error);
-        toast.error("Failed to fetch vitals records");
+        toast.error("Failed to fetch IPD vitals");
+      } finally {
+        setIsLoading(false);
       }
-    } else {
-      console.log("❌ Skipping API call — missing values", {
-        hasPatients: patients.length > 0,
-        doctorId: validDoctorId,
-        context,
-      });
+    };
+    fetchVitalsRecords();
+  }, [patient, doctorId, activeTab]);
+
+  // Reset headerRecordIdx when vitalsRecords changes
+  useEffect(() => {
+    if (vitalsRecords.length > 0) {
+      setHeaderRecordIdx(null);
     }
-  };
+  }, [vitalsRecords]);
 
-  fetchVitalsRecords();
-}, [patients, doctorId, activeTab]);
-
-
-  // Load selected record into form
+  // Populate formData when headerRecordIdx changes
   useEffect(() => {
     if (headerRecordIdx !== null && vitalsRecords[headerRecordIdx]) {
       const selectedRecord = vitalsRecords[headerRecordIdx];
@@ -108,8 +141,10 @@ useEffect(() => {
         ...selectedRecord,
         timeOfDay: selectedRecord.timeOfDay || "morning",
       });
+    } else {
+      setFormData({ ...emptyVitals, ...data });
     }
-  }, [headerRecordIdx, vitalsRecords]);
+  }, [headerRecordIdx, vitalsRecords, data]);
 
   const validate = (field, value) => {
     const range = vitalRanges[field];
@@ -132,61 +167,54 @@ useEffect(() => {
   const save = async () => {
     setLoading(true);
     try {
-      const now = new Date();
-      const date = now.toISOString().split("T")[0];
-      const time = now.toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
+      const nowUTC = new Date();
+      const istString = nowUTC.toLocaleString("en-US", {
+        timeZone: "Asia/Kolkata",
       });
-      const newRecord = {
-        ...formData,
-        timestamp: now.getTime(),
-        date,
-        time,
-        id: Date.now().toString(),
-        doctorId: doctorId,
-      };
+      const ist = new Date(istString);
+      const recordedAt = new Date(
+        ist.getTime() - ist.getTimezoneOffset() * 60000
+      ).toISOString();
+      const timeSlot = formData.timeOfDay?.toUpperCase() || "MORNING";
       const ipdVitalPayload = {
-        patientId: patients[0].id,
-        doctorId: doctorId||1,
+        patientId: patient?.patientId || patient?.patientId,
+        doctorId: doctorId || 1,
         context: activeTab.toUpperCase(),
-        timeSlot: formData.timeOfDay,
-        recordedAt: now.toISOString(),
-        heartRate: parseFloat(formData.heartRate) || 0,
-        temperature: parseFloat(formData.temperature) || 0.1,
-        bloodSugar: parseFloat(formData.bloodSugar) || 0.1,
+        timeSlot,
+        recordedAt,
+        heartRate: +formData.heartRate || 0,
+        temperature: +formData.temperature || 0.1,
+        bloodSugar: +formData.bloodSugar || 0.1,
         bloodPressure: formData.bloodPressure || "0/0",
-        respiratoryRate: parseInt(formData.respiratoryRate) || 0,
-        spo2: parseInt(formData.spo2) || 0,
-        createdAt: now.toISOString(),
-        updatedAt: now.toISOString(),
+        respiratoryRate: +formData.respiratoryRate || 0,
+        spo2: +formData.spo2 || 0,
       };
       const res = await createDoctorIpdVital(ipdVitalPayload);
-      console.log("IPD data saved", res.data);
       toast.success("✅ IPD Vitals saved successfully!");
-      setVitalsRecords((prev) => {
-        let updated = [...prev, newRecord];
-        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        updated = updated.filter((r) => new Date(r.date) >= sevenDaysAgo);
-        localStorage.setItem("vitalsRecords", JSON.stringify(updated));
-        return updated;
-      });
-      onSave("vitals", {
+      const newRecord = {
         ...formData,
-        vitalsRecords: [...vitalsRecords, newRecord],
-      });
-      setHeaderRecordIdx(null);
+        recordedAt: recordedAt,
+        formattedDate: ist.toLocaleDateString("en-IN", {
+          timeZone: "Asia/Kolkata",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }),
+        formattedTime: ist.toLocaleTimeString("en-IN", {
+          timeZone: "Asia/Kolkata",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        }),
+        timeSlot: timeSlot,
+      };
+      const updatedVitalsRecords = [...vitalsRecords, newRecord];
+      setVitalsRecords(updatedVitalsRecords);
+      onSave("vitals", { ...formData, vitalsRecords: updatedVitalsRecords });
       setFormData({ ...emptyVitals });
-      toast.success("✅ Vitals saved successfully!", {
-        position: "top-right",
-        autoClose: 2000,
-      });
     } catch (error) {
-      console.error("Full error response:", error);
-      toast.error(`❌ Failed to save vitals: ${error.message}`, {
-        position: "top-right",
-        autoClose: 5000,
-      });
+      console.error("❌ Full error response:", error);
+      toast.error(`❌ Failed: ${error.response?.data?.message || error.message}`);
     } finally {
       setLoading(false);
     }
@@ -220,6 +248,8 @@ useEffect(() => {
       maxAlternatives: 3,
       realTimeProcessing: true,
     });
+
+  if (!patient) return <div>Loading patient data...</div>;
 
   return (
     <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden animate-slideIn">
@@ -268,9 +298,7 @@ useEffect(() => {
               <div className="flex items-center gap-0.5 text-white text-[8px] sm:text-xs">
                 <span className="animate-pulse">🎤</span>
                 {confidence > 0 && (
-                  <span className="opacity-75">
-                    ({Math.round(confidence * 100)}%)
-                  </span>
+                  <span className="opacity-75">({Math.round(confidence * 100)}%)</span>
                 )}
               </div>
             )}
@@ -307,8 +335,8 @@ useEffect(() => {
             <div className="relative w-full max-w-[120px] sm:max-w-[150px]">
               <select
                 className="rounded px-1 py-0.5 text-[8px] sm:text-[12px] bg-white text-[var(--primary-color)]
-                           border border-gray-200 w-full truncate appearance-none
-                           pr-6 bg-right bg-no-repeat"
+                       border border-gray-200 w-full truncate appearance-none
+                       pr-6 bg-right bg-no-repeat"
                 style={{
                   backgroundImage:
                     'url(\'data:image/svg+xml;utf8,<svg fill="black" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>)',
@@ -317,22 +345,18 @@ useEffect(() => {
                 }}
                 value={headerRecordIdx === null ? "" : headerRecordIdx}
                 onChange={(e) =>
-                  setHeaderRecordIdx(
-                    e.target.value === "" ? null : Number(e.target.value)
-                  )
+                  setHeaderRecordIdx(e.target.value === "" ? null : Number(e.target.value))
                 }
+                disabled={isLoading}
               >
-                <option value="" className="text-[8px] sm:text-[12px]">
-                  Current
-                </option>
+                <option value="">{isLoading ? "Loading..." : "Select Record"}</option>
                 {vitalsRecords.map((rec, idx) => (
                   <option
-                    key={`${rec.timestamp}-${rec.id || idx}`}
+                    key={rec.id || idx}
                     value={idx}
                     className="text-[8px] sm:text-[12px]"
                   >
-                    {rec.date} {rec.time}{" "}
-                    {rec.timeOfDay === "morning" ? "(Morning)" : "(Evening)"}
+                    {rec.formattedDate} {rec.formattedTime} ({rec.timeSlot})
                   </option>
                 ))}
               </select>
@@ -376,11 +400,10 @@ useEffect(() => {
                 value={formData[field]}
                 onChange={handleChange}
                 placeholder={vitalRanges[field].placeholder}
-                className={`w-full rounded-lg border px-2 sm:px-3 py-1 sm:py-1.5 md:py-2 text-[10px] sm:text-xs md:text-sm ${
-                  formData[field]
+                className={`w-full rounded-lg border px-2 sm:px-3 py-1 sm:py-1.5 md:py-2 text-[10px] sm:text-xs md:text-sm ${formData[field]
                     ? "bg-green-50 border-green-300 ring-2 ring-green-200"
                     : ""
-                }`}
+                  }`}
               />
               {formData[field] && (
                 <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 text-[10px] sm:text-xs md:text-sm">

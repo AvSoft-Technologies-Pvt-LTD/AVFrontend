@@ -223,3 +223,12 @@ export const deleteDoctorPrescription = id => axiosInstance.delete(`/doctor/pres
 // vitals form in dr dashboard
 export const createDoctorIpdVital = data => axiosInstance.post("/doctor/ipd-vitals", data);
 export const getIpdVitals = (doctorId, patientId, context) => axiosInstance.get(`/doctor/ipd-vitals/doctor/${doctorId}/patient/${patientId}/context/${context}`);
+
+// digital signature api in dr dashboard
+export const getDoctorSignatures = () => axiosInstance.get("/v1/doctor-signature");
+export const uploadDoctorSignature = data => axiosInstance.post("/v1/doctor-signature", data);
+
+
+// dental exam api
+export const createDentalActions = (patientId, doctorId, context, data) =>
+  axiosInstance.post(`/dental-actions/bulk/${patientId}/${doctorId}/${context}`, data);

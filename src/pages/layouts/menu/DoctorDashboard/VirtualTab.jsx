@@ -148,8 +148,7 @@ const VirtualTab = forwardRef(({ doctorName, masterData, location, setTabActions
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [consultationTypes, setConsultationTypes] = useState([]);
   const [errors, setErrors] = useState({});
-  const { setPatients, setActiveTab: setContextActiveTab } = usePatientContext();
-
+  const { setPatient, setActiveTab: setContextActiveTab } = usePatientContext();
   useImperativeHandle(ref, () => ({
     openScheduleConsultationModal: () => openModal("scheduleConsultation"),
   }));
@@ -159,6 +158,16 @@ const VirtualTab = forwardRef(({ doctorName, masterData, location, setTabActions
     const regex = /^[0-9]{10}$/;
     return regex.test(phone);
   };
+const handleSelected = (row) => {
+  try {
+    console.log("this is",{ state: { patient: row } })
+    localStorage.setItem("selectedThisPatient", JSON.stringify(row));
+     setPatient(row);
+    navigate("/doctordashboard/form", { state: { patient: row } });
+  } catch (error) {
+    console.error("Error saving patient:", error);
+  }
+};
 
   // --- Fetch consultation types ---
   const fetchConsultationTypes = async () => {
@@ -190,7 +199,7 @@ const VirtualTab = forwardRef(({ doctorName, masterData, location, setTabActions
           scheduledTime: p.scheduledTime,
         }));
       setVirtualPatients(filteredPatients.reverse());
-      setPatients(filteredPatients);
+    
     } catch (error) {
       console.error("Failed to fetch appointments:", error);
     } finally {
@@ -326,8 +335,7 @@ const VirtualTab = forwardRef(({ doctorName, masterData, location, setTabActions
     { header: "Duration", accessor: "duration" },
     { header: "Actions", cell: row => (
       <div className="flex items-center gap-2">
-        <button onClick={() => navigate("/doctordashboard/form", { state: { patient: row } })} className="text-base p-1"><FaNotesMedical /></button>
-        <TeleConsultFlow phone={row.phone} patientName={row.name} context="Virtual" patientEmail={row.email} hospitalName={row.hospitalName || "AV Hospital"} />
+      <button onClick={() => handleSelected(row)} className="text-base p-1"><FaNotesMedical /></button>        <TeleConsultFlow phone={row.phone} patientName={row.name} context="Virtual" patientEmail={row.email} hospitalName={row.hospitalName || "AV Hospital"} />
         <button title="View Medical Record" onClick={() => navigate("/doctordashboard/medical-record", { state: { patient: row } })} className="p-1 text-base text-[var(--primary-color)]"><FiExternalLink /></button>
       </div>
     )},

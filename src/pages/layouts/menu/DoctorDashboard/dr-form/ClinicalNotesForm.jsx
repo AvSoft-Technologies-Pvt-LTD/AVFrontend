@@ -5,29 +5,22 @@ import VoiceButton from "./VoiceButton";
 import { useOptimizedVoiceRecognition } from "./useOptimizedVoiceRecognition";
 import { createClinicalNote } from "../../../../../utils/masterService";
 import { useSelector } from "react-redux";
-import { usePatientContext } from "../../../../../context-api/PatientContext"; // Adjust the import path as needed
+import { usePatientContext } from "../../../../../context-api/PatientContext";
 
 const ClinicalNotesForm = ({
   data,
   onSave,
   onPrint,
-  ptemail,
-  hospitalname,
-  drEmail,
   drname,
-  patientname,
-  diagnosis,
-  type,
 }) => {
   const doctorId = useSelector((state) => state.auth.doctorId);
-  const { activeTab, patients } = usePatientContext(); // Access activeTab and patients from context
+  const { activeTab, patient } = usePatientContext();
 
-  // Log doctorId and activeTab when the component mounts or when they change
   useEffect(() => {
-    console.log("Doctor ID from Redux:", doctorId);
-    console.log("Active Tab from Context:", activeTab);
-    console.log("Patients from Context:", patients);
-  }, [doctorId, activeTab, patients]);
+    console.log("🩺 Doctor ID from Redux:", doctorId);
+    console.log("🩺 Active Tab from Context:", activeTab);
+    console.log("🩺 Selected Patient from Context:", patient);
+  }, [doctorId, activeTab, patient]);
 
   const [formData, setFormData] = useState(
     data || {
@@ -54,88 +47,98 @@ const ClinicalNotesForm = ({
   };
 
   const handleSave = async () => {
-    console.log("Doctor ID being used in handleSave:", doctorId);
-    console.log("Active Tab being used in handleSave:", activeTab);
-    console.log("Patients from Context in handleSave:", patients);
-
-    const patientId = patients.length > 0 ? patients[0].id : 1; 
+    if (!patient) {
+      toast.error("❌ No patient selected!", {
+        position: "top-right",
+        autoClose: 2000,
+        closeOnClick: true,
+      });
+      return;
+    }
+    console.log("🩺 Saving clinical notes for:", patient);
     const currentTimestamp = new Date().toISOString();
     const clinicalNotePayload = {
-      patientId: patientId, // Use patientId from context
-      doctorId: doctorId || 1, // Use doctorId from Redux
-      context:  activeTab.toUpperCase(), // Use activeTab from context
+      patientId: patient?.patientId,
+      doctorId: doctorId || 1,
+      context: activeTab?.toUpperCase(),
       chiefComplaint: formData.chiefComplaint,
       history: formData.history,
       advice: formData.advice,
       plan: formData.plan,
-      createdBy: drname,
+      createdBy: drname || patient?.doctorName || "Unknown",
       createdAt: currentTimestamp,
-      updatedBy: drname,
+      updatedBy: drname || patient?.doctorName || "Unknown",
       updatedAt: currentTimestamp,
     };
-
+    console.log("🩺 Clinical Note Payload:", clinicalNotePayload);
     try {
       const clinicalNoteResponse = await createClinicalNote(clinicalNotePayload);
       if (!clinicalNoteResponse) {
         throw new Error("Failed to save clinical note.");
       }
-      toast.success(" Clinical notes saved and posted successfully!", {
+      toast.success("✅ Clinical notes saved successfully!", {
         position: "top-right",
         autoClose: 2000,
         closeOnClick: true,
       });
       onSave("clinical", formData);
-    } catch (error) {
-      console.error("API Error:", error.response ? error.response.data : error.message);
-      toast.error(` ${error.response ? error.response.data.message : error.message}`, {
-        position: "top-right",
-        autoClose: 2000,
-        closeOnClick: true,
+      // ✅ Reset form after save
+      setFormData({
+        chiefComplaint: "",
+        history: "",
+        advice: "",
+        plan: "",
       });
+    } catch (error) {
+      console.error("❌ API Error:", error.response ? error.response.data : error.message);
+      toast.error(
+        `❌ ${
+          error.response ? error.response.data.message : error.message
+        }`,
+        { position: "top-right", autoClose: 2000, closeOnClick: true }
+      );
     }
   };
 
-  const parseClinicalNotesFromSpeech = useCallback(
-    (text, confidence, type) => {
-      const lowerText = text.toLowerCase().trim();
-      const ccMatch = lowerText.match(
-        /(?:chief complaint|main complaint|primary complaint)[\s:]*([\w\W]+?)(?:\.|$|history|advice|plan)/i
-      );
-      if (ccMatch && ccMatch[1].trim().length > 2) {
-        setFormData((prev) => ({ ...prev, chiefComplaint: ccMatch[1].trim() }));
-      }
-      const historyMatch = lowerText.match(
-        /(?:history|medical history|past history)[\s:]*([\w\W]+?)(?:\.|$|chief|advice|plan)/i
-      );
-      if (historyMatch && historyMatch[1].trim().length > 2) {
-        setFormData((prev) => ({ ...prev, history: historyMatch[1].trim() }));
-      }
-      const adviceMatch = lowerText.match(
-        /(?:advice|diagnosis|clinical advice)[\s:]*([\w\W]+?)(?:\.|$|chief|history|plan)/i
-      );
-      if (adviceMatch && adviceMatch[1].trim().length > 2) {
-        setFormData((prev) => ({ ...prev, advice: adviceMatch[1].trim() }));
-      }
-      const planMatch = lowerText.match(
-        /(?:plan|treatment plan|management plan)[\s:]*([\w\W]+?)(?:\.|$|chief|history|advice)/i
-      );
-      if (planMatch && planMatch[1].trim().length > 2) {
-        setFormData((prev) => ({ ...prev, plan: planMatch[1].trim() }));
-      }
-    },
-    []
-  );
+  const parseClinicalNotesFromSpeech = useCallback((text, confidence) => {
+    const lowerText = text.toLowerCase().trim();
+    const ccMatch = lowerText.match(
+      /(?:chief complaint|main complaint|primary complaint)[\s:]*([\w\W]+?)(?:\.|$|history|advice|plan)/i
+    );
+    if (ccMatch && ccMatch[1].trim().length > 2)
+      setFormData((prev) => ({ ...prev, chiefComplaint: ccMatch[1].trim() }));
+    const historyMatch = lowerText.match(
+      /(?:history|medical history|past history)[\s:]*([\w\W]+?)(?:\.|$|chief|advice|plan)/i
+    );
+    if (historyMatch && historyMatch[1].trim().length > 2)
+      setFormData((prev) => ({ ...prev, history: historyMatch[1].trim() }));
+    const adviceMatch = lowerText.match(
+      /(?:advice|diagnosis|clinical advice)[\s:]*([\w\W]+?)(?:\.|$|chief|history|plan)/i
+    );
+    if (adviceMatch && adviceMatch[1].trim().length > 2)
+      setFormData((prev) => ({ ...prev, advice: adviceMatch[1].trim() }));
+    const planMatch = lowerText.match(
+      /(?:plan|treatment plan|management plan)[\s:]*([\w\W]+?)(?:\.|$|chief|history|advice)/i
+    );
+    if (planMatch && planMatch[1].trim().length > 2)
+      setFormData((prev) => ({ ...prev, plan: planMatch[1].trim() }));
+  }, []);
 
-  const { isListening, transcript, isSupported, confidence, toggleListening } =
-    useOptimizedVoiceRecognition(parseClinicalNotesFromSpeech, {
-      continuous: true,
-      interimResults: true,
-      lang: "en-US",
-      sensitivity: 0.4,
-      pauseThreshold: 1500,
-      maxAlternatives: 3,
-      realTimeProcessing: true,
-    });
+  const {
+    isListening,
+    transcript,
+    isSupported,
+    confidence,
+    toggleListening,
+  } = useOptimizedVoiceRecognition(parseClinicalNotesFromSpeech, {
+    continuous: true,
+    interimResults: true,
+    lang: "en-US",
+    sensitivity: 0.4,
+    pauseThreshold: 1500,
+    maxAlternatives: 3,
+    realTimeProcessing: true,
+  });
 
   return (
     <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden animate-slideIn">
@@ -156,7 +159,9 @@ const ClinicalNotesForm = ({
             <div className="flex items-center gap-2 text-white text-xs sm:text-sm">
               <span className="animate-pulse">🎤 Listening...</span>
               {confidence > 0 && (
-                <span className="opacity-75">({Math.round(confidence * 100)}%)</span>
+                <span className="opacity-75">
+                  ({Math.round(confidence * 100)}%)
+                </span>
               )}
             </div>
           )}
@@ -189,7 +194,9 @@ const ClinicalNotesForm = ({
               value={formData[field]}
               onChange={handleChange}
               className={`input-field text-xs sm:text-sm min-h-[80px] resize-none ${
-                formData[field] ? "bg-green-50 border-green-300 ring-2 ring-green-200" : ""
+                formData[field]
+                  ? "bg-green-50 border-green-300 ring-2 ring-green-200"
+                  : ""
               }`}
               placeholder={`Enter ${field
                 .replace(/([A-Z])/g, " $1")
@@ -201,8 +208,12 @@ const ClinicalNotesForm = ({
       {transcript && (
         <div className="px-6 pb-6">
           <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <strong className="text-green-800 text-xs sm:text-sm">Voice Input:</strong>
-            <span className="text-green-700 text-xs sm:text-sm ml-2">{transcript}</span>
+            <strong className="text-green-800 text-xs sm:text-sm">
+              Voice Input:
+            </strong>
+            <span className="text-green-700 text-xs sm:text-sm ml-2">
+              {transcript}
+            </span>
             {isListening && (
               <div className="text-xs sm:text-sm text-green-600 mt-1">
                 <em>Speaking... Fields will update automatically</em>

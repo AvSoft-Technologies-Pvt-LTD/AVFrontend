@@ -1,5 +1,4 @@
 
-
 import React, { useState, useRef, useEffect } from "react";
 import axios from "axios";
 import { useSelector } from "react-redux";
@@ -12,12 +11,7 @@ import {
   Edit,
   Check,
   X,
-  Camera,
   Share2,
-  Phone,
-  Mail,
-  Globe,
-  FileText,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -28,6 +22,7 @@ import {
   searchMedicinesByName,
   createDoctorPrescription,
   updateDoctorPrescription,
+  deleteDoctorPrescription,
 } from "../../../../../utils/masterService";
 import { usePatientContext } from "../../../../../context-api/PatientContext";
 
@@ -178,6 +173,7 @@ const PrescriptionForm = ({
   };
 
   const handleSave = async () => {
+    // Filter out medicines with medicineId: 0 if backend ignores them
     const medicines = prescriptions.map((med) => ({
       medicineId: med.medicineId || 0,
       dosage: med.dosage.toString(),
@@ -186,8 +182,9 @@ const PrescriptionForm = ({
       frequencyId: med.frequencyId || 0,
       intakeId: med.intakeId || 0,
     }));
+    console.log("Medicines payload:", medicines); // Debugging
     const payload = {
-      patientId: patient?.id || 0,
+      patientId: patient?.patientId,
       doctorId: doctorIdFromRedux || doctorIdFromProps || 1,
       context: (activeTab || "IPD").toUpperCase(),
       medicines,
@@ -236,6 +233,7 @@ const PrescriptionForm = ({
       frequencyId: med.frequencyId || 0,
       intakeId: med.intakeId || 0,
     }));
+    console.log("Medicines payload:", medicines); // Debugging
     const payload = {
       patientId: patient?.id || 1,
       doctorId: doctorIdFromRedux || doctorIdFromProps || 1,
@@ -244,13 +242,48 @@ const PrescriptionForm = ({
     };
     try {
       const response = await updateDoctorPrescription(prescriptionId, payload);
-      console.log("Update Response:", response.data);
       if (response.status >= 200 && response.status < 300) {
         setIsEdit(false);
         if (onSave) {
           onSave("prescription", { prescriptions, id: prescriptionId });
         }
         toast.success("✅ Prescription updated successfully!", {
+          position: "top-right",
+          autoClose: 2000,
+          closeOnClick: true,
+        });
+      } else {
+        throw new Error(`API failed: ${response.status}`);
+      }
+    } catch (error) {
+      console.error("API Error:", error);
+      toast.error(`❌ ${error.message}`, {
+        position: "top-right",
+        autoClose: 2000,
+        closeOnClick: true,
+      });
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!prescriptionId) {
+      toast.error("❌ Prescription ID is missing.", {
+        position: "top-right",
+        autoClose: 2000,
+        closeOnClick: true,
+      });
+      return;
+    }
+    try {
+      const response = await deleteDoctorPrescription(prescriptionId);
+      if (response.status >= 200 && response.status < 300) {
+        setIsSaved(false);
+        setPrescriptionId(null);
+        setPrescriptions([{ ...defaultMedicine, drugName: "" }]);
+        if (onSave) {
+          onSave("prescription", { prescriptions: [], id: null });
+        }
+        toast.success("✅ Prescription deleted successfully!", {
           position: "top-right",
           autoClose: 2000,
           closeOnClick: true,
@@ -433,7 +466,7 @@ const PrescriptionForm = ({
                   <th style={{ padding: "0.75rem", textAlign: "left", fontSize: "0.875rem", fontWeight: "600" }}>Frequency</th>
                   <th style={{ padding: "0.75rem", textAlign: "left", fontSize: "0.875rem", fontWeight: "600" }}>Intake</th>
                   <th style={{ padding: "0.75rem", textAlign: "left", fontSize: "0.875rem", fontWeight: "600" }}>Duration (days)</th>
-                  {isEdit && <th style={{ padding: "0.75rem", textAlign: "left", fontSize: "0.875rem", fontWeight: "600" }}>Actions</th>}
+                  <th style={{ padding: "0.75rem", textAlign: "left", fontSize: "0.875rem", fontWeight: "600" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -606,17 +639,15 @@ const PrescriptionForm = ({
                         disabled={!isEdit}
                       />
                     </td>
-                    {isEdit && (
-                      <td style={{ padding: "0.75rem" }}>
-                        <button
-                          onClick={() => removePrescription(i)}
-                          style={{ color: "#ef4444", padding: "0.25rem", cursor: "pointer" }}
-                          title="Remove"
-                        >
-                          <Trash2 style={{ width: "1rem", height: "1rem" }} />
-                        </button>
-                      </td>
-                    )}
+                    <td style={{ padding: "0.75rem" }}>
+                      <button
+                        onClick={() => removePrescription(i)}
+                        style={{ color: "#ef4444", padding: "0.25rem", cursor: "pointer" }}
+                        title="Remove"
+                      >
+                        <Trash2 style={{ width: "1rem", height: "1rem" }} />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -638,15 +669,13 @@ const PrescriptionForm = ({
                   <span style={{ fontSize: "0.875rem", fontWeight: "500", color: "#374151" }}>
                     Medicine {i + 1}
                   </span>
-                  {isEdit && (
-                    <button
-                      onClick={() => removePrescription(i)}
-                      style={{ color: "#ef4444", padding: "0.25rem", cursor: "pointer" }}
-                      title="Remove"
-                    >
-                      <Trash2 style={{ width: "1rem", height: "1rem" }} />
-                    </button>
-                  )}
+                  <button
+                    onClick={() => removePrescription(i)}
+                    style={{ color: "#ef4444", padding: "0.25rem", cursor: "pointer" }}
+                    title="Remove"
+                  >
+                    <Trash2 style={{ width: "1rem", height: "1rem" }} />
+                  </button>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                   <div style={{ position: "relative" }}>
@@ -901,7 +930,7 @@ const PrescriptionForm = ({
               </>
             )}
             {!isEdit && isSaved && (
-              <div className="w-full flex justify-end mt-2">
+              <div className="flex flex-col md:flex-row gap-2 justify-end items-center w-full mt-2">
                 <button
                   onClick={handleEdit}
                   className="flex items-center justify-center gap-2 px-6 py-3

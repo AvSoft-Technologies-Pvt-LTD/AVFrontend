@@ -158,9 +158,10 @@ const PatientList = () => {
     }
   };
 
-  const handleTabChange = (tabValue) => {
+ const handleTabChange = (tabValue) => {
     setActiveTab(tabValue);
     setContextActiveTab(tabValue);
+     localStorage.setItem('activeTab', tabValue);
     navigate(`/doctordashboard/patients?tab=${tabValue}`);
   };
 

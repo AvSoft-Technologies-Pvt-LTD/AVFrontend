@@ -7,7 +7,9 @@ import { useSelector } from "react-redux";
 import { getLabTests, createLabAction, deleteLabAction } from "../../../../../utils/masterService";
 
 const LabResultsForm = ({ data = {}, onSave, onPrint, hospitalName, ptemail }) => {
-  const { activeTab, patients } = usePatientContext();
+  const { activeTab, patient } = usePatientContext();
+  const doctorId = useSelector((state) => state.auth.doctorId);
+  const patientId = patient?.patientId ;
 
   // State
   const [labTests, setLabTests] = useState([]);
@@ -16,17 +18,10 @@ const LabResultsForm = ({ data = {}, onSave, onPrint, hospitalName, ptemail }) =
   const [results, setResults] = useState([]);
   const [highlightedTest, setHighlightedTest] = useState(null);
 
-  const doctorId = useSelector((state) => state.auth.doctorId);
-
-  const currentPatient = patients.find(patient => patient.tab === activeTab);
-  const patientId = currentPatient?.id || 1;
-
   useEffect(() => {
     console.log("PatientContext - Active Tab:", activeTab);
-    console.log("PatientContext - Patients:", patients);
-    console.log("Current Patient:", currentPatient);
     console.log("Patient ID:", patientId);
-  }, [activeTab, patients, currentPatient, patientId]);
+  }, [activeTab, patientId]);
 
   // Fetch lab tests
   useEffect(() => {
@@ -53,7 +48,6 @@ const LabResultsForm = ({ data = {}, onSave, onPrint, hospitalName, ptemail }) =
   useEffect(() => {
     const searchTerm = search.trim().toLowerCase();
     if (!searchTerm) return setResults([]);
-
     const filtered = labTests.filter((t) => {
       const nameMatch = t.name && t.name.toLowerCase().includes(searchTerm);
       const codeMatch = t.code && t.code.toLowerCase().includes(searchTerm);
@@ -73,16 +67,13 @@ const LabResultsForm = ({ data = {}, onSave, onPrint, hospitalName, ptemail }) =
         labIds,
       };
       console.log("Payload for createLabAction:", payload);
-
       const response = await createLabAction(payload);
       console.log("Response from createLabAction:", response);
-
       // response.data.id will be stored in labActionId for each test
       const updatedTests = tests.map((test, idx) => ({
         ...test,
         labActionId: Array.isArray(response.data) ? response.data[idx]?.id : response.data.id,
       }));
-
       setSelectedTests(updatedTests);
     } catch (error) {
       console.error("API Error:", error.response?.data || error.message);
@@ -100,18 +91,15 @@ const LabResultsForm = ({ data = {}, onSave, onPrint, hospitalName, ptemail }) =
       toast.error("No test selected!");
       return;
     }
-
     if (selectedTests.some(t => t.id === highlightedTest.id)) {
       toast.error("Test already added!");
       return;
     }
-
     const newTest = { ...highlightedTest };
     const updated = [...selectedTests, newTest];
     setSelectedTests(updated);
     onSave?.("lab", { ...data, selectedTests: updated });
     await postLabTests(updated);
-
     toast.success("Lab test added successfully!");
     setSearch("");
     setHighlightedTest(null);
@@ -126,7 +114,6 @@ const LabResultsForm = ({ data = {}, onSave, onPrint, hospitalName, ptemail }) =
         toast.error("Cannot remove test. Server ID missing.");
         return;
       }
-
       await deleteLabAction(testToRemove.labActionId);
       const updated = selectedTests.filter((t) => t.id !== id);
       setSelectedTests(updated);
@@ -151,7 +138,9 @@ const LabResultsForm = ({ data = {}, onSave, onPrint, hospitalName, ptemail }) =
   // Clear tests when patient changes
   useEffect(() => {
     setSelectedTests([]);
-  }, [patients, activeTab]);
+  }, [patient, activeTab]);
+
+  if (!patient) return <div>Loading patient data...</div>;
 
   return (
     <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden animate-slideIn">
@@ -193,7 +182,6 @@ const LabResultsForm = ({ data = {}, onSave, onPrint, hospitalName, ptemail }) =
               </button>
             )}
           </div>
-
           {search && (
             results.length > 0 ? (
               <div className="border border-gray-200 rounded-lg bg-white mt-2 max-h-32 overflow-auto shadow-lg">
@@ -217,7 +205,6 @@ const LabResultsForm = ({ data = {}, onSave, onPrint, hospitalName, ptemail }) =
             )
           )}
         </div>
-
         {/* Highlighted Test Preview */}
         {highlightedTest && (
           <div className="border border-purple-200 rounded-lg p-4 bg-purple-50">
@@ -239,7 +226,6 @@ const LabResultsForm = ({ data = {}, onSave, onPrint, hospitalName, ptemail }) =
             </button>
           </div>
         )}
-
         {/* Selected Tests */}
         {selectedTests.length > 0 && (
           <div className="mt-6 space-y-2 max-h-40 overflow-y-auto">
