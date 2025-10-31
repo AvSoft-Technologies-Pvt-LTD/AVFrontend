@@ -43,7 +43,7 @@ export const getHospitalTypes = () => axiosInstance.get('/master/hospitalType');
 export const getAllHospitals = () => axiosInstance.get('/hospitals');
 export const getHospitalDropdown = () => axiosInstance.get('/hospitals/dropdown');
 export const getAllMedicalConditions = () => axiosInstance.get('/master/medicalConditions');
-export const getAllMedicalStatus = () => axiosInstance.get('/master/medicalStatus');
+export const getAllMedicalStatus = () => axiosInstance.get('/med-record-status');
 export const getConsultationTypes = () => axiosInstance.get('/consultation-types');
 
 // COVERAGE TYPES

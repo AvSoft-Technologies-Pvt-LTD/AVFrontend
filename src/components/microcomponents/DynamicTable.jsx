@@ -12,8 +12,6 @@ export default function DynamicTable({
   tabs = [],
   activeTab,
   onTabChange,
-  showSearchBar = true,
-  showPagination = true,
   tabActions = [],
   noDataMessage = "No records found.",
   itemsPerPage = 9,
@@ -70,7 +68,6 @@ export default function DynamicTable({
 
   return (
     <div className="bg-white shadow-sm rounded-xl border border-gray-200 relative">
-      {showSearchBar && (
       <TableHeader
         title={title}
         tabs={tabs}
@@ -83,8 +80,8 @@ export default function DynamicTable({
         filterButtonRef={filterButtonRef}
         setFilterPanelOpen={setIsFilterPanelOpen}
       />
-)}
-      {isFilterPanelOpen && filters?.length > 0 && (
+
+      {isFilterPanelOpen && filters.length > 0 && (
         <div
           ref={filterButtonRef}
           className="absolute right-0 mt-2 bg-white rounded-lg shadow-lg z-50 p-4"
@@ -175,13 +172,12 @@ export default function DynamicTable({
       </div>
 
       {/* Pagination (hidden on mobile/tablet) */}
-      {showPagination && (
       <Pagination
         currentPage={currentPage}
         totalPages={totalPages}
         onPageChange={setCurrentPage}
       />
-      )}
+
       {/* Empty State */}
       {filteredData?.length === 0 && (
         <div className="text-center text-gray-500 py-6">{noDataMessage}</div>

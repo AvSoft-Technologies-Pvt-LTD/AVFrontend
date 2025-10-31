@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Camera, Eye, EyeOff, Edit2, Check, Save, X, User, Lock, ShieldCheck, MailCheck, PhoneCall } from "lucide-react";
-import { useSelector } from "react-redux";
-import axios from "axios";
+import { useSelector, useDispatch } from "react-redux";
+import { updatePatient } from "../../../../context-api/authSlice";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import { getPatientById, getPatientPhoto } from "../../../../utils/masterService";
 
 const formFields = {
   personal: [
@@ -27,7 +29,10 @@ const formFields = {
 };
 
 const Settings = () => {
-  const user = useSelector((state) => state.auth.user);
+  // --- All hooks called here ---
+  const dispatch = useDispatch();
+  const { user } = useSelector((state) => state.auth);
+  const patientId = user?.patientId || user?.id;
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
   const [isEditMode, setIsEditMode] = useState(false);
@@ -43,110 +48,99 @@ const Settings = () => {
   const [isVerified, setIsVerified] = useState(false);
   const [isPhoneVerified, setIsPhoneVerified] = useState(false);
 
+  // --- Load patient data ---
   useEffect(() => {
-    const loadUserData = async () => {
+    const loadPatientData = async () => {
+      if (!patientId) return;
       try {
         setIsLoading(true);
-        const latestUser = await fetchUpdatedUserData(user.email);
-        if (latestUser) {
-          const { pincode, city, district, state, ...rest } = latestUser;
-          const permanentAddress = `${pincode || ''}, ${city || ''}, ${district || ''}, ${state || ''}`.replace(/,\s*,/g, ',').replace(/^,|,$/g, '');
-          setFormData({
-            ...rest,
-            permanentAddress,
-            currentPassword: "",
-            newPassword: "",
-            confirmPassword: "",
-          });
-          setProfileImage(latestUser.photo || "");
-          setIsVerified(latestUser.isVerified || false);
-          setIsPhoneVerified(latestUser.isPhoneVerified || true);
+        const response = await getPatientById(patientId);
+        const patient = response.data;
+        if (patient.photo) {
+          try {
+            const photoRes = await getPatientPhoto(patient.photo);
+            const blob = photoRes.data;
+            const imageUrl = URL.createObjectURL(blob);
+            setProfileImage(imageUrl);
+          } catch (e) {
+            console.warn("Failed to load patient photo");
+          }
         }
+        const formattedDob = Array.isArray(patient.dob)
+          ? new Date(patient.dob[0], patient.dob[1] - 1, patient.dob[2]).toISOString().split("T")[0]
+          : "";
+        const permanentAddress = `${patient.pinCode || ""}, ${patient.city || ""}, ${patient.district || ""}, ${patient.state || ""}`.trim();
+        setFormData({
+          ...patient,
+          dob: formattedDob,
+          permanentAddress,
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: "",
+        });
       } catch (err) {
-        setError("Failed to fetch profile data.");
+        setError("Failed to load patient profile.");
       } finally {
         setIsLoading(false);
       }
     };
-    if (user?.email) loadUserData();
-  }, [user?.email]);
+    loadPatientData();
+  }, [patientId]);
 
+  // --- Handlers ---
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     setHasUnsavedChanges(true);
-    if (saveSuccess) setSaveSuccess(false);
   };
 
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result;
-        setProfileImage(base64String);
-        setHasUnsavedChanges(true);
-        if (saveSuccess) setSaveSuccess(false);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const saveProfileData = async (userId, updatedData) => {
-    try {
-      const response = await axios.put(`https://6801242781c7e9fbcc41aacf.mockapi.io/api/AV1/users/${userId}`, updatedData);
-      return response.data;
-    } catch (error) {
-      console.error("Error saving profile data:", error.response ? error.response.data : error.message);
-      throw error;
-    }
-  };
-
-  const fetchUpdatedUserData = async (email) => {
-    try {
-      const response = await axios.get('https://6801242781c7e9fbcc41aacf.mockapi.io/api/AV1/users', { params: { email } });
-      return response.data[0] || null;
-    } catch (error) {
-      console.error('Error fetching updated user data:', error.response?.data || error.message);
-      throw error;
-    }
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => setProfileImage(reader.result);
+    reader.readAsDataURL(file);
+    setHasUnsavedChanges(true);
   };
 
   const handleSaveChanges = async (e) => {
     e.preventDefault();
-    setIsSaving(true);
     try {
-      const updatedData = { ...formData, photo: profileImage };
-      if (!formData.newPassword || !formData.confirmPassword) {
-        delete updatedData.currentPassword;
-        delete updatedData.newPassword;
-        delete updatedData.confirmPassword;
+      setIsSaving(true);
+      const updatedFormData = new FormData();
+      updatedFormData.append("firstName", formData.firstName || "");
+      updatedFormData.append("middleName", formData.middleName || "");
+      updatedFormData.append("lastName", formData.lastName || "");
+      updatedFormData.append("phone", formData.phone || "");
+      updatedFormData.append("email", formData.email || "");
+      updatedFormData.append("genderId", formData.genderId || "");
+      updatedFormData.append("password", formData.password || "");
+      updatedFormData.append("confirmPassword", formData.confirmPassword || "");
+      updatedFormData.append("aadhaar", formData.aadhaar || "");
+      updatedFormData.append("dob", formData.dob || "");
+      updatedFormData.append("occupation", formData.occupation || "");
+      updatedFormData.append("pinCode", formData.pinCode || "");
+      updatedFormData.append("city", formData.city || "");
+      updatedFormData.append("district", formData.district || "");
+      updatedFormData.append("state", formData.state || "");
+      if (fileInputRef.current?.files?.[0]) {
+        updatedFormData.append("photo", fileInputRef.current.files[0]);
       }
-      await saveProfileData(user.id, updatedData);
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      const updatedUserData = await fetchUpdatedUserData(user.email);
-      setFormData({
-        ...updatedUserData,
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: "",
-      });
-      setProfileImage(updatedUserData.photo || "");
+      await dispatch(updatePatient({ id: patientId, formData: updatedFormData })).unwrap();
+      toast.success("Patient updated successfully!");
       setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2500);
       setIsEditMode(false);
       setHasUnsavedChanges(false);
-      setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error) {
-      setError("Failed to save changes. Please try again.");
+      console.error("Failed to save patient:", error);
+      toast.error("Failed to save changes. Please try again.");
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleCancelEdit = () => {
-    if (!user) return;
-    setFormData({ ...user, currentPassword: "", newPassword: "", confirmPassword: "" });
-    setProfileImage(user.photo || "");
     setIsEditMode(false);
     setHasUnsavedChanges(false);
   };
@@ -155,10 +149,9 @@ const Settings = () => {
     navigate("/verify-otp");
   };
 
+  // --- Render Field (No hooks called here) ---
   const renderField = ({ id, label, type, readOnly, options, toggleVisibility, verify, verified }) => {
     const value = formData[id] || "";
-    let field;
-
     const baseInputClasses = `
       w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl
       text-gray-900 text-sm font-medium placeholder-gray-500
@@ -168,10 +161,10 @@ const Settings = () => {
       ${readOnly || !isEditMode ? 'bg-gray-50 cursor-not-allowed' : 'hover:border-gray-300'}
     `;
 
-    if (type === "textarea") {
-      field = (
-        <div className="space-y-2">
-          <label className="block text-sm font-semibold text-gray-700">{label}</label>
+    return (
+      <div key={id} className="w-full space-y-2">
+        <label className="block text-sm font-semibold text-gray-700">{label}</label>
+        {type === "textarea" ? (
           <textarea
             name={id}
             value={value}
@@ -181,12 +174,7 @@ const Settings = () => {
             readOnly={readOnly || !isEditMode}
             placeholder={isEditMode ? `Enter your ${label.toLowerCase()}` : ''}
           />
-        </div>
-      );
-    } else if (type === "select") {
-      field = (
-        <div className="space-y-2">
-          <label className="block text-sm font-semibold text-gray-700">{label}</label>
+        ) : type === "select" ? (
           <select
             name={id}
             value={value}
@@ -199,38 +187,30 @@ const Settings = () => {
               <option key={opt} value={opt}>{opt}</option>
             ))}
           </select>
-        </div>
-      );
-    } else if (type === "password") {
-      field = isEditMode ? (
-        <div className="space-y-2">
-          <label className="block text-sm font-semibold text-gray-700">{label}</label>
-          <div className="relative">
-            <input
-              type={passwordVisibility[id] ? "text" : "password"}
-              name={id}
-              value={value}
-              onChange={handleInputChange}
-              className={`${baseInputClasses} pr-12`}
-              autoComplete="new-password"
-              placeholder={`Enter your ${label.toLowerCase()}`}
-            />
-            {toggleVisibility && (
-              <button
-                type="button"
-                onClick={() => setPasswordVisibility((prev) => ({ ...prev, [id]: !prev[id] }))}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[var(--accent-color)] transition-colors duration-200 focus:outline-none focus:text-[var(--accent-color)]"
-              >
-                {passwordVisibility[id] ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
-            )}
-          </div>
-        </div>
-      ) : null;
-    } else {
-      field = (
-        <div className="space-y-2">
-          <label className="block text-sm font-semibold text-gray-700">{label}</label>
+        ) : type === "password" ? (
+          isEditMode ? (
+            <div className="relative">
+              <input
+                type={passwordVisibility[id] ? "text" : "password"}
+                name={id}
+                value={value}
+                onChange={handleInputChange}
+                className={`${baseInputClasses} pr-12`}
+                autoComplete="new-password"
+                placeholder={`Enter your ${label.toLowerCase()}`}
+              />
+              {toggleVisibility && (
+                <button
+                  type="button"
+                  onClick={() => setPasswordVisibility((prev) => ({ ...prev, [id]: !prev[id] }))}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[var(--accent-color)] transition-colors duration-200 focus:outline-none focus:text-[var(--accent-color)]"
+                >
+                  {passwordVisibility[id] ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              )}
+            </div>
+          ) : null
+        ) : (
           <div className="relative">
             <input
               type={type}
@@ -262,38 +242,12 @@ const Settings = () => {
               </div>
             )}
           </div>
-        </div>
-      );
-    }
-
-    if (type === "password" && !isEditMode) return null;
-
-    return (
-      <div key={id} className="w-full">
-        {isEditMode ? (
-          field
-        ) : (
-          <div className="space-y-2">
-            <label className="block text-sm font-semibold text-gray-700">{label}</label>
-            <div className={`${baseInputClasses} flex items-center justify-between`}>
-              <span className={`${value ? 'text-gray-900' : 'text-gray-400 italic'}`}>
-                {value || 'Not provided'}
-              </span>
-              <div className="flex items-center gap-2">
-                {id === "email" && isVerified && (
-                  <ShieldCheck size={16} className="text-[var(--accent-color)]" />
-                )}
-                {id === "phone" && isPhoneVerified && (
-                  <ShieldCheck size={16} className="text-[var(--accent-color)]" />
-                )}
-              </div>
-            </div>
-          </div>
         )}
       </div>
     );
   };
 
+  // --- Tab Icon Helper ---
   const getTabIcon = (tab) => {
     switch (tab) {
       case "personal":
@@ -305,6 +259,7 @@ const Settings = () => {
     }
   };
 
+  // --- Early returns (after all hooks) ---
   if (isLoading) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full mx-4">
@@ -339,12 +294,13 @@ const Settings = () => {
     </div>
   );
 
+  // --- Main Render ---
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto">
         {/* Header Section */}
         <div className="relative bg-gradient-to-br from-[var(--primary-color)] to-[var(--accent-color)] border-b rounded-xl text-white">
-          <div className="px-4 sm:px-6 lg:px-8 pt-8 pb-8 ">
+          <div className="px-4 sm:px-6 lg:px-8 pt-8 pb-8">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div className="w-full sm:w-auto text-center sm:text-left">
                 <h1 className="text-xl sm:text-3xl font-bold">Profile Settings</h1>
@@ -383,7 +339,6 @@ const Settings = () => {
                   </div>
                 )}
               </div>
-
               {isEditMode && (
                 <button
                   onClick={() => fileInputRef.current?.click()}
@@ -401,9 +356,7 @@ const Settings = () => {
               )}
             </div>
           </div>
-
-          {/* User Info */}
-          <div className="text-center ">
+          <div className="text-center">
             <h2 className="text-2xl font-bold text-gray-900">
               {formData.firstName} {formData.lastName}
             </h2>
@@ -415,19 +368,21 @@ const Settings = () => {
         </div>
 
         {/* Navigation Tabs */}
-        <div className="px-4 sm:px-6 lg:px-8 ">
+        <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-center">
             <div className="inline-flex bg-white rounded-2xl p-1 shadow-lg">
-              {["personal", ...(isEditMode ? ["password"] : [])].map((tab) => {
+              {["personal", "password"].map((tab) => {
                 const isActive = activeTab === tab;
                 return (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
-                    className={`inline-flex items-center gap-3 px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${isActive
+                    className={`inline-flex items-center gap-3 px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${
+                      isActive
                         ? "bg-[var(--primary-color)] text-white shadow-lg"
                         : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                      }`}
+                    }`}
+                    disabled={!isEditMode && tab === "password"}
                   >
                     {getTabIcon(tab)}
                     <span className="capitalize">{tab}</span>
@@ -441,11 +396,12 @@ const Settings = () => {
         {/* Form Content */}
         <div className="px-4 sm:px-6 lg:px-8 pb-8">
           <form onSubmit={handleSaveChanges}>
-            {["personal", ...(isEditMode ? ["password"] : [])].map((tab) => (
+            {["personal", "password"].map((tab) => (
               <div
                 key={tab}
-                className={`transition-all duration-300 ${activeTab === tab ? "opacity-100 block" : "opacity-0 hidden"
-                  }`}
+                className={`transition-all duration-300 ${
+                  activeTab === tab ? "opacity-100 block" : "opacity-0 hidden"
+                }`}
               >
                 <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
                   <div className="px-6 py-5 border-b border-gray-200 bg-gray-50">
@@ -459,78 +415,73 @@ const Settings = () => {
                       )}
                     </h3>
                   </div>
-
                   <div className="p-6">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {formFields[tab].map(renderField)}
+                      {formFields[tab]
+                        .filter((field) => !(field.type === "password" && !isEditMode))
+                        .map(renderField)}
                     </div>
                   </div>
                 </div>
               </div>
             ))}
+            {/* Action Buttons */}
+            {isEditMode && (
+              <>
+                {/* Mobile Fixed Bottom Bar */}
+                <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-2xl lg:hidden">
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-colors duration-200"
+                    >
+                      <X size={18} />
+                      <span>Cancel</span>
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={!hasUnsavedChanges || isSaving}
+                      className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-[var(--accent-color)] hover:bg-[var(--accent-color)] disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors duration-200"
+                    >
+                      {isSaving ? (
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Save size={18} />
+                      )}
+                      <span>{isSaving ? "Saving..." : "Save Changes"}</span>
+                    </button>
+                  </div>
+                </div>
+                {/* Desktop Inline Buttons */}
+                <div className="hidden lg:block px-4 sm:px-6 lg:px-8 pb-8">
+                  <div className="flex justify-end gap-4">
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      className="flex items-center gap-2 px-8 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-colors duration-200"
+                    >
+                      <X size={18} />
+                      <span>Cancel</span>
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={!hasUnsavedChanges || isSaving}
+                      className="flex items-center gap-2 px-8 py-3 bg-[var(--accent-color)] hover:bg-[var(--accent-color)] disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors duration-200"
+                    >
+                      {isSaving ? (
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Save size={18} />
+                      )}
+                      <span>{isSaving ? "Saving..." : "Save Changes"}</span>
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </form>
         </div>
-
-        {/* Action Buttons - Fixed for mobile, inline for desktop */}
-        {isEditMode && (
-          <>
-            {/* Mobile Fixed Bottom Bar */}
-            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-2xl lg:hidden">
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={handleCancelEdit}
-                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-colors duration-200"
-                >
-                  <X size={18} />
-                  <span>Cancel</span>
-                </button>
-
-                <button
-                  type="submit"
-                  onClick={handleSaveChanges}
-                  disabled={!hasUnsavedChanges || isSaving}
-                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-[var(--accent-color)] hover:bg-[var(--accent-color)] disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors duration-200"
-                >
-                  {isSaving ? (
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <Save size={18} />
-                  )}
-                  <span>{isSaving ? "Saving..." : "Save Changes"}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Desktop Inline Buttons */}
-            <div className="hidden lg:block px-4 sm:px-6 lg:px-8 pb-8">
-              <div className="flex justify-end gap-4">
-                <button
-                  type="button"
-                  onClick={handleCancelEdit}
-                  className="flex items-center gap-2 px-8 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-colors duration-200"
-                >
-                  <X size={18} />
-                  <span>Cancel</span>
-                </button>
-
-                <button
-                  type="submit"
-                  onClick={handleSaveChanges}
-                  disabled={!hasUnsavedChanges || isSaving}
-                  className="flex items-center gap-2 px-8 py-3 bg-[var(--accent-color)] hover:bg-[var(--accent-color)] disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors duration-200"
-                >
-                  {isSaving ? (
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <Save size={18} />
-                  )}
-                  <span>{isSaving ? "Saving..." : "Save Changes"}</span>
-                </button>
-              </div>
-            </div>
-          </>
-        )}
 
         {/* Success Toast */}
         {saveSuccess && (
@@ -545,7 +496,6 @@ const Settings = () => {
           </div>
         )}
       </div>
-
       {/* Mobile spacing for fixed buttons */}
       {isEditMode && <div className="h-20 lg:hidden"></div>}
     </div>

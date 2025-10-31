@@ -52,6 +52,32 @@ export const registerUser = createAsyncThunk(
     }
   }
 );
+export const updatePatient = createAsyncThunk(
+  'auth/updatePatient',
+  async ({ id, formData }, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.put(
+        `${BASE_URL}/patient/${id}`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+      console.log("Update patient API response:", response.data); // <-- Add this
+      return response.data;
+    } catch (error) {
+      console.error("Update patient API error:", error.response?.data || error.message); // <-- Add this
+      return rejectWithValue(
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        error.message ||
+        'Failed to update patient'
+      );
+    }
+  }
+);
 
 // Login User
 export const loginUser = createAsyncThunk(
@@ -176,21 +202,21 @@ export const verifyOTP = createAsyncThunk(
 );
 
 // Get User Profile
-export const getUserProfile = createAsyncThunk(
-  'auth/getUserProfile',
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await axiosInstance.get(`${BASE_URL}/profile`);
-      return response.data;
-    } catch (error) {
-      return rejectWithValue(
-        error.response?.data?.message ||
-        error.response?.data?.error ||
-        'Failed to fetch user profile'
-      );
-    }
-  }
-);
+// export const getUserProfile = createAsyncThunk(
+//   'auth/getUserProfile',
+//   async (_, { rejectWithValue }) => {
+//     try {
+//       const response = await axiosInstance.get(`${BASE_URL}/profile`);
+//       return response.data;
+//     } catch (error) {
+//       return rejectWithValue(
+//         error.response?.data?.message ||
+//         error.response?.data?.error ||
+//         'Failed to fetch user profile'
+//       );
+//     }
+//   }
+// );
 
 const authSlice = createSlice({
   name: 'auth',
@@ -325,12 +351,30 @@ const authSlice = createSlice({
           userId: action.payload.userId,
         };
         state.patientId = action.payload.patientId;
-        state.doctorId = action.payload.doctorId || null; 
+        state.doctorId = action.payload.doctorId || null;
         state.userId = action.payload.userId;
         state.userType = action.payload.userType;
         state.isOTPSent = false;
       })
       .addCase(registerUser.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      .addCase(updatePatient.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updatePatient.fulfilled, (state, action) => {
+        state.loading = false;
+          console.log("Update patient response:", action.payload); 
+        state.user = { ...state.user, ...action.payload };
+        state.name = action.payload.firstName || action.payload.name || state.name;
+        state.address = action.payload.address || state.address;
+        state.gender = action.payload.gender || state.gender;
+        state.dob = action.payload.dob || state.dob;
+        // If you store updated photo, update that too
+      })
+      .addCase(updatePatient.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
@@ -398,7 +442,7 @@ const authSlice = createSlice({
         state.registrationData = null;
         state.token = action.payload.token;
         state.patientId = action.payload.patientId;
-        state.doctorId = action.payload.doctorId || null; 
+        state.doctorId = action.payload.doctorId || null;
         state.userId = action.payload.userId;
         state.permissions = action.payload.permissions;
         state.name = action.payload.name;
@@ -412,22 +456,22 @@ const authSlice = createSlice({
         state.error = action.payload;
         state.isVerified = false;
       })
-      .addCase(getUserProfile.pending, (state) => {
-        state.loading = true;
-      })
-      .addCase(getUserProfile.fulfilled, (state, action) => {
-        state.loading = false;
-        state.user = { ...state.user, ...action.payload };
-        state.name = action.payload.name;
-        state.number = action.payload.number;
-        state.address = action.payload.address;
-        state.gender = action.payload.gender;
-        state.dob = action.payload.dob;
-      })
-      .addCase(getUserProfile.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      });
+      // .addCase(getUserProfile.pending, (state) => {
+      //   state.loading = true;
+      // })
+      // .addCase(getUserProfile.fulfilled, (state, action) => {
+      //   state.loading = false;
+      //   state.user = { ...state.user, ...action.payload };
+      //   state.name = action.payload.name;
+      //   state.number = action.payload.number;
+      //   state.address = action.payload.address;
+      //   state.gender = action.payload.gender;
+      //   state.dob = action.payload.dob;
+      // })
+      // .addCase(getUserProfile.rejected, (state, action) => {
+      //   state.loading = false;
+      //   state.error = action.payload;
+      // });
   },
 });
 

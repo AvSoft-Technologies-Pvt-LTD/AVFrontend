@@ -288,16 +288,16 @@ export const getSpecializationsWardsSummaryForIpdAdmission = () =>
 ------------------------------ */
 // Get all virtual appointments
 export const getAllVirtualAppointments = () =>
-  axiosInstance.get('/virtual-appointments');
+  axiosInstance.get('/doc-virtual-appointments');
 // Get virtual appointment by ID
 export const getVirtualAppointmentById = (id) =>
-  axiosInstance.get(`/virtual-appointments/${id}`);
+  axiosInstance.get(`/doc-virtual-appointments/${id}`);
 // Create a new virtual appointment
 export const createVirtualAppointment = (data) =>
-  axiosInstance.post('/virtual-appointments', data);
+  axiosInstance.post('/doc-virtual-appointments', data);
 // Update virtual appointment by ID
 export const updateVirtualAppointment = (id, data) =>
-  axiosInstance.put(`/virtual-appointments/${id}`, data);
+  axiosInstance.put(`/doc-virtual-appointments/${id}`, data);
 // Delete virtual appointment by ID
 export const deleteVirtualAppointment = (id) =>
-  axiosInstance.delete(`/virtual-appointments/${id}`);
+  axiosInstance.delete(`/doc-virtual-appointments/${id}`);

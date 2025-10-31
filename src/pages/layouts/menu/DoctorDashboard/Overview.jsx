@@ -175,7 +175,7 @@ const Overview = () => {
               <Edit3 className="text-gray-400" size={22} />
               <div>
                 <p className="text-gray-500 text-sm">Reg No.</p>
-                <p className="text-gray-900 font-semibold">{doctor.registrationId}</p>
+                <p className="text-gray-900 font-semibold">{doctor.registrationNumber }</p>
               </div>
             </div>
           </div>

@@ -126,6 +126,10 @@ const MedicalRecords = () => {
 
   const updateState = (updates) => setState((prev) => ({ ...prev, ...updates }));
 
+const getLabelById = (options, value) => {
+  const option = options.find((opt) => String(opt.value) === String(value));
+  return option ? option.label : value;
+}
   const handleViewDetails = (record) => {
     const currentPath = location.pathname;
     let targetPath;
@@ -185,19 +189,22 @@ const handleAddRecord = async (formData) => {
     else response = await createVirtualRecord(payload);
 
     const mappedResponse = {
-      id: response.data.recordId,
-      patientId: response.data.patientId,
-      hospitalName: hospitalOptions.find(opt => opt.value === response.data.hospitalId)?.label,
-      chiefComplaint: response.data.chiefComplaint,
-      medicalConditionName: medicalConditions.find(opt => opt.value === response.data.medicalConditionId)?.label,
-      medicalStatusName: statusTypes.find(opt => opt.value === response.data.medicalStatusId)?.label,
-      ...(state.activeTab === "OPD" && { dateOfVisit: response.data.dateOfVisit }),
-      ...(state.activeTab === "IPD" && {
-        dateOfAdmission: response.data.dateOfAdmission,
-        dateOfDischarge: response.data.dateOfDischarge,
-      }),
-      ...(state.activeTab === "Virtual" && { dateOfConsultation: response.data.dateOfConsultation }),
-    };
+  id: response.data.recordId,
+  patientId: response.data.patientId,
+  hospitalId: response.data.hospitalId,
+  hospitalName: getLabelById(hospitalOptions, response.data.hospitalId),
+  chiefComplaint: response.data.chiefComplaint,
+  medicalConditionId: response.data.medicalConditionId,
+  medicalConditionName: getLabelById(medicalConditions, response.data.medicalConditionId),
+  medicalStatusId: response.data.medicalStatusId,
+  medicalStatusName: getLabelById(statusTypes, response.data.medicalStatusId),
+  ...(state.activeTab === "OPD" && { dateOfVisit: response.data.dateOfVisit }),
+  ...(state.activeTab === "IPD" && {
+    dateOfAdmission: response.data.dateOfAdmission,
+    dateOfDischarge: response.data.dateOfDischarge,
+  }),
+  ...(state.activeTab === "Virtual" && { dateOfConsultation: response.data.dateOfConsultation }),
+};
 
     setMedicalData((prev) => ({
       ...prev,
