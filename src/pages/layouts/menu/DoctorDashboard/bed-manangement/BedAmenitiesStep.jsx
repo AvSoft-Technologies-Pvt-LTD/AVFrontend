@@ -24,63 +24,39 @@ const BedAmenitiesStep = ({
 }) => {
   const [bedAmenityOptions, setBedAmenityOptions] = useState([]);
   const [loadingBedAmenities, setLoadingBedAmenities] = useState(false);
-
   const [bedStatusOptions, setBedStatusOptions] = useState([]);
   const [loadingBedStatuses, setLoadingBedStatuses] = useState(false);
-
-  const fallbackBedAmenityOptions = [
-    { id: "monitor", name: "Patient Monitor", icon: "Monitor", color: "text-blue-500" },
-    { id: "adjustable", name: "Adjustable Bed", icon: "Settings", color: "text-green-500" },
-    { id: "sidetable", name: "Bedside Table", icon: "Circle", color: "text-gray-500" },
-    { id: "oxygenpipeline", name: "Oxygen Pipeline", icon: "Activity", color: "text-red-500" },
-    { id: "callbutton", name: "Call Button", icon: "Phone", color: "text-purple-500" },
-    { id: "lighting", name: "Adjustable Lighting", icon: "Eye", color: "text-yellow-500" },
-  ];
-
-  const fallbackBedStatusOptions = [
-    { id: "available", value: "available", name: "Available", color: "bg-green-500" },
-    { id: "occupied", value: "occupied", name: "Occupied", color: "bg-red-500" },
-    { id: "maintenance", value: "maintenance", name: "Maintenance", color: "bg-yellow-500" },
-    { id: "reserved", value: "reserved", name: "Reserved", color: "bg-blue-500" },
-  ];
 
   useEffect(() => {
     fetchBedAmenities();
     fetchBedStatuses();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    console.log("Current beds in state:", bedMasterData.beds);
+  }, [bedMasterData.beds]);
 
   const fetchBedAmenities = async () => {
     setLoadingBedAmenities(true);
     try {
       const resp = await getAllBedAmenities();
       const data = resp?.data ?? [];
-
       if (Array.isArray(data) && data.length > 0) {
-        const normalized = data.map((item) => {
-          const rawId = item.id ?? item.key ?? item._id ?? item.name;
-          const idStr = rawId !== undefined && rawId !== null ? String(rawId) : String(Math.random()).slice(2);
-          return {
-            id: idStr,
-            name:
-              item.amenityName ||
-              item.name ||
-              item.label ||
-              item.displayName ||
-              item.amenity_name ||
-              String(item.id),
-            icon: item.icon || item.iconName || "Monitor",
-            color: item.color || "text-gray-500",
-            ...item,
-          };
-        });
+        const normalized = data.map((item) => ({
+          id: String(item.id ?? item.key ?? item._id ?? item.name),
+          name: item.amenityName ?? item.name ?? item.label ?? item.displayName ?? String(item.id),
+          icon: item.icon ?? item.iconName ?? "Monitor",
+          color: item.color ?? "text-gray-500",
+          ...item,
+        }));
         setBedAmenityOptions(normalized);
       } else {
-        setBedAmenityOptions(fallbackBedAmenityOptions);
+        console.warn("No bed amenities found from API.");
+        setBedAmenityOptions([]);
       }
     } catch (err) {
       console.error("Failed to load bed amenities:", err);
-      setBedAmenityOptions(fallbackBedAmenityOptions);
+      setBedAmenityOptions([]);
     } finally {
       setLoadingBedAmenities(false);
     }
@@ -91,61 +67,37 @@ const BedAmenitiesStep = ({
     try {
       const resp = await getAllBedStatuses();
       const data = resp?.data ?? [];
-
       if (Array.isArray(data) && data.length > 0) {
-        // Normalize: accept shapes like { id, key, statusName, name, code, value, color }
-        const normalized = data.map((item) => {
-          const rawId = item.id ?? item.key ?? item.code ?? item.value ?? item._id;
-          const idStr = rawId !== undefined && rawId !== null ? String(rawId) : String(Math.random()).slice(2);
-
-          const value =
-            (item.key && String(item.key)) ||
-            (item.code && String(item.code)) ||
-            (item.value && String(item.value)) ||
-            (item.statusName && String(item.statusName).toLowerCase().replace(/\s+/g, "_")) ||
-            String(item.id) ||
-            idStr;
-
-          const name =
-            item.statusName ||
-            item.name ||
-            item.label ||
-            item.displayName ||
-            (typeof value === "string" ? value.replace(/[_-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : String(value));
-
-          const color = item.color || item.bgClass || null;
-
-          return {
-            id: idStr,
-            value: String(value),
-            name,
-            color,
-            ...item,
-          };
-        });
-
+        const normalized = data.map((item) => ({
+          id: String(item.id ?? item.key ?? item.code ?? item.value ?? item._id),
+          value: Number(item.id ?? item.bedStatusId ?? item.key ?? item.code), // ✅ Store numeric value
+          name: item.statusName ?? item.name ?? item.label ?? item.displayName ?? String(item.id),
+          color: item.color ?? item.bgClass ?? null,
+          ...item,
+        }));
         setBedStatusOptions(normalized);
       } else {
-        setBedStatusOptions(fallbackBedStatusOptions);
+        console.warn("No bed statuses found from API.");
+        setBedStatusOptions([]);
       }
     } catch (err) {
       console.error("Failed to load bed statuses:", err);
-      setBedStatusOptions(fallbackBedStatusOptions);
+      setBedStatusOptions([]);
     } finally {
       setLoadingBedStatuses(false);
     }
   };
 
   const getIconComponent = (iconName) => {
-    const icons = {
-      Monitor,
-      Settings,
-      Circle,
-      Activity,
-      Phone,
-      Eye,
-    };
+    const icons = { Monitor, Settings, Circle, Activity, Phone, Eye };
     return icons[iconName] || Monitor;
+  };
+
+  // ✅ FIXED: Map bedStatusId to color
+  const statusColorsMapFromOptions = (bedStatusId) => {
+    const found = bedStatusOptions.find((s) => Number(s.value) === Number(bedStatusId));
+    if (found?.color) return found.color.startsWith("bg-") ? found.color : undefined;
+    return "bg-gray-300";
   };
 
   if (loadingBedAmenities || loadingBedStatuses) {
@@ -157,23 +109,6 @@ const BedAmenitiesStep = ({
     );
   }
 
-  // Helper to pick status color class (backend may provide color or hex)
-  const statusColorsMapFromOptions = (value) => {
-    const found = bedStatusOptions.find((s) => String(s.value) === String(value) || String(s.id) === String(value));
-    if (found && found.color) {
-      // If backend provided a CSS class (like "bg-green-500") use it; otherwise, try to map basic names
-      return found.color.startsWith("bg-") ? found.color : undefined;
-    }
-    // fallback mapping
-    const fallback = {
-      available: "bg-green-500",
-      occupied: "bg-red-500",
-      maintenance: "bg-yellow-500",
-      reserved: "bg-blue-500",
-    };
-    return fallback[String(value)] || "bg-gray-300";
-  };
-
   return (
     <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4 sm:space-y-6">
       <div className="flex items-center gap-2 mb-4 sm:mb-6">
@@ -181,7 +116,7 @@ const BedAmenitiesStep = ({
         <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Bed Configuration</h2>
       </div>
 
-      {(!bedMasterData.rooms || bedMasterData.rooms.length === 0) ? (
+      {!bedMasterData.rooms || bedMasterData.rooms.length === 0 ? (
         <div className="text-center py-8 sm:py-12 bg-gray-50 rounded-lg">
           <Door className="mx-auto mb-4 text-gray-400" size={40} />
           <h3 className="text-base sm:text-lg font-semibold text-gray-600">No Rooms Created</h3>
@@ -189,8 +124,10 @@ const BedAmenitiesStep = ({
         </div>
       ) : (
         bedMasterData.rooms.map((room) => {
-          const ward = bedMasterData.wards.find((w) => String(w.id) === String(room.wardId));
-          const department = bedMasterData.departments.find((d) => String(d.id) === String(ward?.departmentId));
+          const ward = bedMasterData.wards?.find((w) => String(w.id) === String(room.wardId));
+          const department = bedMasterData.departments?.find(
+            (d) => String(d.id) === String(ward?.departmentId)
+          );
           const isActiveRoom = String(bedMasterData.selectedRoom?.id) === String(room.id);
           const isAddingBed = String(bedMasterData.activeRoomId) === String(room.id);
 
@@ -201,10 +138,18 @@ const BedAmenitiesStep = ({
             : [];
           const roomBedAmenitiesSet = new Set((roomBedAmenities || []).map((x) => String(x)));
 
+          const filteredBeds =
+            bedMasterData.beds?.filter((b) => String(b.roomId) === String(room.id)) || [];
+          console.log("Room:", room.id, "Filtered beds:", filteredBeds);
+
           return (
             <div
               key={room.id}
-              className={`bg-white rounded-lg p-4 sm:p-6 border border-gray-200 shadow-sm mb-6 ${isActiveRoom || isAddingBed ? "ring-2 ring-[var(--accent-color)] border-[var(--accent-color)] bg-[var(--accent-color)] bg-opacity-10" : ""}`}
+              className={`bg-white rounded-lg p-4 sm:p-6 border border-gray-200 shadow-sm mb-6 ${
+                isActiveRoom || isAddingBed
+                  ? "ring-2 ring-[var(--accent-color)] border-[var(--accent-color)] bg-[var(--accent-color)] bg-opacity-10"
+                  : ""
+              }`}
             >
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
                 <h3 className="text-base sm:text-lg font-semibold text-gray-900 flex items-center gap-2">
@@ -213,58 +158,76 @@ const BedAmenitiesStep = ({
                 </h3>
               </div>
 
+              {/* Bed Amenities */}
               <div className="mb-4 p-3 bg-gray-50 rounded-lg">
                 <h4 className="text-sm font-semibold mb-2 text-gray-700 flex items-center gap-2">
                   <Settings size={14} /> Bed Amenities
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                  {bedAmenityOptions.map((amenity) => {
-                    const IconComponent = getIconComponent(amenity.icon);
-                    const amenityIdStr = String(amenity.id);
-                    const isSelected = roomBedAmenitiesSet.has(amenityIdStr);
-
-                    return (
-                      <button
-                        key={amenity.id}
-                        onClick={() => {
-                          setBedMasterData((prev) => {
-                            const currentRoom = prev.rooms.find((r) => String(r.id) === String(room.id)) || room;
-                            const currentAmenities = Array.isArray(currentRoom.amenities) ? currentRoom.amenities.map(String) : [];
-
-                            const updatedAmenities = currentAmenities.includes(amenityIdStr)
-                              ? currentAmenities.filter((id) => id !== amenityIdStr)
-                              : [...currentAmenities, amenityIdStr];
-
-                            const updatedRoom = {
-                              ...currentRoom,
-                              amenities: updatedAmenities,
-                            };
-
-                            const updatedBedAmenitiesByRoom = { ...(prev.bedAmenitiesByRoom || {}), [room.id]: updatedAmenities };
-
-                            return {
-                              ...prev,
-                              rooms: prev.rooms.map((r) => String(r.id) === String(room.id) ? updatedRoom : r),
-                              bedAmenitiesByRoom: updatedBedAmenitiesByRoom,
-                              beds: prev.beds.map((b) => String(b.roomId) === String(room.id) ? { ...b, amenities: updatedAmenities } : b),
-                            };
-                          });
-                        }}
-                        className={`flex items-center justify-between p-2 rounded-lg border transition-all duration-200 ${isSelected ? "border-orange-500 bg-orange-50 shadow-sm" : "border-gray-200 bg-white hover:bg-gray-50 hover:border-orange-300"}`}
-                      >
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <IconComponent className={amenity.color} size={12} />
-                          <span className="text-xs font-medium truncate">{amenity.name}</span>
-                        </div>
-                        <div className={`w-4 h-2 flex items-center rounded-full p-0.5 transition-all duration-200 flex-shrink-0 ${isSelected ? "bg-orange-500 justify-end" : "bg-gray-300 justify-start"}`}>
-                          <div className="w-1.5 h-1.5 rounded-full bg-white shadow-sm" />
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+                {bedAmenityOptions.length === 0 ? (
+                  <p className="text-gray-500 text-sm">No amenities available.</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {bedAmenityOptions.map((amenity) => {
+                      const IconComponent = getIconComponent(amenity.icon);
+                      const amenityIdStr = String(amenity.id);
+                      const isSelected = roomBedAmenitiesSet.has(amenityIdStr);
+                      return (
+                        <button
+                          key={amenity.id}
+                          onClick={() => {
+                            setBedMasterData((prev) => {
+                              const currentRoom =
+                                prev.rooms.find((r) => String(r.id) === String(room.id)) || room;
+                              const currentAmenities = Array.isArray(currentRoom.amenities)
+                                ? currentRoom.amenities.map(String)
+                                : [];
+                              const updatedAmenities = currentAmenities.includes(amenityIdStr)
+                                ? currentAmenities.filter((id) => id !== amenityIdStr)
+                                : [...currentAmenities, amenityIdStr];
+                              const updatedRoom = { ...currentRoom, amenities: updatedAmenities };
+                              const updatedBedAmenitiesByRoom = {
+                                ...(prev.bedAmenitiesByRoom || {}),
+                                [room.id]: updatedAmenities,
+                              };
+                              return {
+                                ...prev,
+                                rooms: prev.rooms.map((r) =>
+                                  String(r.id) === String(room.id) ? updatedRoom : r
+                                ),
+                                bedAmenitiesByRoom: updatedBedAmenitiesByRoom,
+                                beds: prev.beds.map((b) =>
+                                  String(b.roomId) === String(room.id)
+                                    ? { ...b, amenities: updatedAmenities }
+                                    : b
+                                ),
+                              };
+                            });
+                          }}
+                          className={`flex items-center justify-between p-2 rounded-lg border transition-all duration-200 ${
+                            isSelected
+                              ? "border-orange-500 bg-orange-50 shadow-sm"
+                              : "border-gray-200 bg-white hover:bg-gray-50 hover:border-orange-300"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <IconComponent className={amenity.color} size={12} />
+                            <span className="text-xs font-medium truncate">{amenity.name}</span>
+                          </div>
+                          <div
+                            className={`w-4 h-2 flex items-center rounded-full p-0.5 transition-all duration-200 flex-shrink-0 ${
+                              isSelected ? "bg-orange-500 justify-end" : "bg-gray-300 justify-start"
+                            }`}
+                          >
+                            <div className="w-1.5 h-1.5 rounded-full bg-white shadow-sm" />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
+              {/* Bed Count & Add */}
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-4">
                 <input
                   type="number"
@@ -273,12 +236,14 @@ const BedAmenitiesStep = ({
                   value={bedCountByRoom[room.id] ?? 1}
                   onChange={(e) => {
                     const v = parseInt(e.target.value, 10);
-                    setBedCountByRoom((prev) => ({ ...prev, [room.id]: isNaN(v) ? 1 : Math.max(1, Math.min(20, v)) }));
+                    setBedCountByRoom((prev) => ({
+                      ...prev,
+                      [room.id]: isNaN(v) ? 1 : Math.max(1, Math.min(20, v)),
+                    }));
                   }}
                   placeholder="Beds"
                   className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm w-full sm:w-20"
                 />
-
                 <button
                   onClick={async () => {
                     if (!room.number) return;
@@ -293,11 +258,11 @@ const BedAmenitiesStep = ({
                 </button>
               </div>
 
+              {/* Beds Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                 <AnimatePresence>
-                  {Array.isArray(bedMasterData.beds) && bedMasterData.beds.filter((b) => String(b.roomId) === String(room.id)).map((bed) => {
-                    const statusColorClass = statusColorsMapFromOptions(bed.status || "available");
-
+                  {filteredBeds.map((bed) => {
+                    const statusColorClass = statusColorsMapFromOptions(bed.bedStatusId || 1);
                     return (
                       <motion.div
                         key={bed.id}
@@ -319,36 +284,49 @@ const BedAmenitiesStep = ({
                           </button>
                         </div>
 
+                        {/* ✅ FIXED: Bind to bedStatusId (numeric) */}
                         <select
-                          value={bed.status || (bedStatusOptions[0] && bedStatusOptions[0].value) || "available"}
+                          value={bed.bedStatusId || bedStatusOptions[0]?.value || 1}
                           onChange={(e) => {
                             e.stopPropagation();
-                            const newStatusVal = e.target.value;
+                            const newStatusId = Number(e.target.value);
                             setBedMasterData((prev) => ({
                               ...prev,
-                              beds: prev.beds.map((b) => String(b.id) === String(bed.id) ? { ...b, status: newStatusVal } : b),
+                              beds: prev.beds.map((b) =>
+                                String(b.id) === String(bed.id) ? { ...b, bedStatusId: newStatusId } : b
+                              ),
                             }));
                           }}
                           className="w-full text-xs border border-gray-300 rounded mb-2 px-2 py-1"
                           onClick={(e) => e.stopPropagation()}
                         >
                           {bedStatusOptions.map((s) => (
-                            <option key={s.id ?? s.value} value={s.value}>{s.name}</option>
+                            <option key={s.id ?? s.value} value={s.value}>
+                              {s.name}
+                            </option>
                           ))}
                         </select>
 
                         <div className={`${statusColorClass} h-2 rounded-full`} />
+
                         <div className="flex flex-wrap gap-1 mt-2">
-                          {Array.isArray(bed.amenities) && bed.amenities.map((amenityId) => {
-                            const amenity = bedAmenityOptions.find((a) => String(a.id) === String(amenityId));
-                            if (!amenity) return null;
-                            const IconComponent = getIconComponent(amenity.icon);
-                            return (
-                              <span key={amenityId} className="inline-flex items-center gap-1 px-1 py-0.5 bg-gray-100 rounded-full text-xs" title={amenity.name}>
-                                <IconComponent className={amenity.color} size={8} />
-                              </span>
-                            );
-                          })}
+                          {Array.isArray(bed.amenities) &&
+                            bed.amenities.map((amenityId) => {
+                              const amenity = bedAmenityOptions.find(
+                                (a) => String(a.id) === String(amenityId)
+                              );
+                              if (!amenity) return null;
+                              const IconComponent = getIconComponent(amenity.icon);
+                              return (
+                                <span
+                                  key={amenityId}
+                                  className="inline-flex items-center gap-1 px-1 py-0.5 bg-gray-100 rounded-full text-xs"
+                                  title={amenity.name}
+                                >
+                                  <IconComponent className={amenity.color} size={8} />
+                                </span>
+                              );
+                            })}
                         </div>
                       </motion.div>
                     );

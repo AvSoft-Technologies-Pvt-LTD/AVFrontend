@@ -47,7 +47,6 @@ const BedRoomList = () => {
     const specialization = item.specializationName ?? item.specialization ?? item.department ?? "Unknown";
     const wardName = item.wardName ?? item.ward ?? item.name ?? "Unknown";
     const total = Number(item.totalBeds ?? item.total ?? 0);
-    // parse totalRooms from server response (some entries have totalRooms)
     const totalRooms = Number(item.totalRooms ?? item.rooms ?? 0);
 
     const availableFromGroups =
@@ -58,9 +57,13 @@ const BedRoomList = () => {
       ? availableFromGroups
       : Number(item.available ?? Math.max(0, total - Number(item.occupied ?? 0)));
     const occupied = Number(item.occupied ?? (total - available));
+    
+    // ✅ FIXED: Use backend ID (not generated)
     const id = item.id ?? item.wardId ?? `${specialization.replace(/\s+/g, "_")}-${wardName.replace(/\s+/g, "_")}-${idx}`;
+    
     return {
       id,
+      wardId: item.id ?? item.wardId, // ✅ Preserve backend ward ID
       department: specialization,
       ward: wardName,
       totalBeds: total,
@@ -221,7 +224,8 @@ const BedRoomList = () => {
   };
 
   const handleEdit = async (row) => {
-    const candidateId = row?.raw?.wardId ?? row?.raw?.id ?? row?.wardId ?? row?.id ?? null;
+    // ✅ FIXED: Use backend ward ID (not random ID)
+    const candidateId = row?.wardId ?? row?.raw?.wardId ?? row?.raw?.id ?? row?.id ?? null;
     if (!candidateId) {
       navigate("/doctordashboard/bedroommanagement/bedmaster", { state: { editData: row } });
       return;
@@ -285,7 +289,6 @@ const BedRoomList = () => {
         return <span className={`px-2 py-1 rounded-full text-sm font-medium border ${colorClass}`}>{row.ward}</span>;
       },
     },
-    // NEW Rooms column (displays totalRooms from server)
     {
       header: "Rooms",
       accessor: "totalRooms",

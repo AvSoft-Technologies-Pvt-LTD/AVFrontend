@@ -223,8 +223,9 @@ export const getBedStatusById = (id) =>
 export const createBedStatus = (data) =>
   axiosInstance.post('/bed-statuses', data);
 
-export const updateBedStatus = (id, data) =>
-  axiosInstance.put(`/bed-statuses/${id}`, data);
+export const updateBedStatus = (id, status) =>
+  axiosInstance.put(`/bed-statuses/${id}`, { status });
+
 
 export const deleteBedStatus = (id) =>
   axiosInstance.delete(`/bed-statuses/${id}`);

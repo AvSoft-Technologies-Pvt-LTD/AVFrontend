@@ -121,7 +121,6 @@ const WardStep = ({
 
   const handleAddWard = useCallback(
     async (wardTypeId, departmentId) => {
-      // if parent passed a custom add handler, use it
       if (typeof addWardProp === "function") return addWardProp(wardTypeId, departmentId);
 
       const key = `${departmentId}_${wardTypeId}`;
@@ -135,13 +134,11 @@ const WardStep = ({
           return;
         }
 
-        // Count existing wards of this type in this department
         const existing = bedMasterData.wards || [];
         const sameTypeCount = existing.filter(
           (w) => String(w.departmentId) === String(departmentId) && wardMatchesType(w, wardType)
         ).length;
 
-        // Build display name using typeName
         const displayBase = wardType.typeName || wardType.name || "Ward";
         const displayName = `${displayBase} ${sameTypeCount + 1}`;
 
@@ -153,18 +150,16 @@ const WardStep = ({
           wardTypeId: wardType.id,
           typeName: wardType.typeName || wardType.name,
           departmentId,
-          specializationId: departmentId, // in case backend expects this
+          specializationId: departmentId,
         };
 
         const res = await apiCreateWardType(payload);
         const createdRaw = res?.data ?? null;
 
-        // if backend didn't return full created ward, synthesize locally
         const created = createdRaw
           ? normalizeWardType(createdRaw)
           : { ...payload, id: `ward-${Date.now()}-${Math.random().toString(36).slice(2, 7)}` };
 
-        // Ensure all critical fields are present
         const createdWard = {
           ...created,
           id: created.id ?? `ward-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -176,10 +171,9 @@ const WardStep = ({
           typeName: created.typeName || wardType.typeName || wardType.name,
           departmentId,
           specializationId: departmentId,
-          wardType: wardType, // keep reference for UI
+          wardType: wardType,
         };
 
-        // Update local ward types list if needed
         setLocalWardTypes((prev) => {
           const exists = (prev || []).some((t) => String(t.id) === String(createdWard.id));
           return exists
@@ -187,7 +181,6 @@ const WardStep = ({
             : [...(prev || []), createdWard];
         });
 
-        // Add ward to bedMasterData
         setBedMasterData((prev) => ({
           ...prev,
           wards: [...(prev.wards || []), createdWard],

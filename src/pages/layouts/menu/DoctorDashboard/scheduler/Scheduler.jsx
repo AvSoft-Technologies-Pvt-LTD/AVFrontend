@@ -1,12 +1,12 @@
+// File: Scheduler.jsx
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import {
   format,
   parse,
   startOfWeek,
   getDay,
-  addMonths,
-  subMonths,
   startOfDay,
   endOfDay,
   compareAsc,
@@ -15,8 +15,6 @@ import { enUS } from "date-fns/locale";
 import {
   Calendar as CalendarIcon,
   Clock,
-  ChevronLeft,
-  ChevronRight,
   ChevronDown,
   Video,
   Copy,
@@ -25,7 +23,7 @@ import { toast, ToastContainer } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import "react-toastify/dist/ReactToastify.css";
 import "react-big-calendar/lib/css/react-big-calendar.css";
-import AppointmentDetailModal from "./AppointmentDetailModal";
+import ReusableModal from "../../../../../components/microcomponents/Modal";
 import { generateDummyAppointments } from "./dummyData";
 import "./scheduler.css";
 
@@ -38,6 +36,19 @@ const localizer = dateFnsLocalizer({
   locales,
 });
 
+const PRESET_COLORS = [
+  "#3b82f6",
+  "#10b981",
+  "#8b5cf6",
+  "#f59e0b",
+  "#ef4444",
+  "#ec4899",
+  "#06b6d4",
+  "#84cc16",
+  "#f97316",
+  "#6366f1",
+];
+
 const mockAppointments = generateDummyAppointments();
 
 const Scheduler = () => {
@@ -48,6 +59,7 @@ const Scheduler = () => {
   const [currentDate, setCurrentDate] = useState(new Date(2025, 8, 1));
   const [showAppointmentDetail, setShowAppointmentDetail] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [selectedColor, setSelectedColor] = useState("#3b82f6");
   const [upcomingAppointments, setUpcomingAppointments] = useState([]);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [showYearPicker, setShowYearPicker] = useState(false);
@@ -138,6 +150,7 @@ const Scheduler = () => {
         });
       } else {
         setSelectedEvent(event);
+        setSelectedColor(event?.resource?.color || "#3b82f6");
         setShowAppointmentDetail(true);
       }
     },
@@ -179,11 +192,9 @@ const Scheduler = () => {
     toast.success("Link copied to clipboard!");
   };
 
-// UPDATED: Navigate to /doctordashboard/scheduler/availability (removed conditional navigation)
-const handleManageAvailability = () => {
-  navigate("/doctordashboard/scheduler/availability");
-};
-
+  const handleManageAvailability = () => {
+    navigate("/doctordashboard/scheduler/availability");
+  };
 
   const dayCountsMap = useMemo(() => {
     const map = {};
@@ -281,24 +292,21 @@ const handleManageAvailability = () => {
 
   const CustomToolbar = ({ date, onNavigate }) => {
     const months = [
-      "January", "February", "March", "April", "May", "June",
-      "July", "August", "September", "October", "November", "December"
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
     ];
     const years = Array.from({ length: 11 }, (_, i) => date.getFullYear() - 5 + i);
-    const goToBack = () => {
-      const newDate = subMonths(date, 1);
-      onNavigate("prev", newDate);
-      setCurrentDate(newDate);
-    };
-    const goToNext = () => {
-      const newDate = addMonths(date, 1);
-      onNavigate("next", newDate);
-      setCurrentDate(newDate);
-    };
-    const goToCurrent = () => {
-      const iso = format(startOfDay(new Date()), "yyyy-MM-dd");
-      navigate(`/doctordashboard/scheduler/today?date=${iso}`, { relative: "path" });
-    };
+
     const handleMonthChange = (monthIndex) => {
       const newDate = new Date(date);
       newDate.setMonth(monthIndex);
@@ -314,67 +322,101 @@ const handleManageAvailability = () => {
       setShowYearPicker(false);
     };
     const stop = (e) => e.stopPropagation();
+
     return (
-      <div className="scheduler-toolbar" onClick={stop}>
-        {/* Added responsive toolbar layout */}
-        <div className="toolbar-left">
-          <div className="month-year-selector">
-            <button
-              className="selector-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowMonthPicker(!showMonthPicker);
-                setShowYearPicker(false);
-              }}
-            >
-              <span className="hidden sm:inline">{months[date.getMonth()]}</span>
-              <span className="sm:hidden">{months[date.getMonth()].slice(0, 3)}</span>
-              <ChevronDown size={14} className="sm:w-4 sm:h-4" />
-            </button>
-            <button
-              className="selector-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowYearPicker(!showYearPicker);
-                setShowMonthPicker(false);
-              }}
-            >
-              {date.getFullYear()}
-              <ChevronDown size={14} className="sm:w-4 sm:h-4" />
-            </button>
+      <div
+        className="scheduler-toolbar"
+        onClick={stop}
+        style={{ overflow: "visible" }}
+      >
+        <div className="toolbar-left" style={{ overflow: "visible" }}>
+          {/* Month & Year selectors only (no Today/arrow buttons) */}
+          <div className="month-year-selector flex items-center gap-2 relative">
+            {/* Month */}
+            <div className="relative">
+              <button
+                className="selector-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowMonthPicker((p) => !p);
+                  setShowYearPicker(false);
+                }}
+              >
+                <span className="hidden sm:inline">{months[date.getMonth()]}</span>
+                <span className="sm:hidden">{months[date.getMonth()].slice(0, 3)}</span>
+                <ChevronDown size={14} className="sm:w-4 sm:h-4" />
+              </button>
+
+              {showMonthPicker && (
+                <div
+                  className="picker-dropdown month-picker"
+                  style={{
+                    position: "absolute",
+                    top: "100%",
+                    left: 0,
+                    marginTop: 8,
+                    zIndex: 2000,
+                  }}
+                  onClick={stop}
+                >
+                  {months.map((month, index) => (
+                    <button
+                      key={month}
+                      className={`picker-option ${date.getMonth() === index ? "active" : ""}`}
+                      onClick={() => handleMonthChange(index)}
+                    >
+                      {month}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Year */}
+            <div className="relative">
+              <button
+                className="selector-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowYearPicker((p) => !p);
+                  setShowMonthPicker(false);
+                }}
+              >
+                {date.getFullYear()}
+                <ChevronDown size={14} className="sm:w-4 sm:h-4" />
+              </button>
+
+              {showYearPicker && (
+                <div
+                  className="picker-dropdown year-picker"
+                  style={{
+                    position: "absolute",
+                    top: "100%",
+                    left: 0,
+                    marginTop: 8,
+                    zIndex: 2001,
+                    maxHeight: 280,
+                    overflowY: "auto",
+                  }}
+                  onClick={stop}
+                >
+                  {years.map((year) => (
+                    <button
+                      key={year}
+                      className={`picker-option ${date.getFullYear() === year ? "active" : ""}`}
+                      onClick={() => handleYearChange(year)}
+                    >
+                      {year}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-          {showMonthPicker && (
-            <div className="picker-dropdown month-picker" onClick={stop}>
-              {months.map((month, index) => (
-                <button
-                  key={month}
-                  className={`picker-option ${date.getMonth() === index ? "active" : ""}`}
-                  onClick={() => handleMonthChange(index)}
-                >
-                  {month}
-                </button>
-              ))}
-            </div>
-          )}
-          {showYearPicker && (
-            <div className="picker-dropdown year-picker" onClick={stop}>
-              {years.map((year) => (
-                <button
-                  key={year}
-                  className={`picker-option ${date.getFullYear() === year ? "active" : ""}`}
-                  onClick={() => handleYearChange(year)}
-                >
-                  {year}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
+
         <div className="toolbar-right">
-          <button
-            onClick={handleManageAvailability}
-            className="availability-btn"
-          >
+          <button onClick={handleManageAvailability} className="availability-btn">
             <span className="hidden sm:inline">Manage Availability</span>
             <span className="sm:hidden">Availability</span>
           </button>
@@ -387,6 +429,33 @@ const handleManageAvailability = () => {
     if (!name) return "?";
     return name.trim().charAt(0).toUpperCase();
   };
+
+  // ---------- ReusableModal wiring (view mode) ----------
+  const modalData = selectedEvent
+    ? {
+        patient: selectedEvent.resource?.patient || "-",
+        email: selectedEvent.resource?.email || "-",
+        phone: selectedEvent.resource?.phone || "-",
+        type: selectedEvent.resource?.type || "-",
+        reason: selectedEvent.resource?.reason || "-",
+        date: format(selectedEvent.start, "EEEE, MMMM d, yyyy"),
+        time: `${format(selectedEvent.start, "h:mm a")} - ${format(
+          selectedEvent.end,
+          "h:mm a"
+        )}`,
+      }
+    : {};
+
+  const viewFields = [
+    { initialsKey: true, key: "patient" },
+    { titleKey: true, key: "patient" },
+    { subtitleKey: true, key: "date" },
+    { label: "Time", key: "time" },
+    { label: "Phone", key: "phone" },
+    { label: "Email", key: "email" },
+    { label: "Consultation Type", key: "type" },
+    { label: "Reason for Visit", key: "reason" },
+  ];
 
   if (loading) {
     return (
@@ -401,7 +470,7 @@ const handleManageAvailability = () => {
     <div className="scheduler-container">
       <ToastContainer position="top-right" autoClose={3000} theme="colored" />
 
-      {/* Added responsive grid layout */}
+      {/* Responsive layout */}
       <div className="scheduler-layout">
         <div className="calendar-section">
           <Calendar
@@ -428,9 +497,9 @@ const handleManageAvailability = () => {
           />
         </div>
 
-        {/* Sidebar - Added responsive styling */}
+        {/* Sidebar */}
         <div className="sidebar-section">
-          {/* Google Meet Card - Added responsive text */}
+          {/* Google Meet Card */}
           <div className="google-meet-card">
             <div className="card-header">
               <h3 className="text-xs sm:text-sm">Connect with upcoming patient</h3>
@@ -457,7 +526,7 @@ const handleManageAvailability = () => {
             </div>
           </div>
 
-          {/* Upcoming Appointments - Added responsive styling */}
+          {/* Upcoming Appointments */}
           <div className="upcoming-card">
             <div className="card-header">
               <CalendarIcon size={16} className="sm:w-[18px] sm:h-[18px]" />
@@ -509,14 +578,21 @@ const handleManageAvailability = () => {
         </div>
       </div>
 
-      {showAppointmentDetail && selectedEvent && (
-        <AppointmentDetailModal
-          isOpen={showAppointmentDetail}
-          onClose={() => setShowAppointmentDetail(false)}
-          event={selectedEvent}
-          onUpdateColor={handleUpdateEventColor}
-        />
-      )}
+      {/* Render modal via portal so it overlays header */}
+      {showAppointmentDetail &&
+        selectedEvent &&
+        createPortal(
+          <ReusableModal
+            isOpen={showAppointmentDetail}
+            onClose={() => setShowAppointmentDetail(false)}
+            mode="viewProfile"
+            title="Appointment Details"
+            data={modalData}
+            viewFields={viewFields}
+            size="md"
+          />,
+          document.body
+        )}
     </div>
   );
 };

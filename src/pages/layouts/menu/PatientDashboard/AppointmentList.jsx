@@ -124,7 +124,7 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
     else
       return (
         <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full text-xs sm:text-sm">
-          {isOverview ? "Pending" : "Waiting for Confirmation"}
+          {isOverview ? "Pending" : "Booking request sent"}
         </span>
       );
   };

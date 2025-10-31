@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Check, AlertTriangle } from "lucide-react";
-import { getSpecializationsWithWards } from "../../../../../utils/CrudService"; // adjust path if needed
+import { getSpecializationsWithWards } from "../../../../../utils/CrudService";
 
 const SmallDynamicTable = ({ columns, data }) => (
   <div className="overflow-x-auto">
@@ -47,12 +47,11 @@ const columns = [
   { header: "Available", accessor: "available" },
 ];
 
-const ReviewAndSaveStep = ({ bedMasterData /* in-memory object from parent */, occupiedStatusId = 2 }) => {
+const ReviewAndSaveStep = ({ bedMasterData, occupiedStatusId = 2 }) => {
   const [summaryData, setSummaryData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // transform API nested specializations array -> rows (keeps your original logic)
   const transformSpecializationsToSummary = (specializations) => {
     const rows = [];
 
@@ -100,7 +99,6 @@ const ReviewAndSaveStep = ({ bedMasterData /* in-memory object from parent */, o
     return rows;
   };
 
-  // NEW: transform the local bedMasterData shape -> summary rows
   const transformLocalBedMasterToSummary = (local) => {
     if (!local) return [];
     const rows = [];
@@ -110,24 +108,20 @@ const ReviewAndSaveStep = ({ bedMasterData /* in-memory object from parent */, o
     const rooms = Array.isArray(local.rooms) ? local.rooms : [];
     const beds = Array.isArray(local.beds) ? local.beds : [];
 
-    // If you used `specializationId` on departments use that, otherwise department.id
     departments.forEach((dept) => {
       const deptId = dept.id || dept.specializationId || dept.specializationId;
       const deptName = dept.name || dept.specializationName || dept.specialization || "Unknown";
 
       const deptWards = wards.filter((w) => String(w.departmentId || w.specializationId) === String(deptId));
 
-      // If there are no wards tied to department, we may still want to show them — skip for now
       deptWards.forEach((ward) => {
         const wardId = ward.id;
         const wardName = ward.wardName || ward.name || `Ward ${wardId || ""}`;
-        // ward type might be in multiple possible props
         const wardType = ward.wardTypeName || ward.typeName || ward.type || ward.wardType || "N/A";
 
         const wardRooms = rooms.filter((r) => String(r.wardId) === String(wardId));
         const roomCount = wardRooms.length;
 
-        // collect all beds for these rooms
         const allBeds = wardRooms.flatMap((room) => beds.filter((b) => String(b.roomId) === String(room.id)));
 
         const totalBeds = allBeds.length;
@@ -162,7 +156,6 @@ const ReviewAndSaveStep = ({ bedMasterData /* in-memory object from parent */, o
       setLoading(true);
 
       try {
-        // 1) If parent passed in-memory bedMasterData (departments/wards/rooms/beds), use that
         if (bedMasterData && (Array.isArray(bedMasterData.departments) || Array.isArray(bedMasterData.wards))) {
           const transformed = transformLocalBedMasterToSummary(bedMasterData);
           if (mounted) setSummaryData(transformed);
@@ -170,7 +163,6 @@ const ReviewAndSaveStep = ({ bedMasterData /* in-memory object from parent */, o
           return;
         }
 
-        // 2) If bedMasterData was provided as an array of specializations, handle it
         if (Array.isArray(bedMasterData)) {
           const transformed = transformSpecializationsToSummary(bedMasterData);
           if (mounted) setSummaryData(transformed);
@@ -178,7 +170,6 @@ const ReviewAndSaveStep = ({ bedMasterData /* in-memory object from parent */, o
           return;
         }
 
-        // 3) If bedMasterData had a wrapper like { specializations: [...] }
         if (bedMasterData && Array.isArray(bedMasterData.specializations)) {
           const transformed = transformSpecializationsToSummary(bedMasterData.specializations);
           if (mounted) setSummaryData(transformed);
@@ -186,7 +177,6 @@ const ReviewAndSaveStep = ({ bedMasterData /* in-memory object from parent */, o
           return;
         }
 
-        // 4) Fallback: fetch from API (only when no local data supplied)
         const resp = await getSpecializationsWithWards();
         const data = resp?.data;
         if (!Array.isArray(data)) {
@@ -207,7 +197,6 @@ const ReviewAndSaveStep = ({ bedMasterData /* in-memory object from parent */, o
     return () => {
       mounted = false;
     };
-    // Re-run whenever the parent in-memory bedMasterData changes or occupiedStatusId changes
   }, [bedMasterData, occupiedStatusId]);
 
   return (

@@ -769,18 +769,24 @@ const IPDTab = forwardRef(
           console.error("Error saving patient:", error);
           toast.error("Failed to save patient details");
         }
-      } else if (ipdWizardStep === 2) {
-        if (!selectedWard) {
-          toast.error("Please select a ward");
-          return;
-        }
-        setIpdWizardData((prev) => ({
-          ...prev,
-          wardType: selectedWard.type,
-          wardNumber: selectedWard.number,
-          department: selectedWard.department,
-        }));
-        setIpdWizardStep(3);
+    } else if (ipdWizardStep === 2) {
+  if (!selectedWard) {
+    toast.error("Please select a ward");
+    return;
+  }
+  const rawType = (selectedWard?.type || "").toString();
+  const m = rawType.match(/^(.+?)\s+(\d+)\s*$/);
+  const parsedType = m ? m[1] : selectedWard?.type || "";
+  const parsedNum  = m ? m[2] : (selectedWard?.number ?? selectedWard?.wardNumber ?? "");
+
+  setIpdWizardData((prev) => ({
+    ...prev,
+    wardType: parsedType,
+    wardNumber: parsedNum,
+    department: selectedWard?.department,
+  }));
+  setIpdWizardStep(3);
+
       } else if (ipdWizardStep === 3) {
         if (!selectedRoom) {
           toast.error("Please select a room");
@@ -880,16 +886,22 @@ const IPDTab = forwardRef(
       fetchAllPatients,
     ]);
 
-    const handleWardSelection = useCallback((ward) => {
-      setSelectedWard(ward);
-      setIpdWizardData((prev) => ({
-        ...prev,
-        wardType: ward?.type,
-        wardNumber: ward?.number,
-        department: ward?.department,
-      }));
-      setIpdWizardStep(3);
-    }, []);
+  const handleWardSelection = useCallback((ward) => {
+  // Derive number from names like "ICU 1"
+  const rawType = (ward?.type || "").toString();
+  const m = rawType.match(/^(.+?)\s+(\d+)\s*$/);
+  const parsedType = m ? m[1] : ward?.type || "";
+  const parsedNum  = m ? m[2] : (ward?.number ?? ward?.wardNumber ?? "");
+
+  setSelectedWard(ward);
+  setIpdWizardData((prev) => ({
+    ...prev,
+    wardType: parsedType,
+    wardNumber: parsedNum,
+    department: ward?.department,
+  }));
+  setIpdWizardStep(3);
+}, []);
 
     const handleRoomSelection = useCallback((roomNumber) => {
       setSelectedRoom(roomNumber);
@@ -899,33 +911,41 @@ const IPDTab = forwardRef(
       }));
     }, []);
 
-    const handleBedSelection = useCallback(
-      (bedNumber) => {
-        if (!selectedWard) return;
-        const wardFormat = `${selectedWard.type}-${selectedWard.number}-${bedNumber}`;
-        const isOccupied = ipdPatients.some(
-          (patient) =>
-            patient.status === "Admitted" && (patient.ward || "").toString() === wardFormat
-        );
-        if (isOccupied) {
-          toast.error("This bed is currently occupied by another patient");
-          return;
-        }
-        const isUnderMaintenance = Math.random() < 0.05;
-        if (isUnderMaintenance) {
-          toast.error("This bed is under maintenance");
-          return;
-        }
-        setSelectedBed(bedNumber);
-        setIpdWizardData((prev) => ({
-          ...prev,
-          bedNumber: bedNumber.toString(),
-          admissionDate: getCurrentDate(),
-          admissionTime: incrementTime(prev.admissionTime),
-        }));
-      },
-      [selectedWard, ipdPatients]
+const handleBedSelection = useCallback(
+  (bedNumber) => {
+    if (!selectedWard) return;
+
+    // Parse ward name like "ICU 1" -> wardType="ICU", wardNum="1"
+    const rawType = (selectedWard.type || "").toString();
+    const m = rawType.match(/^(.+?)\s+(\d+)\s*$/);
+    const wardType = m ? m[1] : rawType;
+    const wardNum  = m ? m[2] : (selectedWard.number ?? selectedWard.wardNumber ?? "");
+
+    // Include ROOM in the key (must match how you build `patient.ward`)
+    const wardKey = `${wardType}-${wardNum}-${selectedRoom}-${bedNumber}`;
+
+    const isOccupied = ipdPatients.some(
+      (p) =>
+        (p.status || "").toLowerCase() === "admitted" &&
+        (p.ward || "").toString() === wardKey
     );
+    if (isOccupied) {
+      toast.error("This bed is currently occupied by another patient");
+      return;
+    }
+
+    // ✅ No randomness here
+    setSelectedBed(bedNumber);
+    setIpdWizardData((prev) => ({
+      ...prev,
+      bedNumber: bedNumber.toString(),
+      admissionDate: getCurrentDate(),
+      admissionTime: incrementTime(prev.admissionTime),
+    }));
+  },
+  [selectedWard, selectedRoom, ipdPatients]
+);
+
 
     const scrollBeds = useCallback(
       (direction) => {
