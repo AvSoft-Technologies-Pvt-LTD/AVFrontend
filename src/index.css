@@ -580,4 +580,68 @@ body {
     animation: shine-blink 1s infinite;
   }
 }
+@media print {
+  /* Hide modal overlays, navigation, and background */
+  .modal-overlay,
+  .overlay,
+  .backdrop,
+  .no-print,
+  .bg-black,
+  .bg-gray-900,
+  .bg-opacity-50 {
+    display: none !important;
+  }
 
+  /* Show invoice only */
+  #invoice-print-template {
+    display: block !important;
+    position: relative !important;
+    background: #ffffff !important;
+    color: #000 !important;
+    margin: 0 auto !important;
+    width: 100% !important;
+    box-shadow: none !important;
+    padding: 0 20px !important;
+  }
+
+  /* Remove page margins */
+  @page {
+    margin: -3mm;
+  }
+
+  body {
+    background: #fff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Reset everything else */
+  body * {
+    visibility: hidden !important;
+  }
+
+  #invoice-print-template,
+  #invoice-print-template * {
+    visibility: visible !important;
+  }
+
+  /* Make sure invoice starts from top */
+  #invoice-print-template {
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+
+  /* Avoid page breaks inside tables */
+  table, tr, td, th {
+    page-break-inside: avoid !important;
+  }
+
+  /* Compact spacing for cleaner print layout */
+  .invoice-container {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+}

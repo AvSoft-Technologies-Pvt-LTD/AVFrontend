@@ -13,6 +13,7 @@ axiosInstance.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token"); // or from Redux state
     if (token) {
+      console.log("Attaching token to request:", token);
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;

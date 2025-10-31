@@ -2,7 +2,7 @@ import React from "react";
 export default function MobileCardList({ columns, data, onCellClick }) {
   return (
     <div className="space-y-4 p-2">
-      {data.map((row) => {
+      {data?.map((row) => {
         // Separate key columns for header (like Name/Title, Status, ID)
         const titleCol = columns.find(col => col.header.toLowerCase().includes("name")) || columns[0];
         const statusCol = columns.find(col => col.header.toLowerCase().includes("status"));
@@ -40,7 +40,7 @@ export default function MobileCardList({ columns, data, onCellClick }) {
             </div>
             {/* Body Section */}
             <div className="grid grid-cols-2 gap-4">
-              {bodyCols.map((col) => (
+              {bodyCols?.map((col) => (
                 <div key={col.accessor} className="space-y-1">
                   <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
                     {col.header}
