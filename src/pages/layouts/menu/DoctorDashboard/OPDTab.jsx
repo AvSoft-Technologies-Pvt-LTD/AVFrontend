@@ -9,9 +9,11 @@ import ReusableModal from "../../../../components/microcomponents/Modal";
 import TeleConsultFlow from "../../../../components/microcomponents/Call";
 import { getFamilyMembersByPatient, getPersonalHealthByPatientId } from "../../../../utils/CrudService";
 import { useDispatch, useSelector } from "react-redux";
-import { registerUser} from "../../../../context-api/authSlice";
-import {  getPatientById, updatePatient,getGenders  } from "../../../../utils/masterService";
+import { registerUser } from "../../../../context-api/authSlice";
+import { getPatientById, updatePatient, getGenders } from "../../../../utils/masterService";
 import axiosInstance from "../../../../utils/axiosInstance";
+import PatientVerificationSteps from "../../../../components/Profile"; // Import the new component
+
 const getCurrentDate = () => new Date().toISOString().slice(0, 10);
 const getCurrentTime = () => new Date().toTimeString().slice(0, 5);
 
@@ -98,7 +100,61 @@ const PatientViewSections = ({ data, personalHealthDetails, familyHistory, vital
     ))}
   </div>
 );
-
+const PatientVerificationModal = ({ isOpen, onClose, onConfirm }) => {
+  if (!isOpen) return null;
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-2 sm:p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <motion.div
+        className="flex flex-col relative w-full max-w-4xl max-h-[95vh] rounded-xl bg-white shadow-xl overflow-hidden"
+        initial={{ scale: 0.9, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
+        <div className="sticky top-0 z-20 bg-gradient-to-r from-[#01B07A] to-[#1A223F] rounded-t-xl p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="relative mr-4 flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#01B07A] text-lg font-bold uppercase shadow-inner">
+                PV
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-white">Verify Patient</h2>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-white text-white hover:bg-white hover:text-[#01B07A] transition-all duration-200"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-auto p-6 bg-gray-50">
+          <PatientVerificationSteps
+            onConfirm={onConfirm}
+            onCancel={onClose}
+          />
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
 const PatientViewModal = ({ isOpen, onClose, patient, personalHealthDetails, familyHistory, vitalSigns, loading, onEdit }) => {
   const [selectedFile, setSelectedFile] = useState(null);
   const handleFileChange = (e) => {
@@ -240,24 +296,23 @@ const OpdTab = forwardRef(
     const [detailsLoading, setDetailsLoading] = useState(false);
     const [genderOptions, setGenderOptions] = useState([]);
 
-    // Fetch genders on component mount
-   useEffect(() => {
-  const fetchGenders = async () => {
-    try {
-      const response = await getGenders();
-      const genders = response.data.map((gender) => ({
-        value: gender.id,
-        label: gender.name, // ✅ Updated to match API field
-      }));
-      setGenderOptions(genders);
-    } catch (error) {
-      console.error("Error fetching genders:", error);
-      toast.error("Failed to fetch genders");
-    }
-  };
+    useEffect(() => {
+      const fetchGenders = async () => {
+        try {
+          const response = await getGenders();
+          const genders = response.data.map((gender) => ({
+            value: gender.id,
+            label: gender.name,
+          }));
+          setGenderOptions(genders);
+        } catch (error) {
+          console.error("Error fetching genders:", error);
+          toast.error("Failed to fetch genders");
+        }
+      };
+      fetchGenders();
+    }, []);
 
-  fetchGenders();
-}, []);
     useImperativeHandle(ref, () => ({
       openAddPatientModal: () => {
         openModal("addPatient");
@@ -386,39 +441,35 @@ const OpdTab = forwardRef(
       }
     };
 
-  const handleFormChange = async (data) => {
-  // Clear errors for the field being edited
-  const newErrors = { ...errors };
-  Object.keys(data).forEach((key) => {
-    if (newErrors[key]) delete newErrors[key];
-  });
-  setErrors(newErrors);
-
-  // Rest of your existing logic
-  if (data.sameAsPermAddress && data.addressPerm) {
-    data.addressTemp = data.addressPerm;
-  }
-  if (data.pincode && data.pincode.length === 6) {
-    const address = await fetchAddressFromPincode(data.pincode);
-    data = {
-      ...data,
-      city: address.city,
-      state: address.state,
-      district: address.district,
-      cityOptions: address.cityOptions,
+    const handleFormChange = async (data) => {
+      const newErrors = { ...errors };
+      Object.keys(data).forEach((key) => {
+        if (newErrors[key]) delete newErrors[key];
+      });
+      setErrors(newErrors);
+      if (data.sameAsPermAddress && data.addressPerm) {
+        data.addressTemp = data.addressPerm;
+      }
+      if (data.pincode && data.pincode.length === 6) {
+        const address = await fetchAddressFromPincode(data.pincode);
+        data = {
+          ...data,
+          city: address.city,
+          state: address.state,
+          district: address.district,
+          cityOptions: address.cityOptions,
+        };
+      } else if (!data.pincode || data.pincode.length !== 6) {
+        data = {
+          ...data,
+          city: "",
+          state: "",
+          district: "",
+          cityOptions: [],
+        };
+      }
+      setFormData(data);
     };
-  } else if (!data.pincode || data.pincode.length !== 6) {
-    data = {
-      ...data,
-      city: "",
-      state: "",
-      district: "",
-      cityOptions: [],
-    };
-  }
-  setFormData(data);
-};
-
 
     const handleViewPatient = (patient) => {
       setSelectedPatient(patient);
@@ -440,93 +491,79 @@ const OpdTab = forwardRef(
       openModal("editPatient");
     };
 
-   const handleUpdatePatient = async (formData) => {
-  try {
-    const payload = {
-      ...formData,
-      name: `${formData.firstName || ""} ${formData.middleName || ""} ${formData.lastName || ""}`.trim(),
-      permanentAddress: formData.addressPerm,
-      temporaryAddress: formData.addressTemp,
-      updatedAt: new Date().toISOString(),
+    const handleUpdatePatient = async (formData) => {
+      try {
+        const payload = {
+          ...formData,
+          name: `${formData.firstName || ""} ${formData.middleName || ""} ${formData.lastName || ""}`.trim(),
+          permanentAddress: formData.addressPerm,
+          temporaryAddress: formData.addressTemp,
+          updatedAt: new Date().toISOString(),
+        };
+        const response = await dispatch(updatePatient({ id: selectedPatient.id, data: payload }));
+        if (response.error) {
+          const errorMessage = response.payload;
+          if (typeof errorMessage === "object") {
+            Object.entries(errorMessage).forEach(([field, message]) => {
+              toast.error(`${field}: ${message}`);
+            });
+          } else {
+            toast.error(errorMessage || "Failed to update patient");
+          }
+          return;
+        }
+        toast.success("Patient updated successfully!");
+        closeModal("editPatient");
+        fetchAllPatients();
+      } catch (error) {
+        console.error("Error updating patient:", error);
+        toast.error("Failed to update patient");
+      }
     };
 
-    const response = await dispatch(updatePatient({ id: selectedPatient.id, data: payload }));
-    if (response.error) {
-      const errorMessage = response.payload;
-      if (typeof errorMessage === "object") {
-        Object.entries(errorMessage).forEach(([field, message]) => {
-          toast.error(`${field}: ${message}`);
+    const handleSavePatient = async (formData) => {
+      try {
+        const payload = new FormData();
+        Object.entries(formData).forEach(([key, value]) => {
+          if (key === "dob" && Array.isArray(value)) {
+            payload.append(key, value.join("-"));
+          } else if (key === "photo" && value instanceof File) {
+            payload.append(key, value);
+          } else if (value !== undefined && value !== null) {
+            payload.append(key, value);
+          }
         });
-      } else {
-        toast.error(errorMessage || "Failed to update patient");
+        if (formData.gender?.value) {
+          payload.append("genderId", formData.gender.value);
+        }
+        if (formData.pincode) {
+          payload.append("pinCode", formData.pincode);
+        }
+        payload.append("userType", "patient");
+        const response = await dispatch(registerUser(payload));
+        if (response.error) {
+          const errorMessage = response.payload;
+          if (typeof errorMessage === "object") {
+            Object.entries(errorMessage).forEach(([field, message]) => {
+              toast.error(`${field}: ${message}`);
+            });
+          } else {
+            toast.error(errorMessage || "Failed to save patient");
+          }
+          return;
+        }
+        setNewPatientId(response.payload.patientId);
+        toast.success("Patient details saved!");
+        closeModal("addPatient");
+        openModal("appointment");
+        toast.success("Please schedule appointment.");
+        fetchAllPatients();
+      } catch (error) {
+        console.error("Error saving patient:", error);
+        toast.error("Failed to save patient details");
       }
-      return;
-    }
+    };
 
-    toast.success("Patient updated successfully!");
-    closeModal("editPatient");
-    fetchAllPatients();
-  } catch (error) {
-    console.error("Error updating patient:", error);
-    toast.error("Failed to update patient");
-  }
-};
-
-const handleSavePatient = async (formData) => {
-  try {
-    const payload = new FormData();
-
-    // Append all fields to FormData
-    Object.entries(formData).forEach(([key, value]) => {
-      if (key === "dob" && Array.isArray(value)) {
-        payload.append(key, value.join("-"));
-      } else if (key === "photo" && value instanceof File) {
-        payload.append(key, value);
-      } else if (value !== undefined && value !== null) {
-        payload.append(key, value);
-      }
-    });
-    // Append genderId as a top-level field
-    if (formData.gender?.value) {
-      payload.append("genderId", formData.gender.value); // Send as genderId, not gender
-    }
-
-    // Append other required fields
-    if (formData.pincode) {
-      payload.append("pinCode", formData.pincode);
-    }
-
-    payload.append("userType", "patient");
-
-    // Log FormData for debugging
-    for (let [key, value] of payload.entries()) {
-      console.log(key, value);
-    }
-
-    const response = await dispatch(registerUser(payload));
-    if (response.error) {
-      const errorMessage = response.payload;
-      if (typeof errorMessage === "object") {
-        Object.entries(errorMessage).forEach(([field, message]) => {
-          toast.error(`${field}: ${message}`);
-        });
-      } else {
-        toast.error(errorMessage || "Failed to save patient");
-      }
-      return;
-    }
-
-    setNewPatientId(response.payload.patientId);
-    toast.success("Patient details saved!");
-    closeModal("addPatient");
-    openModal("appointment");
-    toast.success("Please schedule appointment.");
-    fetchAllPatients();
-  } catch (error) {
-    console.error("Error saving patient:", error);
-    toast.error("Failed to save patient details");
-  }
-};
     const handleScheduleAppointment = async (formData) => {
       try {
         const payload = {
@@ -552,39 +589,14 @@ const handleSavePatient = async (formData) => {
 
     const handleAddRecord = (patient) => navigate("/doctordashboard/form", { state: { patient } });
 
-    const generatePatientBasicFields = () => [
-      { name: "firstName", label: "First Name*", type: "text", required: true },
-      { name: "middleName", label: "Middle Name*", type: "text" },
-      { name: "lastName", label: "Last Name*", type: "text", required: true },
-      { name: "phone", label: "Phone Number*", type: "text", required: true },
-      { name: "aadhaar", label: "Aadhaar Number*", type: "text", required: true },
-      { name: "email", label: "Email Address*", type: "email", required: true },
-      { name: "gender", label: "Gender*", type: "select", required: true, options: genderOptions },
-      { name: "dob", label: "Date of Birth*", type: "date", required: true },
-      { name: "occupation", label: "Occupation*", type: "text", required: true },
-      { name: "pincode", label: "PIN Code*", type: "text", required: true, placeholder: "Enter 6-digit PIN code" },
-      { name: "city", label: "City/Locality*", type: "select", required: true, options: formData.cityOptions || [] },
-      { name: "state", label: "State*", type: "text", required: true, disabled: true },
-      { name: "district", label: "District*", type: "text", required: true, disabled: true },
-      {
-        name: "photo",
-        label: "Upload Profile Image*",
-        type: "file",
-        accept: "image/*",
-        required: false,
-        colSpan: 1,
-        description: "Upload a profile picture or medical image (JPEG, PNG, etc.)",
-      },
-      { name: "password", label: "Create Password*", type: "password", required: true },
-      { name: "confirmPassword", label: "Confirm Password*", type: "password", required: true },
-    ];
-
-    const APPOINTMENT_FIELDS = [
-      { name: "date", label: "Appointment Date", type: "date", required: true },
-      { name: "time", label: "Appointment Time", type: "time", required: true },
-      { name: "diagnosis", label: "Diagnosis", type: "text", required: true },
-      { name: "reason", label: "Reason for Visit", type: "select", required: true, options: ["Consultation", "Follow-up", "Test", "Other"].map((r) => ({ value: r, label: r })) },
-    ];
+    const handlePatientVerificationConfirm = (patientData) => {
+      // Here, you can pre-fill the form or proceed to the next step
+      // For now, just log and close the modal
+      console.log("Verified patient:", patientData);
+      toast.success(`Patient verified: ${patientData.fullName}`);
+      closeModal("addPatient");
+      openModal("appointment");
+    };
 
     const columns = [
       { header: "ID", accessor: "sequentialId" },
@@ -687,26 +699,22 @@ const handleSavePatient = async (formData) => {
           loading={detailsLoading}
           onEdit={handleEditPatient}
         />
-        <ReusableModal
-          isOpen={modals.addPatient}
-          onClose={() => closeModal("addPatient")}
-          mode="add"
-          title="Add OPD Patient"
-          fields={generatePatientBasicFields()}
-          data={formData}
-          onSave={handleSavePatient}
-          onChange={handleFormChange}
-          saveLabel="Next"
-          cancelLabel="Cancel"
-          size="lg"
-          errors={errors}
-        />
+         <PatientVerificationModal
+      isOpen={modals.addPatient}
+      onClose={() => closeModal("addPatient")}
+      onConfirm={handlePatientVerificationConfirm}
+    />
         <ReusableModal
           isOpen={modals.appointment}
           onClose={() => closeModal("appointment")}
           mode="add"
           title="Schedule Appointment"
-          fields={APPOINTMENT_FIELDS}
+          fields={[
+            { name: "date", label: "Appointment Date", type: "date", required: true },
+            { name: "time", label: "Appointment Time", type: "time", required: true },
+            { name: "diagnosis", label: "Diagnosis", type: "text", required: true },
+            { name: "reason", label: "Reason for Visit", type: "select", required: true, options: ["Consultation", "Follow-up", "Test", "Other"].map((r) => ({ value: r, label: r })) },
+          ]}
           data={appointmentFormData}
           onSave={handleScheduleAppointment}
           onChange={setAppointmentFormData}
@@ -726,7 +734,32 @@ const handleSavePatient = async (formData) => {
           onClose={() => closeModal("editPatient")}
           mode="edit"
           title="Edit OPD Patient"
-          fields={generatePatientBasicFields()}
+          fields={[
+            { name: "firstName", label: "First Name*", type: "text", required: true },
+            { name: "middleName", label: "Middle Name*", type: "text" },
+            { name: "lastName", label: "Last Name*", type: "text", required: true },
+            { name: "phone", label: "Phone Number*", type: "text", required: true },
+            { name: "aadhaar", label: "Aadhaar Number*", type: "text", required: true },
+            { name: "email", label: "Email Address*", type: "email", required: true },
+            { name: "gender", label: "Gender*", type: "select", required: true, options: genderOptions },
+            { name: "dob", label: "Date of Birth*", type: "date", required: true },
+            { name: "occupation", label: "Occupation*", type: "text", required: true },
+            { name: "pincode", label: "PIN Code*", type: "text", required: true, placeholder: "Enter 6-digit PIN code" },
+            { name: "city", label: "City/Locality*", type: "select", required: true, options: formData.cityOptions || [] },
+            { name: "state", label: "State*", type: "text", required: true, disabled: true },
+            { name: "district", label: "District*", type: "text", required: true, disabled: true },
+            {
+              name: "photo",
+              label: "Upload Profile Image*",
+              type: "file",
+              accept: "image/*",
+              required: false,
+              colSpan: 1,
+              description: "Upload a profile picture or medical image (JPEG, PNG, etc.)",
+            },
+            { name: "password", label: "Create Password*", type: "password", required: true },
+            { name: "confirmPassword", label: "Confirm Password*", type: "password", required: true },
+          ]}
           data={formData}
           onSave={handleUpdatePatient}
           onChange={handleFormChange}

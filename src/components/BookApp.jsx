@@ -3,79 +3,143 @@ import { useSelector } from "react-redux";
 import axios from "axios";
 import { useNavigate, useLocation } from "react-router-dom";
 import { FaChevronLeft, FaChevronRight, FaMapMarkerAlt, FaStethoscope, FaCalendarAlt, FaClock, FaUser, FaHospital } from 'react-icons/fa';
-import { getHospitalDropdown, getSpecializationsBySymptoms, getAllSymptoms } from '../utils/masterService';
 import { ArrowLeft, ChevronDown } from "lucide-react";
+import {
+  getHospitalDropdown,
+  getSpecializationsBySymptoms,
+  getAllSymptoms,
+  getDoctorsBySpecialty,
+} from '../utils/masterService';
 
 const MultiStepForm = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const user = useSelector((state) => state.auth?.user);
 
-  const getInitialState = () => {
-    if (location.state?.preservedFormState) {
-      return location.state.preservedFormState;
-    }
-    const suggestedValues = {
-      location: sessionStorage.getItem('suggestedLocation') || "",
-      specialty: sessionStorage.getItem('suggestedSpecialty') || "",
-      doctorType: sessionStorage.getItem('suggestedDoctorType') || "All",
-      symptoms: sessionStorage.getItem('suggestedSymptoms') || ""
+  // Clear sessionStorage on unmount and navigation
+  useEffect(() => {
+    return () => {
+      const formStateKeys = [
+        'consultationType', 'symptoms', 'specialty', 'specialtyId', 'selectedState',
+        'location', 'pincode', 'doctorType', 'hospitalName', 'hospitalId', 'minPrice', 'maxPrice',
+        'fullAddress', 'isCurrentLocation', 'selectedDate', 'selectedTime'
+      ];
+      formStateKeys.forEach(key => {
+        sessionStorage.removeItem(`formState_${key}`);
+      });
     };
+  }, []);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const formStateKeys = [
+        'consultationType', 'symptoms', 'specialty', 'specialtyId', 'selectedState',
+        'location', 'pincode', 'doctorType', 'hospitalName', 'hospitalId', 'minPrice', 'maxPrice',
+        'fullAddress', 'isCurrentLocation', 'selectedDate', 'selectedTime'
+      ];
+      formStateKeys.forEach(key => {
+        sessionStorage.removeItem(`formState_${key}`);
+      });
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
+
+  // Initial state (fresh start)
+  const getInitialState = () => {
     return {
-      consultationType: sessionStorage.getItem('formState_consultationType') || "Physical",
-      symptoms: sessionStorage.getItem('formState_symptoms') || suggestedValues.symptoms,
-      specialty: sessionStorage.getItem('formState_specialty') || suggestedValues.specialty,
+      consultationType: "Physical",
+      symptoms: "",
+      specialty: "",
+      specialtyId: "",
       specialties: [],
       selectedDoctor: null,
       doctors: [],
       filteredDoctors: [],
       states: [],
-      selectedState: sessionStorage.getItem('formState_selectedState') || "",
+      selectedState: "",
       cities: [],
-      location: sessionStorage.getItem('formState_location') || suggestedValues.location,
-      pincode: sessionStorage.getItem('formState_pincode') || "",
+      location: "",
+      pincode: "",
       pincodeLoading: false,
       pincodeError: "",
-      doctorType: sessionStorage.getItem('formState_doctorType') || suggestedValues.doctorType,
-      hospitalName: sessionStorage.getItem('formState_hospitalName') || "",
+      doctorType: "All",
+      hospitalName: "",
+      hospitalId: "",
       hospitalsOptions: [],
       hospitalsLoading: false,
-      minPrice: sessionStorage.getItem('formState_minPrice') || "",
-      maxPrice: sessionStorage.getItem('formState_maxPrice') || "",
+      minPrice: "",
+      maxPrice: "",
       selectedDate: "",
       selectedTime: "",
-      fullAddress: sessionStorage.getItem('formState_fullAddress') || "",
+      fullAddress: "",
       showBookingModal: false,
       showConfirmationModal: false,
       isLoading: false,
       loadingCities: false,
-      isCurrentLocation: sessionStorage.getItem('formState_isCurrentLocation') === 'true'
+      loadingDoctors: false,
+      isCurrentLocation: false,
     };
   };
 
   const [state, setState] = useState(getInitialState);
-  const [formSteps, setFormSteps] = useState([]);
   const [symptomsDropdownOpen, setSymptomsDropdownOpen] = useState(false);
   const [symptomsSearch, setSymptomsSearch] = useState("");
   const [allSymptoms, setAllSymptoms] = useState([]);
 
+  // Update state and sessionStorage
   const updateState = (updates) => {
-    setState(prev => {
-      const newState = { ...prev, ...updates };
-      const formStateKeys = [
-        'consultationType', 'symptoms', 'specialty', 'selectedState',
-        'location', 'pincode', 'doctorType', 'hospitalName', 'minPrice', 'maxPrice',
-        'fullAddress', 'isCurrentLocation'
-      ];
-      formStateKeys.forEach(key => {
-        if (newState[key] !== undefined && newState[key] !== null) {
-          sessionStorage.setItem(`formState_${key}`, newState[key].toString());
-        }
-      });
-      return newState;
-    });
+    setState(prev => ({ ...prev, ...updates }));
   };
 
+  // Fetch doctors by specialtyId
+  const fetchDoctorsBySpecialty = async () => {
+    if (!state.specialtyId) return;
+    try {
+      updateState({ loadingDoctors: true });
+      const response = await getDoctorsBySpecialty(state.specialtyId);
+      let doctors = response.data || [];
+      updateState({
+        doctors: doctors,
+        filteredDoctors: doctors,
+        loadingDoctors: false,
+      });
+    } catch (error) {
+      console.error("Failed to fetch doctors:", error);
+      updateState({
+        doctors: [],
+        filteredDoctors: [],
+        loadingDoctors: false,
+      });
+    }
+  };
+
+  // Apply client-side filters
+  useEffect(() => {
+    if (!state.doctors || !Array.isArray(state.doctors)) return;
+    const filtered = state.doctors.filter(d => {
+      if (state.doctorType !== "All" && d.doctorPanelName !== state.doctorType) return false;
+      if (state.minPrice !== "" && parseInt(d.fees) < parseInt(state.minPrice)) return false;
+      if (state.maxPrice !== "" && parseInt(d.fees) > parseInt(state.maxPrice)) return false;
+      if (state.hospitalName !== "" && d.hospital && !d.hospital.toLowerCase().includes(state.hospitalName.toLowerCase())) return false;
+      if (state.consultationType === "Physical" && state.location && d.city !== state.location) return false;
+      return true;
+    });
+    updateState({ filteredDoctors: filtered });
+  }, [state.doctors, state.doctorType, state.minPrice, state.maxPrice, state.hospitalName, state.location, state.consultationType]);
+
+  // On specialty selection: fetch by specialty; if cleared, clear doctors
+  useEffect(() => {
+    if (state.specialtyId) {
+      fetchDoctorsBySpecialty();
+    } else {
+      updateState({ doctors: [], filteredDoctors: [] });
+    }
+  }, [state.specialtyId]);
+
+  // Fetch hospitals
   const fetchHospitals = async () => {
     const collator = new Intl.Collator(undefined, { sensitivity: "base" });
     const byLabelAsc = (a, b) => collator.compare(String(a.label || ""), String(b.label || ""));
@@ -92,17 +156,18 @@ const MultiStepForm = () => {
         .sort(byLabelAsc);
       updateState({
         hospitalsOptions: options,
-        hospitalsLoading: false
+        hospitalsLoading: false,
       });
     } catch (error) {
       console.error("Failed to fetch hospitals:", error);
       updateState({
         hospitalsOptions: [],
-        hospitalsLoading: false
+        hospitalsLoading: false,
       });
     }
   };
 
+  // Fetch all symptoms
   const fetchAllSymptoms = async () => {
     try {
       const response = await getAllSymptoms();
@@ -116,85 +181,34 @@ const MultiStepForm = () => {
     }
   };
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        await fetchHospitals();
-        await fetchAllSymptoms();
-        const doctorsRes = await axios.get("https://mocki.io/v1/2524ace5-ef9b-474f-a365-b5a4037ca247");
-        updateState({ doctors: doctorsRes.data || [], loadingCities: false });
-        if (state.selectedState) {
-          const response = await fetch(`https://api.postalpincode.in/state/${state.selectedState}`);
-          const data = await response.json();
-          if (data && data[0] && data[0].Status === "Success") {
-            const cities = data[0].PostOffice.map((office) => office.Name);
-            updateState({ cities });
-          }
-        }
-        if (state.specialty && state.doctorType === "AV Swasthya") {
-          const filtered = (doctorsRes.data || []).filter(d =>
-            d.specialty === state.specialty &&
-            d.doctorType === "AV Swasthya" &&
-            (state.location ? d.location === state.location : true)
-          );
-          updateState({ filteredDoctors: filtered });
-        }
-      } catch (err) {
-        console.error("Failed to fetch data:", err);
-        updateState({ doctors: [], filteredDoctors: [] });
-      }
-    };
-    fetchData();
-  }, []);
-
+  // Fetch specializations by symptoms
   useEffect(() => {
     if (state.symptoms) {
       const fetchSpecializations = async () => {
         try {
           const response = await getSpecializationsBySymptoms({ q: state.symptoms });
           const specialties = Array.isArray(response.data)
-            ? response.data.map(item => item.name || item.label || item)
+            ? response.data.map(item => ({
+                id: item.id || item.specialityId,
+                name: item.name || item.label || item.specializationName || item,
+              }))
             : [];
-          updateState({ specialties });
+          const stillValid = specialties.some(s => String(s.id) === String(state.specialtyId || ''));
+          if (!stillValid) {
+            updateState({ specialties, specialtyId: '', specialty: '', doctors: [], filteredDoctors: [] });
+          } else {
+            updateState({ specialties });
+          }
         } catch (error) {
           console.error("Failed to fetch specializations:", error);
-          updateState({ specialties: [] });
+          updateState({ specialties: [], specialtyId: '', specialty: '', doctors: [], filteredDoctors: [] });
         }
       };
       fetchSpecializations();
     }
   }, [state.symptoms]);
 
-  useEffect(() => {
-    if (!state.doctors || !Array.isArray(state.doctors)) {
-      return;
-    }
-    const filtered = state.doctors.filter(d =>
-      d.consultationType?.toLowerCase() === state.consultationType.toLowerCase() &&
-      d.specialty === state.specialty &&
-      (state.consultationType !== "Physical" || d.location === state.location) &&
-      (state.minPrice === "" || parseInt(d.fees) >= parseInt(state.minPrice)) &&
-      (state.maxPrice === "" || parseInt(d.fees) <= parseInt(state.maxPrice)) &&
-      (state.hospitalName === "" || d.hospital?.toLowerCase().includes(state.hospitalName.toLowerCase())) &&
-      (state.doctorType === "All" || d.doctorType === state.doctorType)
-    );
-    updateState({ filteredDoctors: filtered });
-  }, [state.doctors, state.consultationType, state.specialty, state.location, state.minPrice, state.maxPrice, state.hospitalName, state.doctorType]);
-
-  useEffect(() => {
-    if (state.consultationType === "Virtual") {
-      updateState({
-        selectedState: "",
-        location: "",
-        pincode: "",
-        cities: [],
-        fullAddress: "",
-        pincodeError: "",
-        isCurrentLocation: false
-      });
-    }
-  }, [state.consultationType]);
-
+  // Fetch location by pincode
   const fetchLocationByPincode = async (pincode) => {
     if (!pincode || pincode.length !== 6) {
       updateState({ pincodeError: "Please enter a valid 6-digit pincode" });
@@ -233,6 +247,7 @@ const MultiStepForm = () => {
     }
   };
 
+  // Handle pincode change
   const handlePincodeChange = (e) => {
     const value = e.target.value.replace(/\D/g, "");
     if (value.length <= 6) {
@@ -246,6 +261,7 @@ const MultiStepForm = () => {
     }
   };
 
+  // Handle state change
   const handleStateChange = (e) => {
     const selectedState = e.target.value;
     updateState({
@@ -258,58 +274,20 @@ const MultiStepForm = () => {
     });
   };
 
-const handleLocationChange = (e) => {
-  const newLocation = e.target.value;
-  const shouldResetPincode = newLocation === "current-location" || !state.pincode;
-  updateState({
-    location: newLocation,
-    fullAddress: "",
-    pincode: shouldResetPincode ? "" : state.pincode, // Keep pincode if it was used
-    pincodeError: "",
-    isCurrentLocation: newLocation === "current-location"
-  });
-};
-
-  const scrollRef = useRef(null);
-  const [currentGroup, setCurrentGroup] = useState(0);
-  const cardWidth = 300;
-  const visibleCards = 3;
-  const totalGroups = state.filteredDoctors && Array.isArray(state.filteredDoctors)
-    ? Math.ceil(state.filteredDoctors.length / visibleCards)
-    : 0;
-
-  const scrollToGroup = groupIndex => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTo({
-        left: groupIndex * cardWidth * visibleCards,
-        behavior: "smooth"
-      });
-      setCurrentGroup(groupIndex);
-    }
+  // Handle location change
+  const handleLocationChange = (e) => {
+    const newLocation = e.target.value;
+    const shouldResetPincode = newLocation === "current-location" || !state.pincode;
+    updateState({
+      location: newLocation,
+      fullAddress: "",
+      pincode: shouldResetPincode ? "" : state.pincode,
+      pincodeError: "",
+      isCurrentLocation: newLocation === "current-location"
+    });
   };
 
-  const scroll = (dir) => {
-    let newGroup = currentGroup + dir;
-    if (newGroup < 0) newGroup = 0;
-    if (newGroup >= totalGroups) newGroup = totalGroups - 1;
-    scrollToGroup(newGroup);
-  };
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (scrollRef.current) {
-        const container = scrollRef.current;
-        const maxScrollLeft = container.scrollWidth - container.clientWidth;
-        if (container.scrollLeft + 300 >= maxScrollLeft) {
-          container.scrollTo({ left: 0, behavior: "smooth" });
-        } else {
-          container.scrollBy({ left: 300, behavior: "smooth" });
-        }
-      }
-    }, 4000);
-    return () => clearInterval(interval);
-  }, []);
-
+  // Handle payment
   const handlePayment = async () => {
     const userId = localStorage.getItem("userId");
     const payload = {
@@ -321,14 +299,15 @@ const handleLocationChange = (e) => {
       date: state.selectedDate,
       time: state.selectedTime,
       specialty: state.specialty,
+      specialtyId: state.specialtyId,
       consultationType: state.consultationType,
       location: state.consultationType === "Virtual" ? "Online" : state.location,
-      doctorId: state.selectedDoctor?.id || "N/A",
-      doctorName: state.selectedDoctor?.name || "N/A",
+      doctorId: state.selectedDoctor?.doctorId || state.selectedDoctor?.id || "N/A",
+      doctorName: state.selectedDoctor?.doctorName || state.selectedDoctor?.name || "N/A",
       fees: state.selectedDoctor?.fees ?? '',
       status: "Upcoming",
       notification: {
-        doctorId: state.selectedDoctor?.id || "N/A",
+        doctorId: state.selectedDoctor?.doctorId || state.selectedDoctor?.id || "N/A",
         message: `New appointment with ${user?.firstName || "a patient"} on ${state.selectedDate} at ${state.selectedTime}. Symptoms: ${state.symptoms || "None"}. ${state.consultationType === "Virtual" ? "Virtual consultation" : `Location: ${state.location || "Not specified"}`}.`
       }
     };
@@ -338,22 +317,10 @@ const handleLocationChange = (e) => {
       showConfirmationModal: true
     });
     try {
-      const bookingResponse = await axios.post("https://67e3e1e42ae442db76d2035d.mockapi.io/register/book", payload);
-      try {
-        await axios.post("https://67e631656530dbd3110f0322.mockapi.io/drnotifiy", payload.notification);
-      } catch (notificationError) {
-        console.warn("Notification failed but booking was successful:", notificationError);
-      }
+      const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+      const bookingResponse = await axios.post(`${BACKEND_URL}/api/bookings`, payload);
       console.log("Booking successful:", bookingResponse.data);
       setTimeout(() => {
-        const formStateKeys = [
-          'consultationType', 'symptoms', 'specialty', 'selectedState',
-          'location', 'pincode', 'doctorType', 'hospitalName', 'minPrice', 'maxPrice',
-          'fullAddress', 'isCurrentLocation'
-        ];
-        formStateKeys.forEach(key => {
-          sessionStorage.removeItem(`formState_${key}`);
-        });
         updateState({
           showConfirmationModal: false,
           selectedState: "",
@@ -363,14 +330,16 @@ const handleLocationChange = (e) => {
           selectedDate: "",
           selectedTime: "",
           specialty: "",
+          specialtyId: "",
           specialties: [],
           selectedDoctor: null,
           consultationType: "Physical",
-          states: Object.keys(stateCityMap),
           cities: [],
           pincodeError: "",
           isCurrentLocation: false,
-          isLoading: false
+          isLoading: false,
+          hospitalName: "",
+          hospitalId: "",
         });
         navigate("/patientdashboard/app");
       }, 2000);
@@ -388,27 +357,32 @@ const handleLocationChange = (e) => {
     }
   };
 
+  // Get times for selected date
   const getTimesForDate = (date) => {
     if (!state.selectedDoctor?.availability || !date) return [];
     const availabilitySlot = state.selectedDoctor.availability.find(slot => slot.date === date);
     return availabilitySlot ? availabilitySlot.times : [];
   };
 
+  // Get today's date
   const getTodayDate = () => {
     const today = new Date();
     return today.toISOString().split('T')[0];
   };
 
+  // Handle view all doctors
   const handleViewAllDoctors = () => {
     const currentFormState = {
       consultationType: state.consultationType,
       symptoms: state.symptoms,
       specialty: state.specialty,
+      specialtyId: state.specialtyId,
       selectedState: state.selectedState,
       location: state.location,
       pincode: state.pincode,
       doctorType: state.doctorType,
       hospitalName: state.hospitalName,
+      hospitalId: state.hospitalId,
       minPrice: state.minPrice,
       maxPrice: state.maxPrice,
       fullAddress: state.fullAddress,
@@ -426,464 +400,536 @@ const handleLocationChange = (e) => {
     });
   };
 
+  // Scroll logic for doctor cards
+  const scrollRef = useRef(null);
+  const [currentGroup, setCurrentGroup] = useState(0);
+  const cardWidth = 300;
+  const visibleCards = 3;
+  const totalGroups = state.filteredDoctors && Array.isArray(state.filteredDoctors)
+    ? Math.ceil(state.filteredDoctors.length / visibleCards)
+    : 0;
+  const scrollToGroup = groupIndex => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({
+        left: groupIndex * cardWidth * visibleCards,
+        behavior: "smooth"
+      });
+      setCurrentGroup(groupIndex);
+    }
+  };
+  const scroll = (dir) => {
+    let newGroup = currentGroup + dir;
+    if (newGroup < 0) newGroup = 0;
+    if (newGroup >= totalGroups) newGroup = totalGroups - 1;
+    scrollToGroup(newGroup);
+  };
+
+  // Auto-scroll effect
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (scrollRef.current) {
+        const container = scrollRef.current;
+        const maxScrollLeft = container.scrollWidth - container.clientWidth;
+        if (container.scrollLeft + 300 >= maxScrollLeft) {
+          container.scrollTo({ left: 0, behavior: "smooth" });
+        } else {
+          container.scrollBy({ left: 300, behavior: "smooth" });
+        }
+      }
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Initial data fetch
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        await fetchHospitals();
+        await fetchAllSymptoms();
+        if (state.selectedState) {
+          const response = await fetch(`https://api.postalpincode.in/state/${state.selectedState}`);
+          const data = await response.json();
+          if (data && data[0] && data[0].Status === "Success") {
+            const cities = data[0].PostOffice.map((office) => office.Name);
+            updateState({ cities });
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch data:", err);
+      }
+    };
+    fetchData();
+  }, []);
+
+  // Reset location fields for virtual consultation
+  useEffect(() => {
+    if (state.consultationType === "Virtual") {
+      updateState({
+        selectedState: "",
+        location: "",
+        pincode: "",
+        cities: [],
+        fullAddress: "",
+        pincodeError: "",
+        isCurrentLocation: false,
+        hospitalName: "",
+        hospitalId: "",
+      });
+    }
+  }, [state.consultationType]);
+
+  // Safe references for rendering
   const safeFilteredDoctors = state.filteredDoctors || [];
   const safeSpecialties = state.specialties || [];
 
   return (
     <div className="min-h-screen px-5">
-      <div className="w-full">
-        <button
-          onClick={() => navigate("/patientdashboard/app")}
-          className="mt-4 flex items-center gap-1.5 md:gap-2 hover:text-[var(--accent-color)] transition-colors text-gray-600 text-xs md:text-sm"
-        >
-          <ArrowLeft className="w-4 h-4 md:w-5 md:h-5" />
-          <span className="font-medium">Back to Appointments</span>
-        </button>
-        <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20 p-6 space-y-6">
-          <div className="space-y-4">
-            <h3 className="text-xl md:text-3xl text-center font-bold text-slate-800 mb-2">
-              Book Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-teal-500">Appointment</span>
-            </h3>
-            <p className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-              <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-              Consultation Type
-            </p>
-            <div className="flex gap-4">
-              {["Physical", "Virtual"].map(type => (
-                <button
-                  key={type}
-                  onClick={() => updateState({ consultationType: type })}
-                  className={`px-3 py-2 rounded-lg font-medium text-sm transition-all duration-300 transform hover:scale-105 ${
-                    state.consultationType === type
-                      ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/25"
-                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                  }`}
-                >
-                  {type}
-                </button>
-              ))}
-            </div>
+      {/* Back Button */}
+
+      {/* Main Form */}
+      <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20 p-6 space-y-6">
+        {/* Consultation Type */}
+        <div className="space-y-4">
+          <h3 className="text-xl md:text-3xl text-center font-bold text-slate-800 mb-2">
+            Book Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-teal-500">Appointment</span>
+          </h3>
+          <p className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+            <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+            Consultation Type
+          </p>
+          <div className="flex gap-4">
+            {["Physical", "Virtual"].map(type => (
+              <button
+                key={type}
+                onClick={() => updateState({ consultationType: type })}
+                className={`px-3 py-2 rounded-lg font-medium text-sm transition-all duration-300 transform hover:scale-105 ${
+                  state.consultationType === type
+                    ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/25"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                }`}
+              >
+                {type}
+              </button>
+            ))}
           </div>
-          {state.consultationType === "Physical" && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
-                  <FaMapMarkerAlt className="text-emerald-500 text-xs" />
-                  Enter Pincode for Quick Location Detection
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={state.pincode}
-                    onChange={handlePincodeChange}
-                    placeholder="Enter 6-digit pincode"
-                    maxLength={6}
-                    className="w-full p-3 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200 text-sm bg-white"
-                    disabled={state.isCurrentLocation}
-                  />
-                  {state.pincodeLoading && (
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-500"></div>
-                    </div>
-                  )}
-                </div>
-                {state.pincodeError && (
-                  <p className="text-xs text-red-500 flex items-center gap-1">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    {state.pincodeError}
-                  </p>
-                )}
-                {state.pincode && state.selectedState && state.location && !state.pincodeError && (
-                  <p className="text-xs text-emerald-600 flex items-center gap-1">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    Location detected: {state.location}, {state.selectedState}
-                  </p>
-                )}
-              </div>
-              <div className="text-center text-xs text-slate-500 flex items-center justify-center gap-2">
-                <div className="h-px bg-slate-200 flex-1"></div>
-                <span>OR</span>
-                <div className="h-px bg-slate-200 flex-1"></div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
-                    <FaMapMarkerAlt className="text-emerald-500 text-xs" />
-                    State
-                    {state.isCurrentLocation && (
-                      <span className="text-xs text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
-                        Detected
-                      </span>
-                    )}
-                    {state.pincode && state.selectedState && !state.isCurrentLocation && (
-                      <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
-                        From Pincode
-                      </span>
-                    )}
-                  </label>
-                  <select
-                    value={state.selectedState}
-                    onChange={handleStateChange}
-                    disabled={!!state.pincode || state.isCurrentLocation}
-                    className="w-full p-3 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200 text-sm bg-white disabled:bg-slate-100 disabled:cursor-not-allowed"
-                  >
-                    <option value="">{state.selectedState}</option>
-                    {Array.isArray(state.states) &&
-                      state.states.map((stateName) => (
-                        <option key={stateName} value={stateName}>
-                          {stateName}
-                        </option>
-                      ))}
-                  </select>
-                  {state.pincode && state.selectedState && !state.isCurrentLocation && (
-                    <p className="text-xs text-emerald-600 flex items-center gap-1">
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      State: {state.selectedState}
-                    </p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
-                    <FaMapMarkerAlt className="text-emerald-500 text-xs" />
-                    City
-                    {state.isCurrentLocation && (
-                      <span className="text-xs text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
-                        Current
-                      </span>
-                    )}
-                    {state.pincode && state.location && !state.isCurrentLocation && (
-                      <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
-                        From Pincode
-                      </span>
-                    )}
-                  </label>
-                  <select
-                    value={state.location}
-                    onChange={handleLocationChange}
-                    disabled={(!state.selectedState && !state.isCurrentLocation) || state.pincodeLoading}
-                    className="w-full p-3 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200 text-sm bg-white disabled:bg-slate-100 disabled:cursor-not-allowed"
-                  >
-                    <option value="">Select City</option>
-                    <option value="current-location">📍 Use My Location</option>
-                    {Array.isArray(state.cities) &&
-                      state.cities.map((city) => (
-                        <option key={city} value={city}>
-                          {city}
-                        </option>
-                      ))}
-                  </select>
-                  {state.location && state.location !== "current-location" && (
-                    <p className="text-xs text-emerald-600 flex items-center gap-1">
-                      <FaMapMarkerAlt className="text-xs" />
-                      {state.location}, {state.selectedState}
-                      {state.isCurrentLocation ? " (Current Location)" : state.pincode ? ` (Pincode: ${state.pincode})` : ""}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-          {state.consultationType === "Virtual" && (
-            <div className="bg-gradient-to-r from-green-50 to-indigo-50 border border-green-200 rounded-xl p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 002 2v8a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <div>
-                  <h4 className="font-semibold text-green-800">Virtual Consultation Selected</h4>
-                  <p className="text-sm text-green-600">You'll receive a video call link after booking confirmation</p>
-                </div>
-              </div>
-            </div>
-          )}
-          <div className="flex flex-col md:flex-row gap-4 w-full">
-            {state.consultationType === "Physical" && (
-              <div className="space-y-2 w-full md:w-1/2">
-                <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
-                  <FaHospital className="text-emerald-500 text-xs" />
-                  Hospital (Optional)
-                  {state.hospitalsLoading && (
-                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-emerald-500"></div>
-                  )}
-                </label>
-                <div className="relative">
-                  {(() => {
-                    const normalizeText = (s) =>
-                      String(s ?? "")
-                        .normalize("NFKD")
-                        .replace(/\p{Diacritic}/gu, "")
-                        .replace(/[‐-–—]/g, "-")
-                        .replace(/\s+/g, " ")
-                        .trim()
-                        .toLowerCase();
-                    const openKey = "hospitalDropdownOpen";
-                    const searchKey = "hospitalDropdownSearch";
-                    const open = !!state[openKey];
-                    const searchVal = state[searchKey] || "";
-                    const normSearch = normalizeText(searchVal);
-                    const opts = Array.isArray(state.hospitalsOptions) ? state.hospitalsOptions : [];
-                    const filtered = opts.filter(o =>
-                      normalizeText(o.label).includes(normSearch)
-                    );
-                    const buttonLabel = state.hospitalName ? state.hospitalName : "Select Hospital (Optional)";
-                    return (
-                      <>
-                        <button
-                          type="button"
-                          disabled={state.hospitalsLoading}
-                          onClick={() =>
-                            updateState({
-                              [openKey]: !open,
-                              [searchKey]: ""
-                            })
-                          }
-                          className="w-full p-3 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200 text-sm bg-white disabled:bg-slate-100 disabled:cursor-not-allowed flex justify-between items-center"
-                        >
-                          <span className="truncate">{buttonLabel}</span>
-                          <ChevronDown className="w-4 h-4 text-slate-500" />
-                        </button>
-                        {open && (
-                          <div className="absolute z-[1000] mt-1 max-h-60 w-full overflow-auto rounded-xl bg-white shadow border border-slate-200">
-                            <input
-                              type="text"
-                              placeholder="Search hospitals..."
-                              value={searchVal}
-                              onChange={(e) => updateState({ [searchKey]: e.target.value })}
-                              className="w-full px-3 py-2 text-sm border-b border-slate-100 outline-none"
-                            />
-                            {filtered.length === 0 && (
-                              <div className="px-4 py-2 text-sm text-slate-500">No results</div>
-                            )}
-                            {filtered.map(opt => (
-                              <div
-                                key={String(opt.value)}
-                                onClick={() => {
-                                  updateState({
-                                    hospitalId: opt.value,
-                                    hospitalName: opt.label,
-                                    [openKey]: false
-                                  });
-                                }}
-                                className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm"
-                              >
-                                {opt.label}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
-                {(!state.hospitalsOptions || state.hospitalsOptions.length === 0) &&
-                  !state.hospitalsLoading && (
-                    <p className="text-xs text-slate-500">No hospitals available</p>
-                  )}
-              </div>
-            )}
-            <div className={`space-y-2 w-full ${state.consultationType === "Physical" ? "md:w-1/2" : ""}`}>
-              <label className="text-sm font-medium text-slate-700">Symptoms</label>
+        </div>
+
+        {/* Location Fields (Physical Consultation) */}
+        {state.consultationType === "Physical" && (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                <FaMapMarkerAlt className="text-emerald-500 text-xs" />
+                Enter Pincode for Quick Location Detection
+              </label>
               <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSymptomsDropdownOpen(!symptomsDropdownOpen);
-                    setSymptomsSearch("");
-                  }}
-                  className="w-full p-3 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200 text-sm bg-white text-left flex justify-between items-center"
-                >
-                  <span className="truncate">
-                    {state.symptoms || "Select Symptoms"}
-                  </span>
-                  <ChevronDown className="w-4 h-4 text-slate-500" />
-                </button>
-                {symptomsDropdownOpen && (
-                  <div className="absolute z-[1000] mt-1 max-h-60 w-full overflow-auto rounded-xl bg-white shadow border border-slate-200">
-                    <input
-                      type="text"
-                      placeholder="Search symptoms..."
-                      value={symptomsSearch}
-                      onChange={(e) => setSymptomsSearch(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border-b border-slate-100 outline-none"
-                    />
-                    {allSymptoms.filter(symptom =>
-                      symptom.toLowerCase().includes(symptomsSearch.toLowerCase())
-                    ).length === 0 && (
-                      <div className="px-4 py-2 text-sm text-slate-500">No results</div>
-                    )}
-                    {allSymptoms
-                      .filter(symptom =>
-                        symptom.toLowerCase().includes(symptomsSearch.toLowerCase())
-                      )
-                      .map(symptom => (
-                        <div
-                          key={symptom}
-                          onClick={() => {
-                            updateState({ symptoms: symptom });
-                            setSymptomsDropdownOpen(false);
-                          }}
-                          className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm"
-                        >
-                          {symptom}
-                        </div>
-                      ))}
+                <input
+                  type="text"
+                  value={state.pincode}
+                  onChange={handlePincodeChange}
+                  placeholder="Enter 6-digit pincode"
+                  maxLength={6}
+                  className="w-full p-3 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200 text-sm bg-white"
+                  disabled={state.isCurrentLocation}
+                />
+                {state.pincodeLoading && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-500"></div>
                   </div>
                 )}
               </div>
+              {state.pincodeError && (
+                <p className="text-xs text-red-500 flex items-center gap-1">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {state.pincodeError}
+                </p>
+              )}
+              {state.pincode && state.selectedState && state.location && !state.pincodeError && (
+                <p className="text-xs text-emerald-600 flex items-center gap-1">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Location detected: {state.location}, {state.selectedState}
+                </p>
+              )}
+            </div>
+            <div className="text-center text-xs text-slate-500 flex items-center justify-center gap-2">
+              <div className="h-px bg-slate-200 flex-1"></div>
+              <span>OR</span>
+              <div className="h-px bg-slate-200 flex-1"></div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                  <FaMapMarkerAlt className="text-emerald-500 text-xs" />
+                  State
+                </label>
+                <select
+                  value={state.selectedState}
+                  onChange={handleStateChange}
+                  disabled={!!state.pincode || state.isCurrentLocation}
+                  className="w-full p-3 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200 text-sm bg-white disabled:bg-slate-100 disabled:cursor-not-allowed"
+                >
+                  <option value="">{state.selectedState || "Select State"}</option>
+                  {Array.isArray(state.states) &&
+                    state.states.map((stateName) => (
+                      <option key={stateName} value={stateName}>
+                        {stateName}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                  <FaMapMarkerAlt className="text-emerald-500 text-xs" />
+                  City
+                </label>
+                <select
+                  value={state.location}
+                  onChange={handleLocationChange}
+                  disabled={(!state.selectedState && !state.isCurrentLocation) || state.pincodeLoading}
+                  className="w-full p-3 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200 text-sm bg-white disabled:bg-slate-100 disabled:cursor-not-allowed"
+                >
+                  <option value="">Select City</option>
+                  <option value="current-location">📍 Use My Location</option>
+                  {Array.isArray(state.cities) &&
+                    state.cities.map((city) => (
+                      <option key={city} value={city}>
+                        {city}
+                      </option>
+                    ))}
+                </select>
+                {state.location && state.location !== "current-location" && (
+                  <p className="text-xs text-emerald-600 flex items-center gap-1">
+                    <FaMapMarkerAlt className="text-xs" />
+                    {state.location}, {state.selectedState}
+                    {state.isCurrentLocation ? " (Current Location)" : state.pincode ? ` (Pincode: ${state.pincode})` : ""}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
-          {safeSpecialties.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium text-slate-700">Suggested Specialties</h3>
-              <div className="grid grid-cols-1 sm:flex sm:flex-wrap gap-2">
-                {safeSpecialties.map((spec) => (
-                  <button
-                    key={spec}
-                    onClick={() => updateState({ specialty: spec })}
-                    className={`w-full sm:w-auto px-3 py-2 rounded-lg text-xs md:text-sm font-medium transition-all duration-300 transform hover:scale-105 ${
-                      state.specialty === spec
-                        ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md"
-                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                    }`}
-                  >
-                    {spec}
-                  </button>
-                ))}
+        )}
+
+        {/* Virtual Consultation Notice */}
+        {state.consultationType === "Virtual" && (
+          <div className="bg-gradient-to-r from-green-50 to-indigo-50 border border-green-200 rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 002 2v8a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <div>
+                <h4 className="font-semibold text-green-800">Virtual Consultation Selected</h4>
+                <p className="text-sm text-green-600">You'll receive a video call link after booking confirmation</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Hospital and Symptoms */}
+        <div className="flex flex-col md:flex-row gap-4 w-full">
+          {state.consultationType === "Physical" && (
+            <div className="space-y-2 w-full md:w-1/2">
+              <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                <FaHospital className="text-emerald-500 text-xs" />
+                Hospital (Optional)
+                {state.hospitalsLoading && (
+                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-emerald-500"></div>
+                )}
+              </label>
+              <div className="relative">
+                {(() => {
+                  const normalizeText = (s) =>
+                    String(s ?? "")
+                      .normalize("NFKD")
+                      .replace(/\p{Diacritic}/gu, "")
+                      .replace(/[‐-–—]/g, "-")
+                      .replace(/\s+/g, " ")
+                      .trim()
+                      .toLowerCase();
+                  const openKey = "hospitalDropdownOpen";
+                  const searchKey = "hospitalDropdownSearch";
+                  const open = !!state[openKey];
+                  const searchVal = state[searchKey] || "";
+                  const normSearch = normalizeText(searchVal);
+                  const opts = Array.isArray(state.hospitalsOptions) ? state.hospitalsOptions : [];
+                  const filtered = opts.filter(o =>
+                    normalizeText(o.label).includes(normSearch)
+                  );
+                  const buttonLabel = state.hospitalName ? state.hospitalName : "Select Hospital (Optional)";
+                  return (
+                    <>
+                      <button
+                        type="button"
+                        disabled={state.hospitalsLoading}
+                        onClick={() =>
+                          updateState({
+                            [openKey]: !open,
+                            [searchKey]: ""
+                          })
+                        }
+                        className="w-full p-3 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200 text-sm bg-white disabled:bg-slate-100 disabled:cursor-not-allowed flex justify-between items-center"
+                      >
+                        <span className="truncate">{buttonLabel}</span>
+                        <ChevronDown className="w-4 h-4 text-slate-500" />
+                      </button>
+                      {open && (
+                        <div className="absolute z-[1000] mt-1 max-h-60 w-full overflow-auto rounded-xl bg-white shadow border border-slate-200">
+                          <input
+                            type="text"
+                            placeholder="Search hospitals..."
+                            value={searchVal}
+                            onChange={(e) => updateState({ [searchKey]: e.target.value })}
+                            className="w-full px-3 py-2 text-sm border-b border-slate-100 outline-none"
+                          />
+                          {filtered.length === 0 && (
+                            <div className="px-4 py-2 text-sm text-slate-500">No results</div>
+                          )}
+                          {filtered.map(opt => (
+                            <div
+                              key={String(opt.value)}
+                              onClick={() => {
+                                updateState({
+                                  hospitalId: opt.value,
+                                  hospitalName: opt.label,
+                                  [openKey]: false
+                                });
+                              }}
+                              className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm"
+                            >
+                              {opt.label}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             </div>
           )}
-          <div className="space-y-4">
-            <h3 className="text-base font-medium text-slate-700">Doctor Panel</h3>
-            <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
-              {["All", "Our Medical Expert", "Hospital Affiliated", "Consultant Doctor"].map((type) => (
+          <div className={`space-y-2 w-full ${state.consultationType === "Physical" ? "md:w-1/2" : ""}`}>
+            <label className="text-sm font-medium text-slate-700">Symptoms</label>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setSymptomsDropdownOpen(!symptomsDropdownOpen);
+                  setSymptomsSearch("");
+                }}
+                className="w-full p-3 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200 text-sm bg-white text-left flex justify-between items-center"
+              >
+                <span className="truncate">
+                  {state.symptoms || "Select Symptoms"}
+                </span>
+                <ChevronDown className="w-4 h-4 text-slate-500" />
+              </button>
+              {symptomsDropdownOpen && (
+                <div className="absolute z-[1000] mt-1 max-h-60 w-full overflow-auto rounded-xl bg-white shadow border border-slate-200">
+                  <input
+                    type="text"
+                    placeholder="Search symptoms..."
+                    value={symptomsSearch}
+                    onChange={(e) => setSymptomsSearch(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border-b border-slate-100 outline-none"
+                  />
+                  {allSymptoms.filter(symptom =>
+                    symptom.toLowerCase().includes(symptomsSearch.toLowerCase())
+                  ).length === 0 && (
+                    <div className="px-4 py-2 text-sm text-slate-500">No results</div>
+                  )}
+                  {allSymptoms
+                    .filter(symptom =>
+                      symptom.toLowerCase().includes(symptomsSearch.toLowerCase())
+                    )
+                    .map(symptom => (
+                      <div
+                        key={symptom}
+                        onClick={() => {
+                          updateState({ symptoms: symptom });
+                          setSymptomsDropdownOpen(false);
+                        }}
+                        className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm"
+                      >
+                        {symptom}
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Suggested Specialties */}
+        {safeSpecialties.length > 0 && (
+          <div className="space-y-3">
+            <h3 className="text-sm font-medium text-slate-700">Suggested Specialties</h3>
+            <div className="grid grid-cols-1 sm:flex sm:flex-wrap gap-2">
+              {safeSpecialties.map((spec) => (
                 <button
-                  key={type}
-                  onClick={() => updateState({ doctorType: type })}
+                  key={spec.id || spec.name}
+                  onClick={() => updateState({
+                    specialty: spec.name,
+                    specialtyId: spec.id
+                  })}
                   className={`w-full sm:w-auto px-3 py-2 rounded-lg text-xs md:text-sm font-medium transition-all duration-300 transform hover:scale-105 ${
-                    state.doctorType === type
+                    state.specialtyId === spec.id
                       ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md"
                       : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                   }`}
                 >
-                  {type}
+                  {spec.name}
                 </button>
               ))}
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2 w-full">
-                <label className="text-sm font-medium text-slate-700">Min Fees (₹)</label>
-                <input
-                  type="number"
-                  value={state.minPrice}
-                  onChange={(e) => updateState({ minPrice: e.target.value })}
-                  placeholder="Minimum price"
-                  className="w-full p-3 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200 text-sm bg-white"
-                />
-              </div>
-              <div className="space-y-2 w-full">
-                <label className="text-sm font-medium text-slate-700">Max Fees (₹)</label>
-                <input
-                  type="number"
-                  value={state.maxPrice}
-                  onChange={(e) => updateState({ maxPrice: e.target.value })}
-                  placeholder="Maximum price"
-                  className="w-full p-3 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200 text-sm bg-white"
-                />
-              </div>
+          </div>
+        )}
+
+        {/* Doctor Panel and Filters */}
+        <div className="space-y-4">
+          <h3 className="text-base font-medium text-slate-700">Doctor Panel</h3>
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
+            {["All", "Our Medical Expert", "Hospital Affiliated", "Consultant Doctor"].map((type) => (
+              <button
+                key={type}
+                onClick={() => updateState({ doctorType: type })}
+                className={`w-full sm:w-auto px-3 py-2 rounded-lg text-xs md:text-sm font-medium transition-all duration-300 transform hover:scale-105 ${
+                  state.doctorType === type
+                    ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                }`}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2 w-full">
+              <label className="text-sm font-medium text-slate-700">Min Fees (₹)</label>
+              <input
+                type="number"
+                value={state.minPrice}
+                onChange={(e) => updateState({ minPrice: e.target.value })}
+                placeholder="Minimum price"
+                className="w-full p-3 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200 text-sm bg-white"
+              />
+            </div>
+            <div className="space-y-2 w-full">
+              <label className="text-sm font-medium text-slate-700">Max Fees (₹)</label>
+              <input
+                type="number"
+                value={state.maxPrice}
+                onChange={(e) => updateState({ maxPrice: e.target.value })}
+                placeholder="Maximum price"
+                className="w-full p-3 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200 text-sm bg-white"
+              />
             </div>
           </div>
-          <div className="space-y-4">
-            {safeFilteredDoctors.length > 0 ? (
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-semibold text-slate-800">Available Doctors ({safeFilteredDoctors.length})</h3>
-                  <button
-                    onClick={handleViewAllDoctors}
-                    className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all duration-200"
-                  >
-                    View All →
-                  </button>
-                </div>
-                <div className="relative">
-                  <div ref={scrollRef} className="flex gap-4 overflow-x-hidden pb-4 scroll-smooth">
-                    {safeFilteredDoctors.map(doc => (
-                      <div
-                        key={doc.id}
-                        onClick={() => updateState({ selectedDoctor: doc, showBookingModal: true })}
-                        className="min-w-[280px] p-4 rounded-2xl bg-white border border-slate-200 hover:border-emerald-300 hover:shadow-lg transition-all duration-300 cursor-pointer transform hover:scale-105"
-                      >
-                        <div className="flex gap-3 items-start">
-                          <div className="relative">
-                            <img
-                              src={doc.image || "https://images.pexels.com/photos/5452201/pexels-photo-5452201.jpeg"}
-                              alt={doc.name}
-                              className="w-12 h-12 rounded-full object-cover border-2 border-emerald-200"
-                            />
-                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white"></div>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold text-slate-800 text-sm truncate">{doc.name}</h4>
-                            <p className="text-emerald-600 text-xs font-medium">{doc.specialty}</p>
-                            <p className="text-slate-800 font-bold text-lg">₹{doc.fees}</p>
-                            <p className="text-slate-500 text-xs flex items-center gap-1">
-                              <FaMapMarkerAlt className="text-xs" />
-                              {state.consultationType === "Virtual" ? "Online" : doc.location || "N/A"}
-                            </p>
-                            <p className="text-slate-500 text-xs">{doc.doctorType}</p>
-                          </div>
+        </div>
+
+        {/* Available Doctors */}
+        <div className="space-y-4">
+          {state.loadingDoctors ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
+              <p className="text-slate-600">Loading doctors...</p>
+            </div>
+          ) : safeFilteredDoctors.length > 0 ? (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-slate-800">Available Doctors ({safeFilteredDoctors.length})</h3>
+                <button
+                  onClick={handleViewAllDoctors}
+                  className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all duration-200"
+                >
+                  View All →
+                </button>
+              </div>
+              <div className="relative">
+                <div ref={scrollRef} className="flex gap-4 overflow-x-hidden pb-4 scroll-smooth">
+                  {safeFilteredDoctors.map(doc => (
+                    <div
+                      key={doc.id || doc.doctorId}
+                      onClick={() => updateState({ selectedDoctor: doc, showBookingModal: true })}
+                      className="min-w-[280px] p-4 rounded-2xl bg-white border border-slate-200 hover:border-emerald-300 hover:shadow-lg transition-all duration-300 cursor-pointer transform hover:scale-105"
+                    >
+                      <div className="flex gap-3 items-start">
+                        <div className="relative">
+                          <img
+                            src={doc.image || "https://images.pexels.com/photos/5452201/pexels-photo-5452201.jpeg"}
+                            alt={doc.doctorName || doc.name}
+                            className="w-12 h-12 rounded-full object-cover border-2 border-emerald-200"
+                          />
+                          <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white"></div>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-slate-800 text-sm truncate">{doc.doctorName || doc.name}</h4>
+                          <p className="text-emerald-600 text-xs font-medium">{doc.specializationName || doc.specialty}</p>
+                          <p className="text-slate-600 text-xs">{doc.education}</p>
+                          <p className="text-slate-800 font-bold text-lg">₹{doc.fees}</p>
+                          <p className="text-slate-500 text-xs flex items-center gap-1">
+                            <FaMapMarkerAlt className="text-xs" />
+                            {state.consultationType === "Virtual" ? "Online" : doc.city || doc.location || "N/A"}
+                          </p>
+                          <p className="text-slate-500 text-xs">{doc.doctorPanelName || doc.doctorType}</p>
+                          <p className="text-slate-400 text-xs">{doc.experience} years exp</p>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                  {totalGroups > 1 && (
-                    <>
-                      <button
-                        onClick={() => scroll(-1)}
-                        className="absolute left-0 top-1/2 -translate-y-1/2 w-8 h-8 bg-white border border-slate-200 rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center hover:bg-emerald-50"
-                      >
-                        <FaChevronLeft className="text-slate-600 text-sm" />
-                      </button>
-                      <button
-                        onClick={() => scroll(1)}
-                        className="absolute right-0 top-1/2 -translate-y-1/2 w-8 h-8 bg-white border border-slate-200 rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center hover:bg-emerald-50"
-                      >
-                        <FaChevronRight className="text-slate-600 text-sm" />
-                      </button>
-                      <div className="flex justify-center gap-2 mt-4">
-                        {Array.from({ length: totalGroups }).map((_, index) => (
-                          <button
-                            key={index}
-                            onClick={() => scrollToGroup(index)}
-                            className={`w-2 h-2 rounded-full transition-all duration-200 ${
-                              currentGroup === index ? "bg-emerald-500 scale-125" : "bg-slate-300"
-                            }`}
-                          ></button>
-                        ))}
-                      </div>
-                    </>
-                  )}
+                    </div>
+                  ))}
                 </div>
+                {totalGroups > 1 && (
+                  <>
+                    <button
+                      onClick={() => scroll(-1)}
+                      className="absolute left-0 top-1/2 -translate-y-1/2 w-8 h-8 bg-white border border-slate-200 rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center hover:bg-emerald-50"
+                    >
+                      <FaChevronLeft className="text-slate-600 text-sm" />
+                    </button>
+                    <button
+                      onClick={() => scroll(1)}
+                      className="absolute right-0 top-1/2 -translate-y-1/2 w-8 h-8 bg-white border border-slate-200 rounded-full shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center hover:bg-emerald-50"
+                    >
+                      <FaChevronRight className="text-slate-600 text-sm" />
+                    </button>
+                    <div className="flex justify-center gap-2 mt-4">
+                      {Array.from({ length: totalGroups }).map((_, index) => (
+                        <button
+                          key={index}
+                          onClick={() => scrollToGroup(index)}
+                          className={`w-2 h-2 rounded-full transition-all duration-200 ${
+                            currentGroup === index ? "bg-emerald-500 scale-125" : "bg-slate-300"
+                          }`}
+                        ></button>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
-            ) : (
-              <div className="text-center py-12">
-                <div className="w-20 h-20 mx-auto mb-4 bg-slate-100 rounded-2xl flex items-center justify-center">
-                  <FaUser className="text-slate-400 text-2xl" />
-                </div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-2">No doctors found</h3>
-                <p className="text-slate-600 text-sm">Try adjusting your search criteria</p>
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <div className="w-20 h-20 mx-auto mb-4 bg-slate-100 rounded-2xl flex items-center justify-center">
+                <FaUser className="text-slate-400 text-2xl" />
               </div>
-            )}
-          </div>
+              <h3 className="text-lg font-semibold text-slate-800 mb-2">No doctors found</h3>
+              <p className="text-slate-600 text-sm">
+                {!state.specialtyId
+                  ? "Please select symptoms and specialty to see available doctors"
+                  : state.consultationType === "Physical" && !state.location
+                  ? "Please select a city to see available doctors"
+                  : "Try adjusting your search criteria"}
+              </p>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Booking Modal */}
       {state.showBookingModal && state.selectedDoctor && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl relative animate-slide-up">
@@ -898,12 +944,12 @@ const handleLocationChange = (e) => {
             <div className="text-center mb-6">
               <img
                 src={state.selectedDoctor.image || "https://images.pexels.com/photos/5452201/pexels-photo-5452201.jpeg"}
-                alt={state.selectedDoctor.name}
+                alt={state.selectedDoctor.doctorName || state.selectedDoctor.name}
                 className="w-16 h-16 rounded-2xl object-cover mx-auto mb-3 border-2 border-emerald-200"
               />
-              <h2 className="text-xl font-bold text-slate-800">{state.selectedDoctor.name}</h2>
-              <p className="text-emerald-600 font-medium">{state.selectedDoctor.specialty}</p>
-              <p className="text-slate-600 text-sm">{state.selectedDoctor.qualification}</p>
+              <h2 className="text-xl font-bold text-slate-800">{state.selectedDoctor.doctorName || state.selectedDoctor.name}</h2>
+              <p className="text-emerald-600 font-medium">{state.selectedDoctor.specializationName || state.selectedDoctor.specialty}</p>
+              <p className="text-slate-600 text-sm">{state.selectedDoctor.education || state.selectedDoctor.qualification}</p>
               <div className="flex items-center justify-center gap-4 mt-2 text-sm">
                 <span className="text-slate-600">{state.selectedDoctor.experience} years exp</span>
                 <span className="text-slate-400">•</span>
@@ -1005,13 +1051,14 @@ const handleLocationChange = (e) => {
                   ? 'No Slots Available'
                   : !state.selectedTime
                   ? 'Select Time Slot'
-                  : 'Confirm Booking'
-                }
+                  : 'Confirm Booking'}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Confirmation Modal */}
       {state.showConfirmationModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-3xl p-6 w-full max-w-sm text-center shadow-2xl animate-slide-up">

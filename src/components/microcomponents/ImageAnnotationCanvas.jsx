@@ -152,6 +152,7 @@ const ImageAnnotation = () => {
   };
 
   const handleMouseMove = (e) => {
+    
     if (!isDrawing || currentTool !== "pen") return;
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();

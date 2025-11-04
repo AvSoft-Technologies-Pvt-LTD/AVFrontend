@@ -150,17 +150,11 @@ export const getAllScans = () => axiosInstance.get('/scans');
 export const getAllhealthpackages = () => axiosInstance.get('/packages');
 
 
+// Doctor Appointments
 
-
-
-
-
-
-
-
-
-
-
+// masterService.js
+export const getDoctorsBySpecialty = (specialtyId) =>
+  axiosInstance.get("/doctor-additional-details/search/"+specialtyId+"?specialityId="+specialtyId);
 
 // **********medical record details api*********//
 

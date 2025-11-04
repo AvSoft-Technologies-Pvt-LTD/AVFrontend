@@ -40,6 +40,7 @@ export const registerUser = createAsyncThunk(
         gender: formData.get('gender'),
         dob: formData.get('dob'),
         patientId: response.data.patientId || null,
+        doctorId: response.data.doctorId || null,
         userId: response.data.userId || null,
       };
     } catch (error) {
@@ -79,6 +80,39 @@ export const updatePatient = createAsyncThunk(
   }
 );
 
+// Update Doctor
+export const updateDoctor = createAsyncThunk(
+  'auth/updateDoctor',
+  async ({ id, formData }, { rejectWithValue }) => {
+     if (!id) {
+      return rejectWithValue("Doctor ID is required.");
+    }
+    console.log("Update doctor called with ID:", id ,formData);
+    
+    try {
+      const response = await axiosInstance.put(
+        `${BASE_URL}/doctor/${id}`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+      console.log("Update doctor API response:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("Update doctor API error:", error.response?.data || error.message);
+      return rejectWithValue(
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        error.message ||
+        'Failed to update doctor'
+      );
+    }
+  }
+);
+
 // Login User
 export const loginUser = createAsyncThunk(
   'auth/loginUser',
@@ -97,6 +131,7 @@ export const loginUser = createAsyncThunk(
         identifier: userData.identifier || identifier,
         isAuthenticated: true,
         patientId: userData.patientId,
+        doctorId: userData.doctorId || null,
         userId: userData.userId,
         permissions: userData.permissions,
         name: userData.name,
@@ -185,6 +220,7 @@ export const verifyOTP = createAsyncThunk(
         isAuthenticated: true,
         identifier,
         patientId: registrationData?.get('userType')?.toLowerCase() === 'patient' ? 2 : null,
+        doctorId: registrationData?.get('userType')?.toLowerCase() === 'doctor' ? 2 : null,
         userId: 4,
         permissions: [],
       };
@@ -253,6 +289,7 @@ const authSlice = createSlice({
       state.token = null;
       state.userType = null;
       state.patientId = null;
+      state.doctorId = null;
       state.userId = null;
       state.permissions = [];
       state.name = null;
@@ -290,6 +327,7 @@ const authSlice = createSlice({
       state.isVerified = false;
       state.isOTPSent = false;
       state.patientId = null;
+      state.doctorId = null;
       state.userId = null;
       state.permissions = [];
       state.name = null;
@@ -372,9 +410,25 @@ const authSlice = createSlice({
         state.address = action.payload.address || state.address;
         state.gender = action.payload.gender || state.gender;
         state.dob = action.payload.dob || state.dob;
-        // If you store updated photo, update that too
       })
       .addCase(updatePatient.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      .addCase(updateDoctor.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateDoctor.fulfilled, (state, action) => {
+        state.loading = false;
+        console.log("Update doctor response:", action.payload);
+        state.user = { ...state.user, ...action.payload };
+        state.name = action.payload.firstName || action.payload.name || state.name;
+        state.address = action.payload.address || state.address;
+        state.gender = action.payload.gender || state.gender;
+        state.dob = action.payload.dob || state.dob;
+      })
+      .addCase(updateDoctor.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })

@@ -33,6 +33,48 @@ const DashboardLayout = () => {
     setSidebarOpen(!sidebarOpen);
   };
 
+  const userType = user?.userType?.toLowerCase() || "";
+
+  // Ensure hooks are called before any early returns
+  const currentPageName = useMemo(() => {
+    const menuItems = menuItemsMap[userType] || [];
+    const currentPath = location.pathname;
+
+    const allMenuOptions = [];
+
+    menuItems.forEach((item) => {
+      if (item.isSubmenu) {
+        item.submenu.forEach((sub) => {
+          allMenuOptions.push({
+            label: sub.label,
+            path: sub.path,
+            isSubmenu: true,
+          });
+        });
+      } else {
+        allMenuOptions.push({
+          label: item.label,
+          path: item.path,
+          isSubmenu: false,
+        });
+      }
+    });
+
+    allMenuOptions.sort((a, b) => b.path.length - a.path.length);
+
+    const matchedItem = allMenuOptions.find((option) => {
+      if (option.label === "Dashboard" && currentPath === option.path) {
+        return true;
+      }
+      if (option.label !== "Dashboard" && currentPath.startsWith(option.path)) {
+        return true;
+      }
+      return false;
+    });
+
+    return matchedItem ? matchedItem.label : "Dashboard";
+  }, [location.pathname, userType]);
+
   if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -50,7 +92,6 @@ const DashboardLayout = () => {
     return <Navigate to="/login" replace />;
   }
 
-  const userType = user.userType?.toLowerCase();
   if (!userType) {
     return <Navigate to="/login" replace />;
   }
@@ -75,53 +116,6 @@ const DashboardLayout = () => {
     };
     return <Navigate to={redirectRoutes[userType] || "/login"} replace />;
   }
-
-  // Enhanced currentPageName logic to match more specific paths first
-  const currentPageName = useMemo(() => {
-    const menuItems = menuItemsMap[userType] || [];
-    const currentPath = location.pathname;
-
-    // First, check all menu items and submenu items and sort by path length (longer first)
-    const allMenuOptions = [];
-
-    menuItems.forEach((item) => {
-      if (item.isSubmenu) {
-        // Add submenu items
-        item.submenu.forEach((sub) => {
-          allMenuOptions.push({
-            label: sub.label,
-            path: sub.path,
-            isSubmenu: true,
-          });
-        });
-      } else {
-        // Add main menu items
-        allMenuOptions.push({
-          label: item.label,
-          path: item.path,
-          isSubmenu: false,
-        });
-      }
-    });
-
-    // Sort by path length (longer paths first) to match more specific routes first
-    allMenuOptions.sort((a, b) => b.path.length - a.path.length);
-
-    // Find the first matching path
-    const matchedItem = allMenuOptions.find((option) => {
-      // For exact dashboard matches
-      if (option.label === "Dashboard" && currentPath === option.path) {
-        return true;
-      }
-      // For other paths, use startsWith
-      if (option.label !== "Dashboard" && currentPath.startsWith(option.path)) {
-        return true;
-      }
-      return false;
-    });
-
-    return matchedItem ? matchedItem.label : "Dashboard";
-  }, [location.pathname, userType]);
 
   return (
     <div className="flex h-screen overflow-hidden">
