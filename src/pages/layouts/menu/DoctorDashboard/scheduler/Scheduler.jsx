@@ -1,4 +1,3 @@
-// File: Scheduler.jsx
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
@@ -24,7 +23,8 @@ import { useNavigate } from "react-router-dom";
 import "react-toastify/dist/ReactToastify.css";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import ReusableModal from "../../../../../components/microcomponents/Modal";
-import { generateDummyAppointments } from "./dummyData";
+import { getAllAvailabilitySchedules } from "../../../../../utils/CrudService";
+import { apiDateToJSDate, jsDateToString } from "./dateUtils";
 import "./scheduler.css";
 
 const locales = { "en-US": enUS };
@@ -49,14 +49,12 @@ const PRESET_COLORS = [
   "#6366f1",
 ];
 
-const mockAppointments = generateDummyAppointments();
-
 const Scheduler = () => {
   const navigate = useNavigate();
   const [events, setEvents] = useState([]);
   const [monthEvents, setMonthEvents] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [currentDate, setCurrentDate] = useState(new Date(2025, 8, 1));
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [showAppointmentDetail, setShowAppointmentDetail] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedColor, setSelectedColor] = useState("#3b82f6");
@@ -102,27 +100,35 @@ const Scheduler = () => {
     return grouped;
   };
 
-  const loadAppointments = () => {
+  const loadAppointments = async () => {
     setLoading(true);
-    setTimeout(() => {
-      const calendarEvents = mockAppointments.map((appt) => {
-        const endDate = new Date(appt.date);
-        endDate.setMinutes(endDate.getMinutes() + 30);
-        return {
-          id: appt.id,
-          title: appt.name,
-          start: appt.date,
-          end: endDate,
-          resource: {
-            patient: appt.name,
-            phone: appt.phone,
-            type: appt.consultationType,
-            reason: appt.symptoms,
-            email: appt.email,
-            color: appt.color,
-            meetLink: appt.meetLink,
-          },
-        };
+    try {
+      const response = await getAllAvailabilitySchedules();
+      const schedules = response.data || [];
+
+      // Convert schedules to calendar events
+      const calendarEvents = [];
+      schedules.forEach((schedule) => {
+        const fromDate = apiDateToJSDate(schedule.fromDate);
+        const toDate = apiDateToJSDate(schedule.toDate);
+
+        if (fromDate && toDate) {
+          // Create an event for the entire schedule period
+          calendarEvents.push({
+            id: schedule.id,
+            title: `Dr. ${schedule.doctorName} - Available`,
+            start: fromDate,
+            end: toDate,
+            resource: {
+              doctor: schedule.doctorName,
+              startTime: schedule.startTime,
+              endTime: schedule.endTime,
+              duration: schedule.appointmentDuration?.displayName,
+              color: PRESET_COLORS[schedule.id % PRESET_COLORS.length],
+              schedule: schedule,
+            },
+          });
+        }
       });
 
       setEvents(calendarEvents);
@@ -136,9 +142,12 @@ const Scheduler = () => {
         .sort((a, b) => a.start.getTime() - b.start.getTime())
         .slice(0, 5);
       setUpcomingAppointments(upcoming);
-
+    } catch (error) {
+      console.error("Error loading appointments:", error);
+      toast.error("Failed to load schedules");
+    } finally {
       setLoading(false);
-    }, 600);
+    }
   };
 
   const handleSelectEvent = useCallback(
@@ -168,24 +177,6 @@ const Scheduler = () => {
     },
     [navigate, events]
   );
-
-  const handleUpdateEventColor = (eventId, newColor) => {
-    setEvents((prevEvents) =>
-      prevEvents.map((event) =>
-        event.id === eventId
-          ? { ...event, resource: { ...event.resource, color: newColor } }
-          : event
-      )
-    );
-    setMonthEvents((prev) =>
-      prev.map((m) =>
-        m.resource?.events?.some((ev) => ev.id === eventId)
-          ? { ...m, resource: { ...m.resource, color: newColor } }
-          : m
-      )
-    );
-    toast.success("Event color updated!");
-  };
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
@@ -236,7 +227,7 @@ const Scheduler = () => {
       <div style={{ position: "relative", height: "100%" }}>
         <div style={{ height: "100%" }}>{children}</div>
         {count > 0 && (
-          <div className="date-count-badge" title={`${count} appointment${count > 1 ? "s" : ""}`}>
+          <div className="date-count-badge" title={`${count} schedule${count > 1 ? "s" : ""}`}>
             {count}
           </div>
         )}
@@ -292,18 +283,8 @@ const Scheduler = () => {
 
   const CustomToolbar = ({ date, onNavigate }) => {
     const months = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December",
     ];
     const years = Array.from({ length: 11 }, (_, i) => date.getFullYear() - 5 + i);
 
@@ -324,13 +305,8 @@ const Scheduler = () => {
     const stop = (e) => e.stopPropagation();
 
     return (
-      <div
-        className="scheduler-toolbar"
-        onClick={stop}
-        style={{ overflow: "visible" }}
-      >
+      <div className="scheduler-toolbar" onClick={stop} style={{ overflow: "visible" }}>
         <div className="toolbar-left" style={{ overflow: "visible" }}>
-          {/* Month & Year selectors only (no Today/arrow buttons) */}
           <div className="month-year-selector flex items-center gap-2 relative">
             {/* Month */}
             <div className="relative">
@@ -348,17 +324,7 @@ const Scheduler = () => {
               </button>
 
               {showMonthPicker && (
-                <div
-                  className="picker-dropdown month-picker"
-                  style={{
-                    position: "absolute",
-                    top: "100%",
-                    left: 0,
-                    marginTop: 8,
-                    zIndex: 2000,
-                  }}
-                  onClick={stop}
-                >
+                <div className="picker-dropdown month-picker" style={{ position: "absolute", top: "100%", left: 0, marginTop: 8, zIndex: 2000 }} onClick={stop}>
                   {months.map((month, index) => (
                     <button
                       key={month}
@@ -387,19 +353,7 @@ const Scheduler = () => {
               </button>
 
               {showYearPicker && (
-                <div
-                  className="picker-dropdown year-picker"
-                  style={{
-                    position: "absolute",
-                    top: "100%",
-                    left: 0,
-                    marginTop: 8,
-                    zIndex: 2001,
-                    maxHeight: 280,
-                    overflowY: "auto",
-                  }}
-                  onClick={stop}
-                >
+                <div className="picker-dropdown year-picker" style={{ position: "absolute", top: "100%", left: 0, marginTop: 8, zIndex: 2001, maxHeight: 280, overflowY: "auto" }} onClick={stop}>
                   {years.map((year) => (
                     <button
                       key={year}
@@ -430,31 +384,25 @@ const Scheduler = () => {
     return name.trim().charAt(0).toUpperCase();
   };
 
-  // ---------- ReusableModal wiring (view mode) ----------
   const modalData = selectedEvent
     ? {
-        patient: selectedEvent.resource?.patient || "-",
-        email: selectedEvent.resource?.email || "-",
-        phone: selectedEvent.resource?.phone || "-",
-        type: selectedEvent.resource?.type || "-",
-        reason: selectedEvent.resource?.reason || "-",
+        doctor: selectedEvent.resource?.doctor || "-",
+        schedule: selectedEvent.title || "-",
+        startTime: selectedEvent.resource?.startTime || "-",
+        endTime: selectedEvent.resource?.endTime || "-",
+        duration: selectedEvent.resource?.duration || "-",
         date: format(selectedEvent.start, "EEEE, MMMM d, yyyy"),
-        time: `${format(selectedEvent.start, "h:mm a")} - ${format(
-          selectedEvent.end,
-          "h:mm a"
-        )}`,
       }
     : {};
 
   const viewFields = [
-    { initialsKey: true, key: "patient" },
-    { titleKey: true, key: "patient" },
+    { initialsKey: true, key: "doctor" },
+    { titleKey: true, key: "doctor" },
     { subtitleKey: true, key: "date" },
-    { label: "Time", key: "time" },
-    { label: "Phone", key: "phone" },
-    { label: "Email", key: "email" },
-    { label: "Consultation Type", key: "type" },
-    { label: "Reason for Visit", key: "reason" },
+    { label: "Schedule", key: "schedule" },
+    { label: "Start Time", key: "startTime" },
+    { label: "End Time", key: "endTime" },
+    { label: "Appointment Duration", key: "duration" },
   ];
 
   if (loading) {
@@ -470,7 +418,6 @@ const Scheduler = () => {
     <div className="scheduler-container">
       <ToastContainer position="top-right" autoClose={3000} theme="colored" />
 
-      {/* Responsive layout */}
       <div className="scheduler-layout">
         <div className="calendar-section">
           <Calendar
@@ -497,47 +444,43 @@ const Scheduler = () => {
           />
         </div>
 
-        {/* Sidebar */}
         <div className="sidebar-section">
-          {/* Google Meet Card */}
-          <div className="google-meet-card">
+           <div className="google-meet-card">
             <div className="card-header">
-              <h3 className="text-xs sm:text-sm">Connect with upcoming patient</h3>
+              <h3>Connect with upcoming patient</h3>
             </div>
             <div className="meet-link-container">
               <div className="meet-link-wrapper">
-                <Video size={14} className="sm:w-4 sm:h-4 flex-shrink-0" color="#10b981" />
+                <Video size={16} color="#10b981" />
                 <a
                   href="https://meet.google.com/y4x72A"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="meet-link text-xs break-all"
+                  className="meet-link"
                 >
                   https://meet.google.com/y4x72A
                 </a>
               </div>
               <button
-                className="copy-btn flex-shrink-0"
+                className="copy-btn"
                 onClick={() => copyToClipboard("https://meet.google.com/y4x72A")}
                 title="Copy link"
               >
-                <Copy size={14} className="sm:w-4 sm:h-4" />
+                <Copy size={16} />
               </button>
             </div>
           </div>
-
-          {/* Upcoming Appointments */}
           <div className="upcoming-card">
             <div className="card-header">
               <CalendarIcon size={16} className="sm:w-[18px] sm:h-[18px]" />
-              <h3 className="text-xs sm:text-sm">Upcoming Appointments</h3>
+              <h3 className="text-xs sm:text-sm">Upcoming Schedules</h3>
             </div>
 
             <div className="upcoming-list">
               {upcomingAppointments.length === 0 ? (
                 <div className="empty-state">
                   <Clock size={32} className="sm:w-10 sm:h-10 empty-icon" />
-                  <p className="text-xs sm:text-sm">No upcoming appointments</p>
+                  <p className="text-xs sm:text-sm">No upcoming schedules</p>
                 </div>
               ) : (
                 upcomingAppointments.map((appt) => (
@@ -548,26 +491,18 @@ const Scheduler = () => {
                     role="button"
                     tabIndex={0}
                   >
-                    <div
-                      className="patient-avatar"
-                      style={{ background: appt.resource.color || "#3b82f6" }}
-                    >
-                      {getInitial(appt.title)}
+                    <div className="patient-avatar" style={{ background: appt.resource.color || "#3b82f6" }}>
+                      {getInitial(appt.resource.doctor)}
                     </div>
 
                     <div className="appt-details min-w-0">
                       <div className="appt-patient">
-                        <span className="patient-name text-xs">{appt.resource.patient}</span>
-                        {appt.resource.type && (
-                          <span className={`type-inline ${appt.resource.type?.toLowerCase()}`}>
-                            {appt.resource.type}
-                          </span>
-                        )}
+                        <span className="patient-name text-xs">{appt.resource.doctor}</span>
                       </div>
 
                       <div className="appt-time">
                         <Clock size={12} className="sm:w-[14px] sm:h-[14px]" />
-                        <span className="text-xs">{format(appt.start, "h:mm a")}</span>
+                        <span className="text-xs">{format(appt.start, "MMM d, yyyy")}</span>
                       </div>
                     </div>
                   </div>
@@ -578,21 +513,18 @@ const Scheduler = () => {
         </div>
       </div>
 
-      {/* Render modal via portal so it overlays header */}
-      {showAppointmentDetail &&
-        selectedEvent &&
-        createPortal(
-          <ReusableModal
-            isOpen={showAppointmentDetail}
-            onClose={() => setShowAppointmentDetail(false)}
-            mode="viewProfile"
-            title="Appointment Details"
-            data={modalData}
-            viewFields={viewFields}
-            size="md"
-          />,
-          document.body
-        )}
+      {showAppointmentDetail && selectedEvent && createPortal(
+        <ReusableModal
+          isOpen={showAppointmentDetail}
+          onClose={() => setShowAppointmentDetail(false)}
+          mode="viewProfile"
+          title="Schedule Details"
+          data={modalData}
+          viewFields={viewFields}
+          size="md"
+        />,
+        document.body
+      )}
     </div>
   );
 };

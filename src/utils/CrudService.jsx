@@ -301,3 +301,70 @@ export const updateVirtualAppointment = (id, data) =>
 // Delete virtual appointment by ID
 export const deleteVirtualAppointment = (id) =>
   axiosInstance.delete(`/doc-virtual-appointments/${id}`);
+
+
+/* -----------------------------
+   AVAILABILITY SCHEDULES (CRUD)
+------------------------------ */
+
+// Get all availability schedules
+export const getAllAvailabilitySchedules = () =>
+  axiosInstance.get('/availability-schedules');
+
+// Get availability schedule by ID
+export const getAvailabilityScheduleById = (scheduleId) =>
+  axiosInstance.get(`/availability-schedules/${scheduleId}`);
+
+// Get availability schedules by doctor ID
+export const getAvailabilitySchedulesByDoctor = (doctorId) =>
+  axiosInstance.get(`/availability-schedules/doctor/${doctorId}`);
+
+// Get current availability schedules for a doctor
+export const getCurrentAvailabilitySchedules = (doctorId) =>
+  axiosInstance.get(`/availability-schedules/doctor/${doctorId}/current`);
+
+// Get availability schedules by doctor and specific date
+export const getAvailabilitySchedulesByDoctorAndDate = (doctorId, date) =>
+  axiosInstance.get(`/availability-schedules/doctor/${doctorId}/date/${date}`);
+
+// Get availability schedules by doctor and date range
+export const getAvailabilitySchedulesByDoctorAndDateRange = (doctorId, startDate, endDate) =>
+  axiosInstance.get(`/availability-schedules/doctor/${doctorId}/date-range`, {
+    params: { startDate, endDate }
+  });
+
+// Create new availability schedule
+export const createAvailabilitySchedule = (data) =>
+  axiosInstance.post('/availability-schedules', data);
+
+// Update availability schedule
+export const updateAvailabilitySchedule = (scheduleId, data) =>
+  axiosInstance.put(`/availability-schedules/${scheduleId}`, data);
+
+// Delete availability schedule
+export const deleteAvailabilitySchedule = (scheduleId) =>
+  axiosInstance.delete(`/availability-schedules/${scheduleId}`);
+
+/* -----------------------------
+   APPOINTMENT DURATIONS (CRUD)
+------------------------------ */
+
+// Get all appointment durations
+export const getAllAppointmentDurations = () =>
+  axiosInstance.get('/appointment-durations');
+
+// Get appointment duration by ID
+export const getAppointmentDurationById = (id) =>
+  axiosInstance.get(`/appointment-durations/${id}`);
+
+// Create new appointment duration
+export const createAppointmentDuration = (data) =>
+  axiosInstance.post('/appointment-durations', data);
+
+// Update appointment duration
+export const updateAppointmentDuration = (id, data) =>
+  axiosInstance.put(`/appointment-durations/${id}`, data);
+
+// Delete appointment duration
+export const deleteAppointmentDuration = (id) =>
+  axiosInstance.delete(`/appointment-durations/${id}`);

@@ -1,50 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { format, startOfDay } from "date-fns";
 import { Clock, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { getAvailabilitySchedulesByDoctorAndDate } from "../../../../../utils/CrudService";
+import { apiDateToJSDate, jsDateToString } from "./dateUtils";
 import "./scheduler.css";
 
-const mkDemoEventsForDate = (dateObj) => {
-  const d = dateObj instanceof Date ? dateObj : new Date(dateObj);
-  const mk = (h, m, duration = 40) => {
-    const start = new Date(d);
-    start.setHours(h, m, 0, 0);
-    const end = new Date(start);
-    end.setMinutes(end.getMinutes() + duration);
-    return { start, end };
-  };
-
-  const patients = [
-    "John Smith", "Peter Chung", "Anita R", "Sarah Johnson", "Mike Davis", "Emily Chen",
-    "Robert Wilson", "Lisa Anderson", "David Brown", "Maria Garcia", "James Taylor", "Jennifer Martinez",
-  ];
-
-  const types = ["PHYSICAL", "VIRTUAL"];
-  const statuses = ["Confirmed", "Upcoming", "Checked In"];
-  const titles = ["Medical Checkup", "Operation", "Follow-up", "Consultation", "Annual Physical"];
-  const colors = ["#10b981", "#3b82f6", "#f97316", "#8b5cf6", "#06b6d4", "#ef4444"];
-
-  const timeSlots = [
-    { h: 8, m: 0 }, { h: 9, m: 0 }, { h: 10, m: 30 }, { h: 11, m: 0 },
-    { h: 13, m: 30 }, { h: 14, m: 0 }, { h: 15, m: 0 }, { h: 16, m: 0 },
-  ];
-
-  return timeSlots.map((slot, idx) => {
-    const times = mk(slot.h, slot.m);
-    return {
-      id: `demo-${idx}-${d.toISOString().slice(0, 10)}`,
-      title: titles[idx % titles.length],
-      start: times.start,
-      end: times.end,
-      resource: {
-        patient: patients[idx % patients.length],
-        color: colors[idx % colors.length],
-        consultationType: types[idx % 2],
-        status: statuses[idx % statuses.length],
-        groupCount: idx === 3 ? 3 : 0,
-      },
-    };
-  });
-};
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 const timeLabelsBetween = (startHour = 8, endHour = 18, stepMins = 30) => {
   const labels = [];
@@ -60,37 +24,107 @@ const initials = (name = "") => {
   return t ? t.charAt(0).toUpperCase() : "?";
 };
 
-const TodayView = ({ events = [], onSelectEvent }) => {
+const TodayView = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState(() => startOfDay(new Date()));
+  const [dayEvents, setDayEvents] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {}, []);
-
-  const dayEvents = useMemo(() => {
-    const iso = selectedDate.toISOString().slice(0, 10);
-
-    const filtered = (events || []).filter((ev) =>
-      ev && ev.start && (new Date(ev.start)).toISOString().slice(0, 10) === iso
-    );
-
-    if (filtered.length) {
-      return filtered.map((ev, idx) => ({
-        ...ev,
-        id: ev.id ?? `evt-${idx}`,
-        resource: ev.resource || {
-          patient: ev.title || "Patient",
-          color: "#3b82f6",
-        },
-      }));
+  useEffect(() => {
+    // Get date from URL query parameter
+    const searchParams = new URLSearchParams(location.search);
+    const dateParam = searchParams.get("date");
+    if (dateParam) {
+      setSelectedDate(startOfDay(new Date(dateParam)));
     }
+  }, [location.search]);
 
-    return mkDemoEventsForDate(selectedDate);
-  }, [events, selectedDate]);
+  useEffect(() => {
+    loadDayEvents();
+  }, [selectedDate]);
 
-  const gotoPrev = () =>
-    setSelectedDate(startOfDay(new Date(selectedDate.getTime() - 24 * 3600 * 1000)));
+  const loadDayEvents = async () => {
+    setLoading(true);
+    try {
+      const dateStr = jsDateToString(selectedDate);
+      const doctorId = 1; // TODO: Get from auth context
+      
+      const response = await getAvailabilitySchedulesByDoctorAndDate(doctorId, dateStr);
+      const schedules = response.data || [];
 
-  const gotoNext = () =>
-    setSelectedDate(startOfDay(new Date(selectedDate.getTime() + 24 * 3600 * 1000)));
+      // Convert schedules to events
+      const events = [];
+      schedules.forEach((schedule) => {
+        const fromDate = apiDateToJSDate(schedule.fromDate);
+        const toDate = apiDateToJSDate(schedule.toDate);
+
+        if (fromDate && toDate) {
+          // Find the slots for this specific date
+          const targetDateStr = jsDateToString(selectedDate);
+          const daySlot = schedule.generatedSlots?.find((slot) => {
+            const slotDateStr = `${slot.date[0]}-${String(slot.date[1]).padStart(2, "0")}-${String(slot.date[2]).padStart(2, "0")}`;
+            return slotDateStr === targetDateStr;
+          });
+
+          if (daySlot && daySlot.slots) {
+            // Create events for each slot
+            daySlot.slots.forEach((timeSlot, idx) => {
+              // Parse time slot (e.g., "9:00 AM")
+              const timeParts = timeSlot.match(/(\\d+):(\\d+)\\s*(AM|PM)/i);
+              if (timeParts) {
+                let hours = parseInt(timeParts[1]);
+                const minutes = parseInt(timeParts[2]);
+                const period = timeParts[3].toUpperCase();
+
+                if (period === "PM" && hours !== 12) hours += 12;
+                if (period === "AM" && hours === 12) hours = 0;
+
+                const start = new Date(selectedDate);
+                start.setHours(hours, minutes, 0, 0);
+
+                const end = new Date(start);
+                end.setMinutes(end.getMinutes() + (schedule.appointmentDuration?.durationMinutes || 30));
+
+                events.push({
+                  id: `${schedule.id}-${idx}`,
+                  title: `Available Slot`,
+                  start: start,
+                  end: end,
+                  resource: {
+                    doctor: schedule.doctorName,
+                    color: "#3b82f6",
+                    type: "Available",
+                    duration: schedule.appointmentDuration?.displayName,
+                  },
+                });
+              }
+            });
+          }
+        }
+      });
+
+      setDayEvents(events);
+    } catch (error) {
+      console.error("Error loading day events:", error);
+      toast.error("Failed to load schedules for this day");
+      setDayEvents([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const gotoPrev = () => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() - 1);
+    setSelectedDate(startOfDay(newDate));
+  };
+
+  const gotoNext = () => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() + 1);
+    setSelectedDate(startOfDay(newDate));
+  };
 
   const slotMap = useMemo(() => {
     const map = {};
@@ -107,8 +141,20 @@ const TodayView = ({ events = [], onSelectEvent }) => {
 
   const timeSlots = timeLabelsBetween(8, 18, 30);
 
+  if (loading) {
+    return (
+      <div className="scheduler-container">
+        <div className="scheduler-loading">
+          <div className="loading-spinner" />
+          <p className="text-sm sm:text-base">Loading schedule...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="scheduler-container">
+      <ToastContainer position="top-right" autoClose={3000} theme="colored" />
       <div className="todayview-root">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 pb-3 sm:pb-4 border-b border-gray-200 gap-3">
@@ -136,9 +182,12 @@ const TodayView = ({ events = [], onSelectEvent }) => {
 
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 w-full sm:w-auto">
             <div className="text-xs sm:text-sm text-slate-500">
-              Total appointments: <span className="font-bold text-slate-800">{dayEvents.length}</span>
+              Total slots: <span className="font-bold text-slate-800">{dayEvents.length}</span>
             </div>
-            <button className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl border border-gray-200 bg-white hover:shadow-md transition-all text-xs sm:text-sm w-full sm:w-auto">
+            <button
+              onClick={() => navigate("/doctordashboard/scheduler")}
+              className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl border border-gray-200 bg-white hover:shadow-md transition-all text-xs sm:text-sm w-full sm:w-auto"
+            >
               <CalendarIcon size={14} className="sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Back to Calendar</span>
               <span className="sm:hidden">Calendar</span>
@@ -167,43 +216,46 @@ const TodayView = ({ events = [], onSelectEvent }) => {
                   t.getHours().toString().padStart(2, "0") + ":" +
                   t.getMinutes().toString().padStart(2, "0");
                 const eventsAt = slotMap[key] || [];
-                const hasEvents = eventsAt.length > 0; // ✅ Important
+                const hasEvents = eventsAt.length > 0;
 
                 return (
                   <section
                     key={idx}
-                    className={`slot-container ${hasEvents ? "has-events" : ""}`} // ✅ Important
+                    className={`slot-container ${hasEvents ? "has-events" : ""}`}
                     aria-label={`Slot ${key}`}
                   >
                     {hasEvents ? (
                       <div className="slot-events">
                         {eventsAt.map((ev) => {
-                          const patient = ev.resource?.patient ?? ev.title ?? "Patient";
+                          const doctor = ev.resource?.doctor ?? "Doctor";
                           const color = ev.resource?.color ?? "#3b82f6";
-                          const type = (ev.resource?.consultationType || "").toUpperCase();
-                          const typeLabel = type === "PHYSICAL" ? "PHYSICAL" : type === "VIRTUAL" ? "VIRTUAL" : "—";
+                          const type = ev.resource?.type || "Available";
 
                           return (
-                            <button
+                            <div
                               key={ev.id}
-                              onClick={() => onSelectEvent?.(ev)}
                               className="event-card"
                               style={{ color }}
                               data-color={color}
                             >
                               <div className="event-left">
                                 <div className="patient-avatar" style={{ backgroundColor: color }}>
-                                  {initials(patient)}
+                                  {initials(doctor)}
                                 </div>
                               </div>
 
                               <div className="event-main min-w-0 flex-1">
                                 <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-                                  <div className="event-patient text-xs sm:text-sm truncate">{patient}</div>
-                                  <div className={`type-badge text-xs ${type === "PHYSICAL" ? "physical" : "virtual"}`}>
-                                    {typeLabel}
+                                  <div className="event-patient text-xs sm:text-sm truncate">{doctor}</div>
+                                  <div className="type-badge text-xs bg-green-100 text-green-800">
+                                    {type}
                                   </div>
                                 </div>
+                                {ev.resource?.duration && (
+                                  <div className="text-xs text-slate-500 mt-1">
+                                    Duration: {ev.resource.duration}
+                                  </div>
+                                )}
                               </div>
 
                               <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
@@ -212,13 +264,13 @@ const TodayView = ({ events = [], onSelectEvent }) => {
                                   {format(new Date(ev.start), "hh:mm a")} — {format(new Date(ev.end), "hh:mm a")}
                                 </div>
                               </div>
-                            </button>
+                            </div>
                           );
                         })}
                       </div>
                     ) : (
                       <div className="slot-placeholder">
-                        <div className="text-xs sm:text-sm">No appointments</div>
+                        <div className="text-xs sm:text-sm">No slots available</div>
                       </div>
                     )}
                   </section>
