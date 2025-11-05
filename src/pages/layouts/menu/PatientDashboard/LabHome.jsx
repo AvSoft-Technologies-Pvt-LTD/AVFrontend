@@ -158,13 +158,7 @@ const LabHome = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-6 sm:py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <button
-          onClick={() => navigate("/patientdashboard/app")}
-          className="mb-4 flex items-center gap-1.5 md:gap-2 hover:text-[var(--accent-color)] transition-colors text-gray-600 text-xs md:text-sm"
-        >
-          <ArrowLeft className="w-4 h-4 md:w-5 md:h-5" />
-          <span className="font-medium">Back to Appointments</span>
-        </button>
+  
 
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 gap-4">

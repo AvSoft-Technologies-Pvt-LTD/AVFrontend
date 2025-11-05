@@ -207,7 +207,7 @@ const MedicalRecords = () => {
         patientId: response.data.patientId,
         hospitalId: response.data.hospitalId,
         hospitalName: getLabelById(hospitalOptions, response.data.hospitalId),
-        chiefComplaint: response.data.symptoms,
+        symptoms: response.data.symptoms,
         medicalConditionId: response.data.medicalConditionId,
         medicalConditionName: getLabelById(
           medicalConditions,
