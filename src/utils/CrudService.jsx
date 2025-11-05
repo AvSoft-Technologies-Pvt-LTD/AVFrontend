@@ -302,6 +302,29 @@ export const updateVirtualAppointment = (id, data) =>
 export const deleteVirtualAppointment = (id) =>
   axiosInstance.delete(`/doc-virtual-appointments/${id}`);
 
+// -----------------------------
+// MEDICAL RECORDS (CRUD)
+// -----------------------------
+// Get all medical records
+export const getAllMedicalRecords = (doctorId, patientId, context) =>
+  axiosInstance.get('/medical-records', {params: { doctorId, patientId, context }});
+
+// Get medical record by ID
+export const getMedicalRecordById = (id) =>
+  axiosInstance.get(`/medical-records/${id}`);
+
+// Create a new medical record
+export const createMedicalRecord = (data) =>
+  axiosInstance.post('/medical-records', data);
+
+// Update medical record by ID
+export const updateMedicalRecord = (id, data) =>
+  axiosInstance.put(`/medical-records/${id}`, data);
+
+// Delete medical record by ID
+export const deleteMedicalRecord = (id) =>
+  axiosInstance.delete(`/medical-records/${id}`);
+
 
 /* -----------------------------
    AVAILABILITY SCHEDULES (CRUD)

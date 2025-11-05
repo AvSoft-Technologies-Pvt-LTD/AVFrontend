@@ -14,7 +14,7 @@ import {
 } from '../../../../utils/CrudService';
 import {
   getHealthConditions, getCoverageTypes, getRelations, getBloodGroups,
-  getPatientById, getPatientPhoto
+  getPatientById, getPatientPhoto,getAllSurgeries, getAllAllergies,
 } from '../../../../utils/masterService';
 
 const initialUserData = {
@@ -67,6 +67,8 @@ function Dashboard() {
   const [healthConditions, setHealthConditions] = useState([]);
   const [familyRelations, setFamilyRelations] = useState([]);
   const [bloodGroups, setBloodGroups] = useState([]);
+   const [surgeries, setSurgeries] = useState([]);
+  const [allergies, setAllergies] = useState([]);
   const [hasPersonalHealthData, setHasPersonalHealthData] = useState(false);
   const [patientData, setPatientData] = useState(null);
   const [additionalDetails, setAdditionalDetails] = useState({
@@ -114,46 +116,29 @@ function Dashboard() {
   },
   // 🏥 Surgeries dropdown — shows "Since (yrs)" input when not "none"
   {
-    name: 'surgeries',
-    label: 'Surgeries',
-    type: 'select',
-    colSpan: 1,
-    options: [
-      { label: 'None', value: 'none' },
-      { label: 'Appendectomy', value: 'appendectomy' },
-      { label: 'Heart Surgery', value: 'heart' },
-      { label: 'C-section', value: 'csection' },
-      { label: 'Fracture Repair', value: 'fracture' },
-      { label: 'Other', value: 'other' },
-    ],
-    durationField: 'surgeriesDuration',   // 👈 field to store duration
-    durationFor: ['appendectomy', 'heart', 'csection', 'fracture', 'other'], // 👈 show only for these
-    inputLabel: 'Since (yrs)',
-    inputType: 'number',
-  },
-
-  // 🤧 Allergies dropdown — shows "Since (yrs)" input when not "none"
-  {
-    name: 'allergies',
-    label: 'Allergies',
-    type: 'select',
-    colSpan: 1,
-    options: [
-      { label: 'None', value: 'none' },
-      { label: 'Food Allergy', value: 'food' },
-      { label: 'Drug Allergy', value: 'drug' },
-      { label: 'Dust Allergy', value: 'dust' },
-      { label: 'Pollen Allergy', value: 'pollen' },
-      { label: 'Other', value: 'other' },
-    ],
-    durationField: 'allergiesDuration',
-    durationFor: ['food', 'drug', 'dust', 'pollen', 'other'],
-    inputLabel: 'Since (yrs)',
-    inputType: 'number',
-  },
-
+      name: 'surgeries',
+      label: 'Surgeries',
+      type: 'select',
+      colSpan: 1,
+      options: surgeries,
+      durationField: 'surgeryDuration',
+      durationFor: surgeries.map(s => s.value),
+      inputLabel: 'Since (yrs)',
+      inputType: 'number',
+    },
+    {
+      name: 'allergies',
+      label: 'Allergies',
+      type: 'select',
+      colSpan: 1,
+      options: allergies,
+      durationField: 'allergyDuration',
+      durationFor: allergies.map(a => a.value),
+      inputLabel: 'Since (yrs)',
+      inputType: 'number',
+    },
  
-], [bloodGroups]);
+], [bloodGroups, surgeries, allergies]);
 
 
   const familyFields = useMemo(() => [
@@ -211,11 +196,13 @@ function Dashboard() {
    if (!user?.patientId) return;
     setLoading(true);
     try {
-      const [coverageRes, healthConditionsRes, familyRelationsRes, bloodGroupsRes] = await Promise.all([
+      const [coverageRes, healthConditionsRes, familyRelationsRes, bloodGroupsRes, surgeriesRes, allergiesRes,] = await Promise.all([
         getCoverageTypes().catch(() => ({ data: [] })),
         getHealthConditions().catch(() => ({ data: [] })),
         getRelations().catch(() => ({ data: [] })),
         getBloodGroups().catch(() => ({ data: [] })),
+        getAllSurgeries().catch(() => ({ data: [] })),
+      getAllAllergies().catch(() => ({ data: [] })),
       ]);
 
       setBloodGroups(
@@ -224,6 +211,19 @@ function Dashboard() {
           value: item.id,
         })) || []
       );
+       setSurgeries(
+      surgeriesRes.data?.map((item) => ({
+        label: item.surgeryName || 'Unknown',
+        value: item.id,
+      })) || []
+    );
+
+    setAllergies(
+      allergiesRes.data?.map((item) => ({
+        label: item.allergyName || 'Unknown',
+        value: item.id,
+      })) || []
+    );
       setFamilyRelations(
         familyRelationsRes.data?.map((item) => ({
           label: item.relationName || 'Unknown',
@@ -242,6 +242,7 @@ function Dashboard() {
           value: item.id,
         })) || []
       );
+      
 
       const patientId = reduxPatientId;
       if (patientId) {
@@ -355,16 +356,16 @@ function Dashboard() {
         weight: Number(updatedData.weight) || 0,
         bloodGroupId,
         surgeries: updatedData.surgeries || '',
-        allergies: updatedData.allergies || '',
-        surgeryDuration: updatedData.surgeryDuration || '',
-        allergyDuration: updatedData.allergyDuration || '',
+    allergies: updatedData.allergies || '',
+    surgeryDuration: updatedData.surgeryDuration || '',
+    allergyDuration: updatedData.allergyDuration || '',
         isSmoker: Boolean(updatedData.isSmokerUser),
         yearsSmoking: updatedData.isSmokerUser ? Number(updatedData.smokingDuration) || 0 : 0,
         isAlcoholic: Boolean(updatedData.isAlcoholicUser),
         yearsAlcoholic: updatedData.isAlcoholicUser ? Number(updatedData.alcoholDuration) || 0 : 0,
         isTobacco: Boolean(updatedData.isTobaccoUser),
         yearsTobacco: updatedData.isTobaccoUser ? Number(updatedData.tobaccoDuration) || 0 : 0,
-        patientId: Number(patientId),
+        patientId: String(patientId),
       };
 
       let savedData;

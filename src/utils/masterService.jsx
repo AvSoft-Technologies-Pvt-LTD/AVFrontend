@@ -43,7 +43,7 @@ export const getHospitalTypes = () => axiosInstance.get('/master/hospitalType');
 export const getAllHospitals = () => axiosInstance.get('/hospitals');
 export const getHospitalDropdown = () => axiosInstance.get('/hospitals/dropdown');
 export const getAllMedicalConditions = () => axiosInstance.get('/master/medicalConditions');
-export const getAllMedicalStatus = () => axiosInstance.get('/med-record-status');
+export const getAllMedicalStatus = () => axiosInstance.get('/master/medicalStatus');
 export const getConsultationTypes = () => axiosInstance.get('/consultation-types');
 
 // COVERAGE TYPES
@@ -148,6 +148,22 @@ export const deleteConsultationType = (id) => axiosInstance.delete(`/consultatio
 export const getAllTests = () => axiosInstance.get('/lab-tests');
 export const getAllScans = () => axiosInstance.get('/scans');
 export const getAllhealthpackages = () => axiosInstance.get('/packages');
+
+// ********** ALLERGY API ********** //
+export const getAllAllergies = () => axiosInstance.get("/allergies");
+export const getAllergyById = (id) => axiosInstance.get(`/allergies/${id}`);
+export const createAllergy = (data) => axiosInstance.post("/allergies", data);
+export const updateAllergy = (id, data) => axiosInstance.put(`/allergies/${id}`, data);
+export const deleteAllergy = (id) => axiosInstance.delete(`/allergies/${id}`);
+
+
+// ********** SURGERY API ********** //
+export const getAllSurgeries = () => axiosInstance.get("/surgeries");
+export const getSurgeryById = (id) => axiosInstance.get(`/surgeries/${id}`);
+export const createSurgery = (data) => axiosInstance.post("/surgeries", data);
+export const updateSurgery = (id, data) => axiosInstance.put(`/surgeries/${id}`, data);
+export const deleteSurgery = (id) => axiosInstance.delete(`/surgeries/${id}`);
+
 
 
 // Doctor Appointments

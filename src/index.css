@@ -645,3 +645,26 @@ body {
     margin: 0 !important;
   }
 }
+.custom-toast-container {
+  z-index: 9999; /* stay above modals or headers */
+}
+
+/* 🔹 Mobile view adjustments */
+@media (max-width: 600px) {
+  .custom-toast-container {
+    width: 70% !important;      /* narrower width */
+    left: 10% !important;        /* center horizontally */
+    right: 10% !important;
+    top: 10px !important;       /* spacing from top */
+  }
+
+  .Toastify__toast {
+    font-size: 13px !important; /* readable font */
+    border-radius: 10px !important;
+  }
+
+  .Toastify__toast-container--top-right {
+    top: 10px !important;
+    right: 5% !important;
+  }
+}

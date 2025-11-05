@@ -5,21 +5,27 @@ import {
   getHospitalDropdown,
   getAllMedicalConditions,
   getAllMedicalStatus,
+  getAllSymptoms,
 } from "../../../../utils/masterService";
 import DynamicTable from "../../../../components/microcomponents/DynamicTable";
 import ReusableModal from "../../../../components/microcomponents/Modal";
-import { getOPDRecordsByPatientId, createOPDRecord, getIPDRecordsByPatientId, createIPDRecord, getVirtualRecordsByPatientId, createVirtualRecord,} from "../../../../utils/CrudService";
+import {
+  getOPDRecordsByPatientId,
+  createOPDRecord,
+  getIPDRecordsByPatientId,
+  createIPDRecord,
+  getVirtualRecordsByPatientId,
+  createVirtualRecord,
+} from "../../../../utils/CrudService";
 import { CheckCircle } from "lucide-react";
 
 const MedicalRecords = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const patientId = useSelector((state) => state.auth.patientId);
-  const user = useSelector((state) => state.auth.user);
   const [state, setState] = useState({
     activeTab: "OPD",
     showAddModal: false,
-    hiddenIds: [],
   });
   const [medicalData, setMedicalData] = useState({
     OPD: [],
@@ -31,19 +37,16 @@ const MedicalRecords = () => {
   const [hospitalOptions, setHospitalOptions] = useState([]);
   const [medicalConditions, setMedicalConditions] = useState([]);
   const [statusTypes, setStatusTypes] = useState([]);
-  const [apiDataLoading, setApiDataLoading] = useState({
-    hospitals: false,
-    conditions: false,
-    status: false,
-  });
+  const [symptoms, setSymptoms] = useState([]);
 
+  // 🔹 Fetch master dropdowns
   useEffect(() => {
     const collator = new Intl.Collator(undefined, { sensitivity: "base" });
     const byLabelAsc = (a, b) =>
       collator.compare(String(a.label || ""), String(b.label || ""));
+
     const fetchMasterData = async () => {
       try {
-        setApiDataLoading((p) => ({ ...p, hospitals: true }));
         const hospitalsResponse = await getHospitalDropdown();
         const hospitalsList = (hospitalsResponse?.data ?? [])
           .map((h) => ({
@@ -53,8 +56,7 @@ const MedicalRecords = () => {
           .filter((opt) => opt.label)
           .sort(byLabelAsc);
         setHospitalOptions(hospitalsList);
-        setApiDataLoading((p) => ({ ...p, hospitals: false }));
-        setApiDataLoading((p) => ({ ...p, conditions: true }));
+
         const conditionsResponse = await getAllMedicalConditions();
         const conditionsList = (conditionsResponse?.data ?? [])
           .map((c) => ({
@@ -64,8 +66,7 @@ const MedicalRecords = () => {
           .filter((opt) => opt.label)
           .sort(byLabelAsc);
         setMedicalConditions(conditionsList);
-        setApiDataLoading((p) => ({ ...p, conditions: false }));
-        setApiDataLoading((p) => ({ ...p, status: true }));
+
         const statusResponse = await getAllMedicalStatus();
         const statusList = (statusResponse?.data ?? [])
           .map((s) => ({
@@ -75,16 +76,25 @@ const MedicalRecords = () => {
           .filter((opt) => opt.label)
           .sort(byLabelAsc);
         setStatusTypes(statusList);
-        setApiDataLoading((p) => ({ ...p, status: false }));
+
+        const symptomsResponse = await getAllSymptoms();
+        const symptomsList = (symptomsResponse?.data ?? [])
+          .map((s) => ({
+            label: s?.name || s?.symptomName || s?.label || "",
+            value: s?.id || s?.name || "",
+          }))
+          .filter((opt) => opt.label)
+          .sort(byLabelAsc);
+        setSymptoms(symptomsList);
       } catch (error) {
         console.error("Error fetching master data:", error);
-      } finally {
-        setApiDataLoading({ hospitals: false, conditions: false, status: false });
       }
     };
+
     fetchMasterData();
   }, []);
 
+  // 🔹 Fetch all records
   useEffect(() => {
     const fetchAllRecords = async () => {
       setLoading(true);
@@ -95,23 +105,24 @@ const MedicalRecords = () => {
           getIPDRecordsByPatientId(patientId),
           getVirtualRecordsByPatientId(patientId),
         ]);
-        setMedicalData({
+        const newData = {
           OPD: opdResponse.data || [],
           IPD: ipdResponse.data || [],
           Virtual: virtualResponse.data || [],
-        });
-        const hiddenRecords = [
-          ...opdResponse.data
-            .filter((r) => r.hiddenByPatient)
-            .map((r) => r.id),
-          ...ipdResponse.data
-            .filter((r) => r.hiddenByPatient)
-            .map((r) => r.id),
-          ...virtualResponse.data
-            .filter((r) => r.hiddenByPatient)
-            .map((r) => r.id),
-        ];
-        updateState({ hiddenIds: hiddenRecords });
+        };
+        // ✅ Merge with localStorage states
+        const localData = JSON.parse(localStorage.getItem("recordActiveState"));
+        if (localData) {
+          Object.keys(newData).forEach((tab) => {
+            newData[tab] = newData[tab].map((record) => {
+              const found = localData[tab]?.find(
+                (r) => r.recordId === record.recordId
+              );
+              return found ? { ...record, isActive: found.isActive } : record;
+            });
+          });
+        }
+        setMedicalData(newData);
       } catch (err) {
         console.error("Error fetching medical records:", err);
         setFetchError("Failed to fetch medical records.");
@@ -119,124 +130,141 @@ const MedicalRecords = () => {
         setLoading(false);
       }
     };
-    if (patientId) {
-      fetchAllRecords();
-    }
+    if (patientId) fetchAllRecords();
   }, [patientId]);
 
-  const updateState = (updates) => setState((prev) => ({ ...prev, ...updates }));
+  // 🔹 Save active states to localStorage on toggle
+  const handleToggleActive = (recordId, type) => {
+    setMedicalData((prev) => {
+      const updated = { ...prev };
+      updated[type] = updated[type].map((record) =>
+        record.recordId === recordId
+          ? { ...record, isActive: !record.isActive }
+          : record
+      );
+      // Save only active state map
+      const activeStateMap = {};
+      Object.keys(updated).forEach((tab) => {
+        activeStateMap[tab] = updated[tab].map((r) => ({
+          recordId: r.recordId,
+          isActive: r.isActive,
+        }));
+      });
+      localStorage.setItem("recordActiveState", JSON.stringify(activeStateMap));
+      return updated;
+    });
+  };
 
-const getLabelById = (options, value) => {
-  const option = options.find((opt) => String(opt.value) === String(value));
-  return option ? option.label : value;
-}
+  const getLabelById = (options, value) => {
+    const option = options.find((opt) => String(opt.value) === String(value));
+    return option ? option.label : value;
+  };
+
+  const getLabelsByIds = (options, values) => {
+    if (!values || !Array.isArray(values)) return "";
+    return values
+      .map((v) => {
+        const option = options.find((opt) => String(opt.value) === String(v));
+        return option ? option.label : v;
+      })
+      .join(", ");
+  };
+
   const handleViewDetails = (record) => {
     const currentPath = location.pathname;
-    let targetPath;
-    if (currentPath.startsWith("/medical-record")) {
-      targetPath = "/medical-record-details";
-    } else if (currentPath.startsWith("/patientdashboard/medical-record")) {
-      targetPath = "/patientdashboard/medical-record-details";
-    } else {
-      targetPath = "/medical-record-details";
-    }
+    let targetPath =
+      currentPath.startsWith("/patientdashboard/medical-record")
+        ? "/patientdashboard/medical-record-details"
+        : "/medical-record-details";
     navigate(targetPath, { state: { selectedRecord: record } });
   };
 
-  const handleHideRecord = (id) => updateHideStatus(id, true);
-  const handleUnhideRecord = (id) => updateHideStatus(id, false);
+  const handleAddRecord = async (formData) => {
+    try {
+      const payload = {
+        patientId,
+        hospitalId: formData.hospitalName,
+        symptoms: formData.symptoms,
+        medicalConditionId: formData.conditions[0],
+        medicalStatusId: formData.status,
+        ...(state.activeTab === "OPD" && { dateOfVisit: formData.dateOfVisit }),
+        ...(state.activeTab === "IPD" && {
+          dateOfAdmission: formData.dateOfAdmission,
+          dateOfDischarge: formData.dateOfDischarge,
+        }),
+        ...(state.activeTab === "Virtual" && {
+          dateOfConsultation: formData.dateOfConsultation,
+        }),
+      };
+      let response;
+      if (state.activeTab === "OPD") response = await createOPDRecord(payload);
+      else if (state.activeTab === "IPD")
+        response = await createIPDRecord(payload);
+      else response = await createVirtualRecord(payload);
 
-  const updateHideStatus = (recordId, isHidden) => {
-    setMedicalData((prev) => {
-      const updated = { ...prev };
-      Object.keys(updated).forEach((type) => {
-        updated[type] = updated[type].map((record) =>
-          record.id === recordId
-            ? { ...record, hiddenByPatient: isHidden }
-            : record
-        );
-      });
-      return updated;
-    });
-    if (isHidden) {
-      updateState({ hiddenIds: [...state.hiddenIds, recordId] });
-    } else {
-      updateState({
-        hiddenIds: state.hiddenIds.filter((id) => id !== recordId),
-      });
+      const mappedResponse = {
+        recordId: response.data.recordId,
+        patientId: response.data.patientId,
+        hospitalId: response.data.hospitalId,
+        hospitalName: getLabelById(hospitalOptions, response.data.hospitalId),
+        chiefComplaint: response.data.symptoms,
+        medicalConditionId: response.data.medicalConditionId,
+        medicalConditionName: getLabelById(
+          medicalConditions,
+          response.data.medicalConditionId
+        ),
+        medicalStatusId: response.data.medicalStatusId,
+        medicalStatusName: getLabelById(
+          statusTypes,
+          response.data.medicalStatusId
+        ),
+        ...(state.activeTab === "OPD" && {
+          dateOfVisit: response.data.dateOfVisit,
+        }),
+        ...(state.activeTab === "IPD" && {
+          dateOfAdmission: response.data.dateOfAdmission,
+          dateOfDischarge: response.data.dateOfDischarge,
+        }),
+        ...(state.activeTab === "Virtual" && {
+          dateOfConsultation: response.data.dateOfConsultation,
+        }),
+        isActive: true,
+      };
+      setMedicalData((prev) => ({
+        ...prev,
+        [state.activeTab]: [...prev[state.activeTab], mappedResponse],
+      }));
+      setState((prev) => ({ ...prev, showAddModal: false }));
+    } catch (error) {
+      console.error("Error adding record:", error);
     }
   };
 
-const handleAddRecord = async (formData) => {
-  try {
-    const payload = {
-      patientId,
-      hospitalId: formData.hospitalName, // ✅ already ID
-      chiefComplaint: formData.chiefComplaint,
-      medicalConditionId: formData.conditions[0],
-      medicalStatusId: formData.status,
-      ...(state.activeTab === "OPD" && { dateOfVisit: formData.dateOfVisit }),
-      ...(state.activeTab === "IPD" && {
-        dateOfAdmission: formData.dateOfAdmission,
-        dateOfDischarge: formData.dateOfDischarge,
-      }),
-      ...(state.activeTab === "Virtual" && { dateOfConsultation: formData.dateOfConsultation }),
-    };
-
-    let response;
-    if (state.activeTab === "OPD") response = await createOPDRecord(payload);
-    else if (state.activeTab === "IPD") response = await createIPDRecord(payload);
-    else response = await createVirtualRecord(payload);
-
-    const mappedResponse = {
-  id: response.data.recordId,
-  patientId: response.data.patientId,
-  hospitalId: response.data.hospitalId,
-  hospitalName: getLabelById(hospitalOptions, response.data.hospitalId),
-  chiefComplaint: response.data.chiefComplaint,
-  medicalConditionId: response.data.medicalConditionId,
-  medicalConditionName: getLabelById(medicalConditions, response.data.medicalConditionId),
-  medicalStatusId: response.data.medicalStatusId,
-  medicalStatusName: getLabelById(statusTypes, response.data.medicalStatusId),
-  ...(state.activeTab === "OPD" && { dateOfVisit: response.data.dateOfVisit }),
-  ...(state.activeTab === "IPD" && {
-    dateOfAdmission: response.data.dateOfAdmission,
-    dateOfDischarge: response.data.dateOfDischarge,
-  }),
-  ...(state.activeTab === "Virtual" && { dateOfConsultation: response.data.dateOfConsultation }),
-};
-
-    setMedicalData((prev) => ({
-      ...prev,
-      [state.activeTab]: [...prev[state.activeTab], mappedResponse],
-    }));
-
-    updateState({ showAddModal: false });
-  } catch (error) {
-    console.error("Error adding record:", error);
-  }
-};
-
   const createColumns = (type) => {
     const baseFields = {
-      OPD: ["hospitalName",  "chiefComplaint", "dateOfVisit", "medicalStatusName"],
+      OPD: [
+        "hospitalName",
+        "symptoms",
+        "dateOfVisit",
+        "medicalStatusName",
+      ],
       IPD: [
         "hospitalName",
-        "chiefComplaint",
+        "symptoms",
         "dateOfAdmission",
         "dateOfDischarge",
         "medicalStatusName",
       ],
       Virtual: [
         "hospitalName",
-        "chiefComplaint",
+        "symptoms",
         "dateOfConsultation",
         "medicalStatusName",
       ],
     };
     const fieldLabels = {
       hospitalName: "Hospital",
-      chiefComplaint: "Chief Complaint",
+      symptoms: "Symptoms",
       dateOfVisit: "Date of Visit",
       dateOfAdmission: "Date of Admission",
       dateOfDischarge: "Date of Discharge",
@@ -248,16 +276,11 @@ const handleAddRecord = async (formData) => {
         header: fieldLabels[key],
         accessor: key,
         cell: (row) => {
-          const hiddenClass = row.isHidden ? "blur-sm opacity-30" : "";
+          const hiddenClass = !row.isActive ? "blur-sm opacity-40" : "";
           if (key === "hospitalName") {
             return (
               <div className={`flex items-center gap-1 ${hiddenClass}`}>
-                {(row.isVerified ||
-                  row.hasDischargeSummary ||
-                  row.createdBy === "doctor" ||
-                  row.uploadedBy === "Doctor") && (
-                  <CheckCircle size={14} className="text-green-600" />
-                )}
+                <CheckCircle size={14} className="text-green-600" />
                 <button
                   type="button"
                   className="text-[var(--primary-color)] underline hover:text-[var(--accent-color)] font-semibold text-xs"
@@ -268,95 +291,36 @@ const handleAddRecord = async (formData) => {
               </div>
             );
           }
-         const value = row[key];
-const formattedValue = key.toLowerCase().includes("date")
-  ? new Date(value).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    })
-  : value;
-
-return <span className={hiddenClass}>{formattedValue}</span>;
+          const value = row[key];
+          const formattedValue = key.toLowerCase().includes("date")
+            ? new Date(value).toLocaleDateString("en-IN", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })
+            : Array.isArray(value)
+            ? getLabelsByIds(symptoms, value)
+            : value;
+          return <span className={hiddenClass}>{formattedValue}</span>;
         },
       })),
       {
-        header: "Actions",
-        accessor: "actions",
+        header: "Active",
+        accessor: "active",
         cell: (row) => (
-          <div className="flex items-center gap-2">
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={!row.isHidden}
-                onChange={() =>
-                  row.isHidden
-                    ? handleUnhideRecord(row.id)
-                    : handleHideRecord(row.id)
-                }
-                className="sr-only peer"
-              />
-              <div className="w-10 h-5 bg-gray-200 rounded-full peer-checked:bg-emerald-500 after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"></div>
-            </label>
-
-          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={row.isActive}
+              onChange={() => handleToggleActive(row.recordId, type)}
+              className="sr-only peer"
+            />
+            <div className="w-10 h-5 bg-gray-300 rounded-full peer-checked:bg-emerald-500 after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"></div>
+          </label>
         ),
       },
     ];
   };
-
-  const getCurrentTabData = () => {
-    const records = medicalData[state.activeTab] || [];
-    const seen = new Set();
-    const uniqueRecords = [];
-    records.forEach((record) => {
-      const key = `${record.hospitalName}-${record.dateOfVisit || record.dateOfConsultation}-${record.chiefComplaint}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        uniqueRecords.push({
-          ...record,
-          isHidden: state.hiddenIds.includes(record.id),
-        });
-      }
-    });
-    return uniqueRecords;
-  };
-
-const getFormFields = (recordType) => [
-  {
-    name: "hospitalName",
-    label: "Hospital Name",
-    type: "select",
-    options: hospitalOptions, // ✅ Keep ID as value
-    loading: apiDataLoading.hospitals,
-  },
-  { name: "chiefComplaint", label: "Chief Complaint", type: "text" },
-  {
-    name: "conditions",
-    label: "Medical Conditions",
-    type: "multiselect",
-    options: medicalConditions, // ✅ Keep ID as value
-    loading: apiDataLoading.conditions,
-  },
-  {
-    name: "status",
-    label: "Status",
-    type: "select",
-    options: statusTypes, // ✅ Keep ID as value
-    loading: apiDataLoading.status,
-  },
-  ...({
-    OPD: [{ name: "dateOfVisit", label: "Date of Visit", type: "date" }],
-    IPD: [
-      { name: "dateOfAdmission", label: "Date of Admission", type: "date" },
-      { name: "dateOfDischarge", label: "Date of Discharge", type: "date" },
-    ],
-    Virtual: [
-      { name: "dateOfConsultation", label: "Date of Consultation", type: "date" },
-    ],
-  }[recordType] || []),
-];
-
 
   const tabs = Object.keys(medicalData).map((key) => ({
     label: key,
@@ -387,7 +351,6 @@ const getFormFields = (recordType) => [
         </div>
       </div>
     );
-
   if (fetchError)
     return (
       <div className="text-center text-red-600 py-8">
@@ -405,25 +368,78 @@ const getFormFields = (recordType) => [
     <div className="p-4">
       <DynamicTable
         columns={createColumns(state.activeTab)}
-        data={getCurrentTabData()}
+        data={medicalData[state.activeTab] || []}
         filters={filters}
         tabs={tabs}
         activeTab={state.activeTab}
-        onTabChange={(tab) => updateState({ activeTab: tab })}
+        onTabChange={(tab) => setState((prev) => ({ ...prev, activeTab: tab }))}
         tabActions={[
           {
             label: "Add Record",
-            onClick: () => updateState({ showAddModal: true }),
+            onClick: () => setState((prev) => ({ ...prev, showAddModal: true })),
             className: "edit-btn",
           },
         ]}
       />
       <ReusableModal
         isOpen={state.showAddModal}
-        onClose={() => updateState({ showAddModal: false })}
+        onClose={() => setState((prev) => ({ ...prev, showAddModal: false }))}
         mode="add"
         title="Add Medical Record"
-        fields={getFormFields(state.activeTab)}
+        fields={[
+          {
+            name: "hospitalName",
+            label: "Hospital Name",
+            type: "select",
+            options: hospitalOptions,
+          },
+          {
+            name: "symptoms",
+            label: "Symptoms",
+            type: "multiselect",
+            options: symptoms,
+          },
+          {
+            name: "conditions",
+            label: "Medical Conditions",
+            type: "multiselect",
+            options: medicalConditions,
+          },
+          {
+            name: "status",
+            label: "Status",
+            type: "select",
+            options: statusTypes,
+          },
+          ...(state.activeTab === "OPD"
+            ? [
+                {
+                  name: "dateOfVisit",
+                  label: "Date of Visit",
+                  type: "date",
+                },
+              ]
+            : state.activeTab === "IPD"
+            ? [
+                {
+                  name: "dateOfAdmission",
+                  label: "Date of Admission",
+                  type: "date",
+                },
+                {
+                  name: "dateOfDischarge",
+                  label: "Date of Discharge",
+                  type: "date",
+                },
+              ]
+            : [
+                {
+                  name: "dateOfConsultation",
+                  label: "Date of Consultation",
+                  type: "date",
+                },
+              ]),
+        ]}
         data={{}}
         onSave={handleAddRecord}
       />

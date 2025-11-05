@@ -272,7 +272,7 @@ const App = () => {
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
       
-      <ToastContainer position="top-right" autoClose={3000} />
+    <ToastContainer position={"top-right"}autoClose={3000} hideProgressBar={false} theme="colored" className="custom-toast-container"/>
     </Router>
           </PatientProvider>
 

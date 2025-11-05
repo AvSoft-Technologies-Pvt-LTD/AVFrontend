@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
@@ -50,13 +52,14 @@ const VirtualTab = forwardRef(
       viewPatient: false,
       editPatient: false,
     });
+      const { setPatient, setActiveTab: setContextActiveTab } = usePatientContext();
     const [consultationFormData, setConsultationFormData] = useState({
       scheduledDate: getCurrentDateArray(),
       scheduledTime: getCurrentTimeArray(),
       duration: 30,
     });
     const [consultationTypes, setConsultationTypes] = useState([]);
-    const { setPatients } = usePatientContext();
+  
 
     useImperativeHandle(ref, () => ({
       openScheduleConsultationModal: () => openModal("scheduleConsultation"),
@@ -94,14 +97,13 @@ const VirtualTab = forwardRef(
           };
         });
         setVirtualPatients(formatted.reverse());
-        setPatients(formatted);
+        setPatient(formatted);
       } catch (e) {
         console.error(e);
       } finally {
         setLoading(false);
       }
     };
-
     const openModal = (n) => setModals((p) => ({ ...p, [n]: true }));
     const closeModal = (n) => {
       setModals((p) => ({ ...p, [n]: false }));
@@ -113,53 +115,52 @@ const VirtualTab = forwardRef(
         });
       setSelectedPatient(null);
     };
+const handleSelected = (r) => {
+  try {
+    console.log("this is",{ state: { patient: r } })
+    localStorage.setItem("selectedThisPatient", JSON.stringify(r));
+     setPatient(r);
+    navigate("/doctordashboard/form", { state: { patient: r } });
+  } catch (error) {
+    console.error("Error saving patient:", error);
+  }
+};
 
     // ✅ View appointment details
-  const handleViewPatient = (p) => {
-  // Keep full record so id is preserved
-  setSelectedPatient(p);
+    const handleViewPatient = (p) => {
+      setSelectedPatient(p);
+      const formatted = {
+        appointmentId: p.appointmentId || "N/A",
+        name: p.patientName || "N/A",
+        email: p.patientEmail || p.userEmail || "N/A",
+        phone: p.patientPhone || p.userPhone || "N/A",
+        scheduledDate: p.scheduledDate || "N/A",
+        scheduledTime: p.scheduledTime || "N/A",
+        consultationType: p.consultationTypeName || "N/A",
+        duration: p.duration || "N/A",
+        consultationNotes: p.consultationNotes || "N/A",
+      };
+      openModal("viewPatient");
+      setConsultationFormData(formatted);
+    };
 
-  const formatted = {
-    appointmentId: p.appointmentId || "N/A",
-    name: p.patientName || "N/A",
-    email: p.patientEmail || p.userEmail || "N/A",
-    phone: p.patientPhone || p.userPhone || "N/A",
-    scheduledDate: p.scheduledDate || "N/A",
-    scheduledTime: p.scheduledTime || "N/A",
-    consultationType: p.consultationTypeName || "N/A",
-    duration: p.duration || "N/A",
-    consultationNotes: p.consultationNotes || "N/A",
-  };
-
-  openModal("viewPatient");
-  // pass only the formatted view data to modal
-  setConsultationFormData(formatted);
-};
-
-
-const handleEditPatient = (p) => {
-  if (!p) return;
-
-  // ✅ Preserve the full object with id for PUT
-  setSelectedPatient(p);
-
-  setConsultationFormData({
-    firstName: p.patientName?.split(" ")[0] || "",
-    lastName: p.patientName?.split(" ")[1] || "",
-    email: p.patientEmail || p.userEmail || "",
-    phone: p.patientPhone || p.userPhone || "",
-    consultationTypeId: p.consultationTypeId || "",
-    scheduledDate: p.scheduledDate ? p.scheduledDate.split("T")[0] : "",
-    scheduledTime: p.scheduledTime || "",
-    duration: p.duration || 30,
-    notes: p.consultationNotes || "",
-  });
-
-  closeModal("viewPatient");
-  openModal("editPatient");
-};
-
-
+    const handleEditPatient = (p) => {
+      if (!p) return;
+      setSelectedPatient(p);
+      setConsultationFormData({
+        firstName: p.patientName?.split(" ")[0] || "",
+        lastName: p.patientName?.split(" ")[1] || "",
+        email: p.patientEmail || p.userEmail || "",
+        phone: p.patientPhone || p.userPhone || "",
+        consultationTypeId: p.consultationTypeId || "",
+        scheduledDate: p.scheduledDate ? p.scheduledDate.split("T")[0] : "",
+        scheduledTime: p.scheduledTime || "",
+        duration: p.duration || 30,
+        notes: p.consultationNotes || "",
+      });
+      closeModal("viewPatient");
+      openModal("editPatient");
+    };
 
     // ✅ Schedule new consultation
     const handleScheduleConsultation = async (f) => {
@@ -169,8 +170,8 @@ const handleEditPatient = (p) => {
           name: `${f.firstName} ${f.lastName}`.trim(),
           type: "virtual",
           patientEmail: f.email,
-           phoneNumber: f.phone, // <-- Use phoneNumber instead of patientPhone
-           consultationNotes: f.notes, // <-- Use notes instead of consultationNotes
+          phoneNumber: f.phone, // <-- Use phoneNumber instead of patientPhone
+          consultationNotes: f.notes, // <-- Use notes instead of consultationNotes
           consultationStatus: "Scheduled",
           doctorName,
           doctorId,
@@ -190,36 +191,36 @@ const handleEditPatient = (p) => {
     };
 
     // ✅ Update consultation
-const handleUpdateConsultation = async (formData) => {
-  try {
-    const id = selectedPatient?.id || selectedPatient?.appointmentId;
-    if (!id) {
-      console.error("No appointment ID found for update");
-      return;
-    }
-    const payload = {
-      doctorId,
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      email: formData.email,
-      phoneNumber: formData.phone, // Use phoneNumber instead of phone
-      consultationTypeId: Number(formData.consultationTypeId),
-      scheduledDate: formData.scheduledDate,
-      scheduledTime: formData.scheduledTime,
-      duration: formData.duration,
-      consultationNotes: formData.notes, // Use consultationNotes
+    const handleUpdateConsultation = async (formData) => {
+      try {
+        const id = selectedPatient?.id || selectedPatient?.appointmentId;
+        if (!id) {
+          console.error("No appointment ID found for update");
+          return;
+        }
+        const payload = {
+          doctorId,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          phoneNumber: formData.phone, // Use phoneNumber instead of phone
+          consultationTypeId: Number(formData.consultationTypeId),
+          scheduledDate: formData.scheduledDate,
+          scheduledTime: formData.scheduledTime,
+          duration: formData.duration,
+          consultationNotes: formData.notes, // Use consultationNotes
+        };
+        console.log("Payload:", payload); // Debug log
+        const res = await updateVirtualAppointment(id, payload);
+        if (res?.data) {
+          closeModal("editPatient");
+          await new Promise((r) => setTimeout(r, 500));
+          fetchAllPatients();
+        }
+      } catch (error) {
+        console.error("Error updating consultation:", error);
+      }
     };
-    console.log("Payload:", payload); // Debug log
-    const res = await updateVirtualAppointment(id, payload);
-    if (res?.data) {
-      closeModal("editPatient");
-      await new Promise((r) => setTimeout(r, 500));
-      fetchAllPatients();
-    }
-  } catch (error) {
-    console.error("Error updating consultation:", error);
-  }
-};
 
 
     // ✅ Table columns
@@ -256,14 +257,7 @@ const handleUpdateConsultation = async (formData) => {
         header: "Actions",
         cell: (r) => (
           <div className="flex items-center gap-2">
-            <button
-              onClick={() =>
-                navigate("/doctordashboard/form", { state: { patient: r } })
-              }
-              className="text-base p-1"
-            >
-              <FaNotesMedical />
-            </button>
+            <button onClick={() => handleSelected(r)} className="text-base p-1"><FaNotesMedical /></button>
             <TeleConsultFlow
               phone={r.phone}
               patientName={r.name}
@@ -273,9 +267,11 @@ const handleUpdateConsultation = async (formData) => {
             />
             <button
               title="View Medical Record"
-              onClick={() =>
-                navigate("/doctordashboard/medical-record", { state: { patient: r } })
-              }
+              onClick={() => {
+                console.log("Navigating to medical record with patient:", r);
+                setPatient(r); // ✅ ensure the correct patient is in context
+                navigate("/doctordashboard/medical-record", { state: { patient: r } });
+              }}
               className="p-1 text-base text-[var(--primary-color)]"
             >
               <FiExternalLink />
@@ -322,12 +318,12 @@ const handleUpdateConsultation = async (formData) => {
           data={virtualPatients}
           filters={filters}
           loading={loading}
-          newRowIds={[newPatientId].filter(Boolean)}
+          newrIds={[newPatientId].filter(Boolean)}
           tabs={tabs}
           tabActions={tabActions}
           activeTab={activeTab}
           onTabChange={onTabChange}
-          rowClassName={(r) =>
+          rClassName={(r) =>
             r.appointmentId === newPatientId ? "font-bold bg-yellow-100" : ""
           }
         />

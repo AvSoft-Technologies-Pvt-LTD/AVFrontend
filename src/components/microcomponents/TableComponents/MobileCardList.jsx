@@ -75,7 +75,7 @@ export default function MobileCardList({
     }
 
     // Add Status if space allows
-    if (statusColumn && elements.length < 3) {
+    if (statusColumn && elements.length < 2) {
       elements.push({
         type: "status",
         column: statusColumn,
@@ -129,11 +129,10 @@ export default function MobileCardList({
         return (
           <div
             key={row.id}
-            className={`bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 relative overflow-hidden ${
-              newRowIds.includes(row.id)
+            className={`bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 relative overflow-hidden ${newRowIds.includes(row.id)
                 ? "border-l-4 border-l-blue-500 bg-blue-50/30"
                 : ""
-            } ${rowClassName ? rowClassName(row) : ""}`}
+              } ${rowClassName ? rowClassName(row) : ""}`}
           >
             {/* Card Header */}
             <div className="flex items-center justify-between p-4 border-b border-gray-100">
@@ -143,11 +142,10 @@ export default function MobileCardList({
                   .map((element, index) => (
                     <h3
                       key={index}
-                      className={`text-lg font-semibold text-gray-900 truncate ${
-                        element.column.clickable
+                      className={`text-lg font-semibold text-gray-900 truncate ${element.column.clickable
                           ? "text-[var(--primary-color)] cursor-pointer hover:text-[var(--primary-color)] hover:underline"
                           : ""
-                      }`}
+                        }`}
                       onClick={
                         element.column.clickable
                           ? () => onCellClick?.(row, element.column)
@@ -190,30 +188,36 @@ export default function MobileCardList({
             </div>
 
             {/* Card Content: Only data columns, 2 per row */}
+      
             <div className="p-4 space-y-3">
               {bodyColumns.length > 0 ? (
                 <div className="grid grid-cols-2 gap-4">
-                  {bodyColumns.map((col, i) => (
-                    <div key={i} className="space-y-1">
-                      <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                        {col.header}
-                      </div>
+                  {bodyColumns.map((col, i) => {
+                    const isLastOdd =
+                      bodyColumns.length % 2 !== 0 && i === bodyColumns.length - 1;
+
+                    return (
                       <div
-                        className={`font-medium text-sm ${
-                          col.clickable
-                            ? "text-[var(--primary-color)] cursor-pointer hover:text-[var(--primary-color)] hover:underline"
-                            : "text-gray-900"
-                        }`}
-                        onClick={
-                          col.clickable
-                            ? () => onCellClick?.(row, col)
-                            : undefined
-                        }
+                        key={i}
+                        className={`space-y-1 ${isLastOdd ? "col-span-2" : ""}`}
                       >
-                        {col.cell ? col.cell(row) : row[col.accessor] ?? "-"}
+                        <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                          {col.header}
+                        </div>
+                        <div
+                          className={`font-medium text-sm ${col.clickable
+                              ? "text-[var(--primary-color)] cursor-pointer hover:text-[var(--primary-color)] hover:underline"
+                              : "text-gray-900"
+                            }`}
+                          onClick={
+                            col.clickable ? () => onCellClick?.(row, col) : undefined
+                          }
+                        >
+                          {col.cell ? col.cell(row) : row[col.accessor] ?? "-"}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-4 text-gray-500 text-sm">
@@ -221,7 +225,6 @@ export default function MobileCardList({
                 </div>
               )}
             </div>
-
             {/* New Badge */}
             {newRowIds.includes(row.id) && (
               <div className="absolute top-3 right-3 z-10">

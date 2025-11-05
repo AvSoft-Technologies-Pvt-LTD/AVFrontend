@@ -12,6 +12,8 @@ export default function DynamicTable({
   tabs = [],
   activeTab,
   onTabChange,
+  showSearchBar = true,
+  showPagination = true,
   tabActions = [],
   noDataMessage = "No records found.",
   itemsPerPage = 9,
@@ -27,33 +29,32 @@ export default function DynamicTable({
     const handleClickOutside = (event) => {
       if (filterButtonRef.current && !filterButtonRef.current.contains(event.target)) {
         setIsFilterPanelOpen(false);
-        setTempFilters(activeFilters); // Reset temp filters when closing
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [activeFilters]);
+  }, []);
 
   const filteredData = useMemo(() => {
-    return data?.filter((row) => {
+    return data.filter((row) => {
       const matchesSearch = Object.values(row)
         .join(" ")
         .toLowerCase()
         .includes(searchQuery.toLowerCase());
       const matchesFilters = Object.entries(activeFilters).every(([key, val]) => {
-        if (!val || val?.length === 0) return true;
+        if (!val || val.length === 0) return true;
         return val.includes(row[key]);
       });
       return matchesSearch && matchesFilters;
     });
   }, [data, searchQuery, activeFilters]);
 
-  const totalPages = Math.ceil(filteredData?.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
 
   // Pagination logic for desktop
   const paginatedData = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
-    return filteredData?.slice(start, start + itemsPerPage);
+    return filteredData.slice(start, start + itemsPerPage);
   }, [filteredData, currentPage, itemsPerPage]);
 
   useEffect(() => {
@@ -68,6 +69,7 @@ export default function DynamicTable({
 
   return (
     <div className="bg-white shadow-sm rounded-xl border border-gray-200 relative">
+      {showSearchBar && (
       <TableHeader
         title={title}
         tabs={tabs}
@@ -80,7 +82,7 @@ export default function DynamicTable({
         filterButtonRef={filterButtonRef}
         setFilterPanelOpen={setIsFilterPanelOpen}
       />
-
+)}
       {isFilterPanelOpen && filters.length > 0 && (
         <div
           ref={filterButtonRef}
@@ -89,13 +91,13 @@ export default function DynamicTable({
           <div
             className="grid gap-4"
             style={{
-              gridTemplateColumns: `repeat(${filters?.length}, minmax(250px, 1fr))`,
+              gridTemplateColumns: `repeat(${filters.length}, minmax(250px, 1fr))`,
             }}
           >
-            {filters?.map((group, i) => (
+            {filters.map((group, i) => (
               <div key={i} className="flex flex-col gap-2">
                 <h3 className="font-medium text-sm">{group.title}</h3>
-                {group?.options?.map((option, j) => (
+                {group.options.map((option, j) => (
                   <label key={j} className="flex items-center gap-2 text-sm">
                     <input
                       type="checkbox"
@@ -125,10 +127,7 @@ export default function DynamicTable({
           <div className="flex justify-end mt-4 border-t border-gray-200 pt-2 gap-2">
             <button
               className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300"
-              onClick={() => {
-                setTempFilters(activeFilters);
-                setIsFilterPanelOpen(false);
-              }}
+              onClick={() => setIsFilterPanelOpen(false)}
             >
               Cancel
             </button>
@@ -151,7 +150,7 @@ export default function DynamicTable({
         <table className="min-w-full divide-y divide-gray-200" role="table">
           <thead className="bg-gray-50">
             <tr>
-              {columns?.map((col) => (
+              {columns.map((col) => (
                 <th
                   key={col.accessor}
                   scope="col"
@@ -172,14 +171,15 @@ export default function DynamicTable({
       </div>
 
       {/* Pagination (hidden on mobile/tablet) */}
+      {showPagination && (
       <Pagination
         currentPage={currentPage}
         totalPages={totalPages}
         onPageChange={setCurrentPage}
       />
-
+      )}
       {/* Empty State */}
-      {filteredData?.length === 0 && (
+      {filteredData.length === 0 && (
         <div className="text-center text-gray-500 py-6">{noDataMessage}</div>
       )}
     </div>

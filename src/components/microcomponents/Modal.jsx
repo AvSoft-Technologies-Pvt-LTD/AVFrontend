@@ -65,6 +65,13 @@ const ReusableModal = ({
   const signaturePadRef = useRef();
   const modalRef = useRef();
 
+  // Helper function to get the label for a selected value
+  const getSelectedLabel = (options, value) => {
+    if (!value) return null;
+    const option = options.find((opt) => String(opt.value) === String(value));
+    return option ? option.label : value;
+  };
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (modalRef.current && !modalRef.current.contains(event.target)) {
@@ -81,9 +88,9 @@ const ReusableModal = ({
     if (isOpen && ["add", "edit"].includes(mode)) {
       const initial = {};
       fields.forEach((f) => {
-        if (f.type === "checkboxWithInput") {
-          initial[f.name] = data?.[f.name] ?? false;       // checkbox
-          initial[f.inputName] = data?.[f.inputName] ?? ""; // input value
+        if (f.type === "checkboxWithInput" || f.durationField) {
+          initial[f.name] = data?.[f.name] ?? false;
+          initial[f.inputName] = data?.[f.inputName] ?? "";
         } else {
           initial[f.name] = data?.[f.name] ?? "";
         }
@@ -93,7 +100,6 @@ const ReusableModal = ({
       setCurrentFields(fields);
     }
   }, [isOpen, mode, data, fields]);
-
 
   useEffect(() => {
     if (onFieldsUpdate && formValues) {
@@ -117,11 +123,11 @@ const ReusableModal = ({
   };
 
   const handleChange = (name, value) => {
-    const updated = { ...formValues, [name]: value };
-    setFormValues(updated);
-    setFormErrors((p) => ({ ...p, [name]: undefined }));
-    onChange?.(updated);
-  };
+  const updated = { ...formValues, [name]: value };
+  setFormValues(updated);
+  setFormErrors((p) => ({ ...p, [name]: undefined }));
+  onChange?.(updated);
+};
 
   const handleInputChange = (e, field) => {
     const value = e.target.value;
@@ -138,27 +144,22 @@ const ReusableModal = ({
     handleChange(fieldName, suggestion);
     setSuggestions({ ...suggestions, [fieldName]: [] });
   };
+
   const validateFields = () => {
     const errors = {};
     currentFields.forEach((f) => {
       const value = formValues[f.name];
-
-      // required field
       if (f.required && !value && value !== 0 && value !== false) {
         errors[f.name] = `${f.label || f.name} is required`;
       }
-
-      // custom validation function
       if (f.validate) {
         const error = f.validate(value, formValues);
         if (error) errors[f.name] = error;
       }
     });
-
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
-
 
   const handleSave = async () => {
     const isValid = validateFields();
@@ -166,14 +167,12 @@ const ReusableModal = ({
       toast.error("Please fix the errors before saving");
       return;
     }
-
     await onSave({ ...formValues, doctorSignature });
     toast.success(
       mode === "add" ? "Record added Successfully!" : "Record updated Successfully!"
     );
     onClose();
   };
-
 
   const handleDelete = () => {
     onDelete();
@@ -218,10 +217,7 @@ const ReusableModal = ({
                   {getFieldRows(currentFields).map((row, i) => (
                     <div key={i} className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4 mb-2 sm:mb-4">
                       {row.map((field) => (
-                        <div
-                          key={field.name}
-                          className={`col-span-1 ${getColSpanClass(field.colSpan)}`}
-                        >
+                        <div key={field.name} className={`col-span-1 ${getColSpanClass(field.colSpan)}`}>
                           {field.type === "checkbox" ? (
                             <label className="inline-flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm mt-1">
                               <input
@@ -256,7 +252,7 @@ const ReusableModal = ({
                                 />
                               )}
                               {formErrors[field.inputName] && (
-                                <p className="mt-1 text-[10px] sm:text-xs text-red-600"> {formErrors[field.inputName]}</p>
+                                <p className="mt-1 text-[10px] sm:text-xs text-red-600">{formErrors[field.inputName]}</p>
                               )}
                             </div>
                           ) : field.type === "radio" ? (
@@ -302,12 +298,12 @@ const ReusableModal = ({
                                         ? Array.isArray(formValues[field.name]) && formValues[field.name].length
                                           ? `${formValues[field.name].length} selected`
                                           : `Select ${field.label}`
-                                        : formValues[field.name] || `Select ${field.label}`}
+                                        : getSelectedLabel(field.options, formValues[field.name]) || `Select ${field.label}`}
                                     </span>
                                     <ChevronDown size={14} className="sm:size-4" />
                                   </button>
                                   {formValues[`${field.name}Open`] && (
-                                    <div className="fixed z-[1000] mt-1 max-h-40 sm:max-h-60 min-w-auto overflow-auto rounded bg-white shadow">
+                                    <div className="absolute z-[1000] mt-1 max-h-40 sm:max-h-60 min-w-auto overflow-auto rounded bg-white shadow">
                                       <input
                                         type="text"
                                         placeholder="Search..."
@@ -381,14 +377,12 @@ const ReusableModal = ({
                                     return showInput ? (
                                       <div className="mt-2 flex items-center gap-2">
                                         <input
-                                          type={field.inputType || "number"}
-                                          min="0"
-                                          value={formValues[field.durationField] ?? ""}
-                                          onChange={(e) =>
-                                            handleChange(field.durationField, e.target.value)
-                                          }
-                                          className="text-xs sm:text-sm border p-2 sm:p-2.5 border-gray-300 rounded-md w-full sm:w-36 placeholder:text-[10px] sm:placeholder:text-xs"
-                                          placeholder={field.inputLabel || "Since (yrs)"}
+                                          type="text"
+                                          name={field.inputName}
+                                          value={formValues[field.inputName] || ""}
+                                          onChange={(e) => handleChange(field.inputName, e.target.value)}
+                                          className="text-xs sm:text-sm border p-2 sm:p-2.5 border-gray-300 rounded-md w-full min-w-[80px] placeholder:text-[10px] sm:placeholder:text-xs"
+                                          placeholder={field.inputLabel}
                                         />
                                       </div>
                                     ) : null;
@@ -421,7 +415,7 @@ const ReusableModal = ({
                                     )}
                                   </button>
                                   {formErrors[field.name] && (
-                                    <p className="mt-1 text-[10px] sm:text-xs text-red-600"> {formErrors[field.name]}</p>
+                                    <p className="mt-1 text-[10px] sm:text-xs text-red-600">{formErrors[field.name]}</p>
                                   )}
                                 </div>
                               ) : field.type === "textarea" ? (
@@ -435,7 +429,7 @@ const ReusableModal = ({
                                     placeholder=" "
                                   />
                                   {formErrors[field.name] && (
-                                    <p className="mt-1 text-[10px] sm:text-xs text-red-600"> {formErrors[field.name]}</p>
+                                    <p className="mt-1 text-[10px] sm:text-xs text-red-600">{formErrors[field.name]}</p>
                                   )}
                                 </>
                               ) : field.type === "date" ? (
@@ -443,12 +437,16 @@ const ReusableModal = ({
                                   <input
                                     type="date"
                                     name={field.name}
-                                    value={formValues[field.name] ? new Date(formValues[field.name]).toISOString().split("T")[0] : ""}
+                                    value={
+                                      formValues[field.name]
+                                        ? new Date(formValues[field.name]).toISOString().split("T")[0]
+                                        : ""
+                                    }
                                     onChange={(e) => handleChange(field.name, e.target.value)}
                                     className="input-field peer w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2"
                                   />
                                   {formErrors[field.name] && (
-                                    <p className="mt-1 text-[10px] sm:text-xs text-red-600"> {formErrors[field.name]}</p>
+                                    <p className="mt-1 text-[10px] sm:text-xs text-red-600">{formErrors[field.name]}</p>
                                   )}
                                 </>
                               ) : field.type === "file" ? (
@@ -479,7 +477,7 @@ const ReusableModal = ({
                                     </button>
                                   )}
                                   {formErrors[field.name] && (
-                                    <p className="mt-1 text-[10px] sm:text-xs text-red-600"> {formErrors[field.name]}</p>
+                                    <p className="mt-1 text-[10px] sm:text-xs text-red-600">{formErrors[field.name]}</p>
                                   )}
                                 </div>
                               ) : (
@@ -535,7 +533,7 @@ const ReusableModal = ({
                                     </div>
                                   )}
                                   {formErrors[field.name] && (
-                                    <p className="mt-1 text-[10px] sm:text-xs text-red-600"> {formErrors[field.name]}</p>
+                                    <p className="mt-1 text-[10px] sm:text-xs text-red-600">{formErrors[field.name]}</p>
                                   )}
                                 </>
                               )}
@@ -590,8 +588,8 @@ const ReusableModal = ({
                       </div>
                       <div className="flex items-center gap-2 sm:gap-3">
                         <button
-                          onClick={() => signaturePadRef.current?.toDataURL()}
-                          className="px-3 sm:px-4 py-1.5 sm:py-2 edit-btn text-xs sm:text-sm  flex items-center gap-1"
+                          onClick={() => setDoctorSignature(signaturePadRef.current?.toDataURL())}
+                          className="px-3 sm:px-4 py-1.5 sm:py-2 edit-btn text-xs sm:text-sm flex items-center gap-1"
                         >
                           <Save className="w-3.5 h-3.5 sm:size-4" />
                           Save
@@ -658,7 +656,7 @@ const ReusableModal = ({
               {mode !== "viewProfile" && (
                 <button
                   onClick={onClose}
-                  className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm delete-btn "
+                  className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm delete-btn"
                 >
                   {cancelLabel || "Cancel"}
                 </button>

@@ -20,7 +20,6 @@ const PatientList = () => {
   const user = useSelector((state) => state.auth.user);
   const { activeTab: contextActiveTab, setActiveTab: setContextActiveTab } = usePatientContext();
   const [activeTab, setActiveTab] = useState(contextActiveTab || "OPD");
-  const [doctorName, setDoctorName] = useState("");
   const [tabActions, setTabActions] = useState([]);
   const opdTabRef = useRef();
   const ipdTabRef = useRef();
@@ -51,6 +50,12 @@ const PatientList = () => {
     },
   ];
 
+  // Get doctorId and doctorName from Redux
+  const doctorId = user?.doctorId;
+  const doctorName = user?.firstName && user?.lastName
+    ? `Dr. ${user.firstName} ${user.lastName}`.trim()
+    : "Dr. User";
+
   const loadMasterData = async () => {
     try {
       setMasterData((prev) => ({ ...prev, loading: true }));
@@ -59,30 +64,23 @@ const PatientList = () => {
         getBloodGroups(),
         getAllHospitals(),
       ]);
-      const genders =
-        gendersRes.status === "fulfilled"
-          ? gendersRes.value.data.map((g) => ({
-              value: g.genderName || g.name,
-              label: g.genderName || g.name,
-            }))
-          : [
-              { value: "Female", label: "Female" },
-              { value: "Male", label: "Male" },
-              { value: "Other", label: "Other" },
-            ];
-      const bloodGroups =
-        bloodGroupsRes.status === "fulfilled"
-          ? bloodGroupsRes.value.data.map((bg) => ({
-              value: bg.bloodGroupName || bg.name,
-              label: bg.bloodGroupName || bg.name,
-            }))
-          : [
-              { value: "A+", label: "A+" },
-              { value: "B+", label: "B+" },
-              { value: "O+", label: "O+" },
-              { value: "AB+", label: "AB+" },
-            ];
+
+      const genders = gendersRes.status === "fulfilled"
+        ? gendersRes.value.data.map((g) => ({
+            value: g.genderName || g.name,
+            label: g.genderName || g.name,
+          }))
+        : [];
+
+      const bloodGroups = bloodGroupsRes.status === "fulfilled"
+        ? bloodGroupsRes.value.data.map((bg) => ({
+            value: bg.bloodGroupName || bg.name,
+            label: bg.bloodGroupName || bg.name,
+          }))
+        : [];
+
       const hospitals = hospitalsRes.status === "fulfilled" ? hospitalsRes.value.data : [];
+
       let departments = [];
       try {
         const specializationsRes = await getSpecializationsByPracticeType(1);
@@ -91,15 +89,9 @@ const PatientList = () => {
           label: spec.specializationName || spec.name,
         }));
       } catch (error) {
-        departments = [
-          { value: "General Medicine", label: "General Medicine" },
-          { value: "Surgery", label: "Surgery" },
-          { value: "Cardiology", label: "Cardiology" },
-          { value: "Orthopedics", label: "Orthopedics" },
-          { value: "Pediatrics", label: "Pediatrics" },
-          { value: "Gynecology", label: "Gynecology" },
-        ];
+        departments = [];
       }
+
       setMasterData({
         genders,
         bloodGroups,
@@ -110,68 +102,31 @@ const PatientList = () => {
     } catch (error) {
       console.error("Error loading master data:", error);
       setMasterData({
-        genders: [
-          { value: "Female", label: "Female" },
-          { value: "Male", label: "Male" },
-          { value: "Other", label: "Other" },
-        ],
-        bloodGroups: [
-          { value: "A+", label: "A+" },
-          { value: "B+", label: "B+" },
-          { value: "O+", label: "O+" },
-          { value: "AB+", label: "AB+" },
-        ],
-        departments: [
-          { value: "General Medicine", label: "General Medicine" },
-          { value: "Surgery", label: "Surgery" },
-          { value: "Cardiology", label: "Cardiology" },
-          { value: "Orthopedics", label: "Orthopedics" },
-          { value: "Pediatrics", label: "Pediatrics" },
-          { value: "Gynecology", label: "Gynecology" },
-        ],
+        genders: [],
+        bloodGroups: [],
+        departments: [],
         hospitals: [],
         loading: false,
       });
-      toast.error("Some master data failed to load, using defaults");
+      toast.error("Failed to load master data");
     }
   };
 
-  const fetchDoctorName = async () => {
-    if (!user?.email) {
-      console.error("No user email found in Redux");
-      return;
-    }
-    try {
-      const API_USERS = "https://6801242781c7e9fbcc41aacf.mockapi.io/api/AV1/users";
-      const res = await fetch(`${API_USERS}?email=${encodeURIComponent(user.email)}`);
-      const users = await res.json();
-      if (users.length === 0) {
-        throw new Error("No user found with the provided email");
-      }
-      const doctor = users[0];
-      const fullName = `${doctor.firstName} ${doctor.lastName}`.trim();
-      const formattedDoctorName = `Dr. ${fullName}`;
-      setDoctorName(formattedDoctorName);
-    } catch (error) {
-      console.error("Error fetching doctor name:", error);
-      toast.error("Failed to fetch doctor name, using default.");
-    }
+  const handlePatientSelect = (patient) => {
+    localStorage.setItem("selectedThisPatient", JSON.stringify(patient));
+    navigate("/doctordashboard/medical-record", { state: { patient } });
   };
 
- const handleTabChange = (tabValue) => {
+  const handleTabChange = (tabValue) => {
     setActiveTab(tabValue);
     setContextActiveTab(tabValue);
-     localStorage.setItem('activeTab', tabValue);
+    localStorage.setItem('activeTab', tabValue);
     navigate(`/doctordashboard/patients?tab=${tabValue}`);
   };
 
   useEffect(() => {
     loadMasterData();
   }, []);
-
-  useEffect(() => {
-    fetchDoctorName();
-  }, [user]);
 
   useEffect(() => {
     const tabFromUrl = new URLSearchParams(location.search).get("tab");
@@ -198,10 +153,12 @@ const PatientList = () => {
   const renderActiveTab = () => {
     const commonProps = {
       doctorName,
+      doctorId, // Pass doctorId if needed
       masterData,
       location,
       setTabActions,
       tabActions,
+      onPatientSelect: handlePatientSelect,
     };
     const sharedTabProps = {
       tabs,
