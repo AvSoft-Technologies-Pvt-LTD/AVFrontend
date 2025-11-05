@@ -1,12 +1,18 @@
 // EmergencySearch.jsx
 import React, { useState, useEffect, useRef } from "react";
-import axios from "axios";
+// ⛔ Removed direct axios; we'll use your CrudService instead
 import * as Lucide from "lucide-react";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import LocationModal from "./LocationModal"; // must be in same folder
+
+// ✅ Import real API calls from your CrudService
+import {
+  searchAmbulancesPublic,
+  getNearbyAmbulances,
+} from "../../../../../utils/CrudService";
 
 // Fix for Leaflet's default icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -135,7 +141,7 @@ const MobileFilterModal = ({
 };
 
 const EmergencySearch = () => {
-  const [data, setData] = useState(null);
+  const [data, setData] = useState(null); // kept for suggestions logic (now unused)
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredAmbulances, setFilteredAmbulances] = useState([]);
@@ -176,7 +182,6 @@ const EmergencySearch = () => {
   });
 
   const searchRef = useRef(null);
-  const BOOKING_API_URL = "https://mocki.io/v1/33249b2f-bbf5-42c9-bb74-583ebb809974";
 
   // Filter configuration
   const filterConfig = [
@@ -235,31 +240,18 @@ const EmergencySearch = () => {
     },
   ];
 
+  // We used to load a mock dataset here. Now we just flip loading off.
   useEffect(() => {
-    (async () => {
-      try {
-        setLoading(true);
-        const res = await axios.get(BOOKING_API_URL);
-        setData(res.data);
-      } catch (e) {
-        toast.error("Failed to load ambulance data");
-      } finally {
-        setLoading(false);
-      }
-    })();
+    setLoading(false);
   }, []);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (showSuggestions && searchRef.current && !searchRef.current.contains(e.target)) {
-        setTimeout(() => {
-          setShowSuggestions(false);
-        }, 150);
+        setTimeout(() => setShowSuggestions(false), 150);
       }
       if (showLocationSuggestions && mapSearchRef.current && !mapSearchRef.current.contains(e.target)) {
-        setTimeout(() => {
-          setShowLocationSuggestions(false);
-        }, 150);
+        setTimeout(() => setShowLocationSuggestions(false), 150);
       }
       if (isDesktopFiltersExpanded && filterRef.current && !filterRef.current.contains(e.target)) {
         setIsDesktopFiltersExpanded(false);
@@ -282,16 +274,81 @@ const EmergencySearch = () => {
     }
   };
 
+  // --- Helpers to map backend payloads into your card shape ----
+  const mapSearchItemToCard = (it) => ({
+    id: it.id,
+    serviceName: it.name || "Ambulance",
+    location: it.city || "",
+    type: it.type || "Ambulance",
+    category: it.category || "Private",
+    available: it.available ?? true,
+    rating: it.rating ?? 4.0,
+    distance: it.distance ?? null,
+    phone: it.phone || "N/A",
+  });
+
+  const haversineKm = (lat1, lon1, lat2, lon2) => {
+    const toRad = (v) => (v * Math.PI) / 180;
+    const R = 6371;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+  };
+
+  const mapNearbyItemToCard = (it, origin) => {
+    const dist =
+      it.distance ??
+      (origin && it.latitude != null && it.longitude != null
+        ? haversineKm(origin.lat, origin.lng, it.latitude, it.longitude)
+        : null);
+
+    return {
+      id: it.id,
+      serviceName: it.name || "Ambulance",
+      location: it.city || "",
+      type: it.type || "Ambulance",
+      category: it.category || "Private",
+      available: it.available ?? true,
+      rating: it.rating ?? 4.0,
+      distance: dist != null ? Number(dist.toFixed(1)) : null,
+      phone: it.phone || "N/A",
+      latitude: it.latitude,
+      longitude: it.longitude,
+    };
+  };
+  // ------------------------------------------------------------
+
   const getCurrentLocation = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        ({ coords }) => {
+        async ({ coords }) => {
           const pos = [coords.latitude, coords.longitude];
           setMapPosition(pos);
           setMarkerPosition(pos);
           reverseGeocode(...pos);
+
+          // 🔗 Fetch real nearby ambulances
+          try {
+            setSearchLoading(true);
+            setHasSearched(true);
+            const res = await getNearbyAmbulances(coords.latitude, coords.longitude, 10);
+            const list = Array.isArray(res.data) ? res.data : [];
+            const cards = list.map((it) =>
+              mapNearbyItemToCard(it, { lat: coords.latitude, lng: coords.longitude })
+            );
+            setOriginalAmbulances(cards);
+            setFilteredAmbulances(applyFilters(cards));
+            toast.success(`Found ${cards.length} nearby ambulances`);
+          } catch (e) {
+            toast.error("Failed to load nearby ambulances");
+          } finally {
+            setSearchLoading(false);
+          }
         },
-        (err) => {
+        () => {
           toast.error("Unable to get current location");
         }
       );
@@ -387,7 +444,7 @@ const EmergencySearch = () => {
 
   const getLocationVariations = (query) => {
     const variations = [query];
-    Object.entries(locationAliases).forEach(([key, aliases]) => {
+    Object.entries(locationAliases).forEach(([_, aliases]) => {
       if (aliases.includes(query.toLowerCase())) {
         variations.push(...aliases.filter((alias) => alias !== query.toLowerCase()));
       }
@@ -395,14 +452,14 @@ const EmergencySearch = () => {
     return variations;
   };
 
+  // Suggestions (kept; will be empty unless you wire a suggestions API)
   const generateSuggestions = (query) => {
     if (!data || !query.trim()) return [];
-
     const queryLower = query.toLowerCase().trim();
     const queryVariations = getLocationVariations(queryLower);
     const suggestions = [];
 
-    data.ambulanceServices.forEach((ambulance) => {
+    (data.ambulanceServices || []).forEach((ambulance) => {
       const nameMatches = ambulance.serviceName.toLowerCase().includes(queryLower);
       const locationMatches = queryVariations.some((variation) =>
         ambulance.location.toLowerCase().includes(variation)
@@ -422,7 +479,7 @@ const EmergencySearch = () => {
     });
 
     const uniqueSuggestions = suggestions
-      .filter((v, i, self) => i === self.findIndex((t) => t.value === v.value && t.type === v.type))
+      .filter((v, i, self) => i === self.findIndex((t) => t.value === v.value && t.type === t.type))
       .slice(0, 8);
 
     return uniqueSuggestions;
@@ -448,21 +505,16 @@ const EmergencySearch = () => {
   const applyFilters = (ambulances) => {
     let filtered = [...ambulances];
 
-    // Filter by type
     if (activeFilters.type.length > 0) {
       filtered = filtered.filter((ambulance) =>
         activeFilters.type.some((type) => ambulance.type.toLowerCase().includes(type.toLowerCase()))
       );
     }
-
-    // Filter by category
     if (activeFilters.category.length > 0) {
       filtered = filtered.filter((ambulance) =>
         activeFilters.category.includes(ambulance.category.toLowerCase())
       );
     }
-
-    // Filter by availability
     if (activeFilters.availability.length > 0) {
       filtered = filtered.filter((ambulance) => {
         if (activeFilters.availability.includes("available")) return ambulance.available === true;
@@ -470,16 +522,12 @@ const EmergencySearch = () => {
         return true;
       });
     }
-
-    // Filter by rating
     if (activeFilters.rating.length > 0) {
       filtered = filtered.filter((ambulance) => {
         const rating = parseFloat(ambulance.rating);
         return activeFilters.rating.some((minRating) => rating >= parseFloat(minRating));
       });
     }
-
-    // Filter by distance
     if (activeFilters.distance.length > 0) {
       filtered = filtered.filter((ambulance) => {
         const distance = parseFloat(ambulance.distance);
@@ -490,8 +538,9 @@ const EmergencySearch = () => {
     return filtered;
   };
 
-  const searchAmbulances = (query = searchQuery) => {
-    if (!data || !query.trim()) {
+  // 🔎 Use real search API
+  const searchAmbulances = async (query = searchQuery) => {
+    if (!query.trim()) {
       toast.error("Please enter a search term");
       return;
     }
@@ -499,33 +548,25 @@ const EmergencySearch = () => {
     setSearchLoading(true);
     setHasSearched(true);
 
-    setTimeout(() => {
-      const queryLower = query.toLowerCase();
-      const queryVariations = getLocationVariations(queryLower);
+    try {
+      const res = await searchAmbulancesPublic(query);
+      const list = Array.isArray(res.data) ? res.data : [];
+      const cards = list.map(mapSearchItemToCard);
 
-      let results = data.ambulanceServices.filter((ambulance) => {
-        const nameMatch = ambulance.serviceName.toLowerCase().includes(queryLower);
-        const locationMatch = queryVariations.some((variation) =>
-          ambulance.location.toLowerCase().includes(variation)
-        );
-        return nameMatch || locationMatch;
-      });
+      setOriginalAmbulances(cards);
+      const filtered = applyFilters(cards);
+      setFilteredAmbulances(filtered);
 
-      // Store original results before filtering
-      setOriginalAmbulances(results);
-
-      // Apply filters
-      results = applyFilters(results);
-
-      setFilteredAmbulances(results);
-      setSearchLoading(false);
-
-      if (results.length === 0) {
+      if (filtered.length === 0) {
         toast.info(`No ambulances found for "${query}". Try different search terms or clear filters.`);
       } else {
-        toast.success(`Found ${results.length} ambulances for "${query}"`);
+        toast.success(`Found ${filtered.length} ambulances for "${query}"`);
       }
-    }, 500);
+    } catch (e) {
+      toast.error("Search failed");
+    } finally {
+      setSearchLoading(false);
+    }
   };
 
   const handleFilterChange = (filterType, value) => {
@@ -1107,7 +1148,7 @@ const EmergencySearch = () => {
                     <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:gap-4 text-xs sm:text-sm mb-2 sm:mb-3 lg:mb-4">
                       <div className="flex items-center gap-1 text-gray-600">
                         <Lucide.Navigation className="w-3 h-3 sm:w-4 sm:h-4" />
-                        <span>{ambulance.distance} km</span>
+                        <span>{ambulance.distance != null ? `${ambulance.distance} km` : "-"}</span>
                       </div>
                       <div className="flex items-center gap-1 text-gray-600">
                         <Lucide.Star className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-400 fill-current" />
@@ -1123,7 +1164,7 @@ const EmergencySearch = () => {
                           className="font-semibold text-sm sm:text-base lg:text-lg underline hover:text-green-700 focus:outline-none"
                           title="Click to copy"
                         >
-                          {ambulance.phone}
+                          {ambulance.phone && ambulance.phone !== "N/A" ? ambulance.phone : "Not provided"}
                         </button>
                       </div>
                     </div>

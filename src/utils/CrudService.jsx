@@ -282,7 +282,8 @@ export const getAllHospitals = () =>
 export const getSpecializationsWardsSummaryForIpdAdmission = () =>
   axiosInstance.get('/specializations/wards/summary/ipd-addmission');
 
-
+export const createAmbulanceBooking = (data) =>
+  axiosInstance.post('/ambulance/bookings', data);
 /* -----------------------------
    VIRTUAL APPOINTMENTS (CRUD)
 ------------------------------ */
@@ -391,3 +392,11 @@ export const updateAppointmentDuration = (id, data) =>
 // Delete appointment duration
 export const deleteAppointmentDuration = (id) =>
   axiosInstance.delete(`/appointment-durations/${id}`);
+
+export const searchAmbulancesPublic = (keyword) =>
+  axiosInstance.get('/ambulance/public/search', { params: { keyword } });
+
+export const getNearbyAmbulances = (latitude, longitude, radiusKm = 10) =>
+  axiosInstance.get('/ambulance/public/nearby', {
+    params: { latitude, longitude, radiusKm },
+  });

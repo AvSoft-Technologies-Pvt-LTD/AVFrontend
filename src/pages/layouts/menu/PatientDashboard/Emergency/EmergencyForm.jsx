@@ -1,4 +1,3 @@
-// File: EmergencyForm.jsx
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import axios from "axios";
 import { format } from "date-fns";
@@ -15,6 +14,7 @@ import {
   getAllAmbulanceEquipments,
   getAllAmbulanceCategories,
   getAllHospitals,
+  createAmbulanceBooking, // <-- POST /ambulance/bookings
 } from "../../../../../utils/CrudService";
 
 import { useNavigate } from "react-router-dom";
@@ -68,8 +68,7 @@ const EmergencyForm = () => {
     phone: "",
   });
 
-  const CONFIG_URL = "/api/booking-config"; // optional config
-  const BOOKING_API_URL = "/api/bookings";
+  const CONFIG_URL = "/api/booking-config"; // optional config (local mock/config)
 
   // ----- small debounce hook -----
   const useDebounce = (value, delay) => {
@@ -96,9 +95,7 @@ const EmergencyForm = () => {
   const fetchHospitals = async () => {
     try {
       const res = await getAllHospitals();
-      // support both res.data as array or res.data.items
       const list = Array.isArray(res.data) ? res.data : res.data?.items || [];
-      // normalize possible property names
       const normalized = list.map((h) => ({
         ...h,
         hospitalName: h.hospitalName || h.name || "",
@@ -147,7 +144,6 @@ const EmergencyForm = () => {
             ? configRes.value.data || {}
             : {};
 
-        // normalize equipment objects (in case they use name/price/id)
         const normalizedEquipment = Array.isArray(equipment)
           ? equipment.map((it) => ({ ...it }))
           : [];
@@ -240,6 +236,7 @@ const EmergencyForm = () => {
           0
         );
 
+  // existing builder retained for preview/UI
   const buildBooking = () => ({
     ambulanceType:
       data?.ambulanceTypes?.find((t) => t.id === type)?.name || null,
@@ -253,6 +250,50 @@ const EmergencyForm = () => {
     date: format(date, "yyyy-MM-dd"),
     totalAmount: calculateEquipmentTotal(),
   });
+
+  // safe patientId resolver (customize if you store it differently)
+  const getPatientId = () => {
+    try {
+      const direct = localStorage.getItem("patientId");
+      if (direct && !isNaN(Number(direct))) return Number(direct);
+
+      const userStr = localStorage.getItem("user");
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        const fromUser = Number(user?.patientId ?? user?.id);
+        if (!isNaN(fromUser)) return fromUser;
+      }
+    } catch (_) {}
+    return 0;
+  };
+
+  // payload matching backend schema for POST /api/ambulance/bookings
+  const buildBookingPayload = () => {
+    const pickupName = pickup
+      ? data?.locations?.find((l) => l.id === pickup)?.name
+      : pickupSearch;
+
+    const payload = {
+      patientId: Number(getPatientId()) || 0,
+      pickupLocation: (pickupName || "").trim(),
+      hospitalId: Number(selectedHospitalId) || 0,
+      ambulanceTypeId: Number(type) || 0,
+      categoryId: Number(cat) || 0,
+      // only include equipments if user picked any (some servers dislike empty arrays)
+      ...(Array.isArray(equip) && equip.length > 0
+        ? {
+            equipments: equip.map((equipmentId) => ({
+              equipmentId: Number(equipmentId),
+              quantity: 1,
+            })),
+          }
+        : {}),
+      date: format(date, "yyyy-MM-dd"),
+      totalAmount: Number(calculateEquipmentTotal()) || 0,
+    };
+
+    return payload;
+  };
 
   // ----- reset -----
   const resetForm = () => {
@@ -276,14 +317,32 @@ const EmergencyForm = () => {
       toast.error("Booking data not ready");
       return;
     }
-    const booking = buildBooking();
+    if (!type || !cat || !(pickup || pickupSearch) || !selectedHospitalId) {
+      toast.warning("Please select type, category, pickup, and hospital.");
+      return;
+    }
+
+    const payload = buildBookingPayload();
+
+    // more friendly validation before sending
+    if (!payload.patientId) return toast.warning("Missing patient profile.");
+    if (!payload.pickupLocation) return toast.warning("Enter pickup location.");
+    if (!payload.hospitalId) return toast.warning("Choose a hospital.");
+    if (!payload.ambulanceTypeId) return toast.warning("Choose ambulance type.");
+    if (!payload.categoryId) return toast.warning("Choose category.");
+
     try {
-      await axios.post(BOOKING_API_URL, booking);
+      await createAmbulanceBooking(payload);
       toast.success("Booking submitted successfully!");
       resetForm();
     } catch (err) {
-      console.error("Booking submit failed:", err);
-      toast.error("Failed to submit booking.");
+      console.error("Booking submit failed:", err?.response || err);
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        (typeof err?.response?.data === "string" ? err.response.data : "") ||
+        "Failed to submit booking.";
+      toast.error(msg);
     }
   };
 
@@ -293,20 +352,23 @@ const EmergencyForm = () => {
     setShowPaymentGateway(true);
   };
 
-  const handlePaymentSuccess = async (method, paymentData) => {
+  // API schema you shared doesn't include payment fields; we just create the booking after success.
+  const handlePaymentSuccess = async (_method, _paymentData) => {
+    const payload = buildBookingPayload();
     try {
-      await axios.post(BOOKING_API_URL, {
-        ...selectedBooking,
-        paymentId: paymentData?.paymentId || `PAY-${Math.floor(Math.random() * 10000)}`,
-        paymentMethod: method,
-      });
+      await createAmbulanceBooking(payload);
       toast.success("Booking and payment completed successfully!");
       resetForm();
       setSelectedBooking(null);
       setShowPaymentGateway(false);
     } catch (err) {
-      console.error("Payment completion failed:", err);
-      toast.error("Failed to complete booking and payment.");
+      console.error("Payment completion failed:", err?.response || err);
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        (typeof err?.response?.data === "string" ? err.response.data : "") ||
+        "Failed to complete booking and payment.";
+      toast.error(msg);
     }
   };
 

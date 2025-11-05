@@ -51,6 +51,9 @@ const AvailabilityPage = () => {
   const [loading, setLoading] = useState(false);
   const [hasConflict, setHasConflict] = useState(false);
 
+  // --- Simple Consultation Fee (one amount for selected dates) ---
+  const [feeAmount, setFeeAmount] = useState(""); // store as string for input; convert to number on save
+
   // Load appointment durations
   useEffect(() => {
     loadAppointmentDurations();
@@ -79,7 +82,8 @@ const AvailabilityPage = () => {
 
       // Set default duration
       if (durations.length > 0 && !selectedDurationId) {
-        const defaultDuration = durations.find(d => d.durationMinutes === 30) || durations[0];
+        const defaultDuration =
+          durations.find((d) => d.durationMinutes === 30) || durations[0];
         setSelectedDurationId(defaultDuration.id);
         setDuration(defaultDuration.durationMinutes);
       }
@@ -118,6 +122,17 @@ const AvailabilityPage = () => {
           setDuration(schedule.appointmentDuration.durationMinutes);
           setSelectedDurationId(schedule.appointmentDuration.id);
         }
+
+        // Load a previously saved fee if present (supports both shapes)
+        if (schedule.consultationFeeAmount != null) {
+          setFeeAmount(String(schedule.consultationFeeAmount));
+        } else if (
+          Array.isArray(schedule.consultationFees) &&
+          schedule.consultationFees.length === 1 &&
+          schedule.consultationFees[0]?.amount != null
+        ) {
+          setFeeAmount(String(schedule.consultationFees[0].amount));
+        }
       }
     } catch (error) {
       console.error("Error loading schedule:", error);
@@ -126,7 +141,10 @@ const AvailabilityPage = () => {
   };
 
   const toggleDate = (date) => {
-    const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}-${String(date).padStart(2, "0")}`;
+    const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(
+      2,
+      "0"
+    )}-${String(date).padStart(2, "0")}`;
     if (selectedDates.includes(dateStr)) {
       // Toggle deselected state for already selected date
       if (deselectedDates.includes(dateStr)) {
@@ -227,6 +245,13 @@ const AvailabilityPage = () => {
       toast.error("Please select an appointment duration");
       return;
     }
+
+    // Validate fee if entered (optional)
+    if (feeAmount !== "" && Number(feeAmount) < 0) {
+      toast.error("Fee amount cannot be negative.");
+      return;
+    }
+
     setLoading(true);
     try {
       const sortedDates = [...activeDates].sort();
@@ -236,6 +261,7 @@ const AvailabilityPage = () => {
         date: slot.date,
         slots: slot.slots,
       }));
+
       const scheduleData = {
         doctorId: 1, // TODO: get from auth
         fromDate: fromDateAPI,
@@ -244,7 +270,10 @@ const AvailabilityPage = () => {
         endTime,
         appointmentDurationId: selectedDurationId,
         daySlots,
+        // Simple fee values (only send if provided)
+        ...(feeAmount !== "" ? { consultationFeeAmount: Number(feeAmount), currency: "INR" } : {}),
       };
+
       if (isEditMode) {
         await updateAvailabilitySchedule(scheduleId, scheduleData);
         toast.success("Availability updated successfully!");
@@ -261,7 +290,9 @@ const AvailabilityPage = () => {
         error.response.data.error &&
         error.response.data.error.includes("Overlapping schedule already exists")
       ) {
-        toast.error("Overlapping schedule already exists for this doctor in the selected date range.");
+        toast.error(
+          "Overlapping schedule already exists for this doctor in the selected date range."
+        );
         setHasConflict(true);
         setCurrentStep(1);
       } else {
@@ -295,9 +326,14 @@ const AvailabilityPage = () => {
         <div className="calendar-dates">
           {allCells.map((date, index) => {
             if (date === null) {
-              return <div key={`blank-${index}`} className="calendar-date blank"></div>;
+              return (
+                <div key={`blank-${index}`} className="calendar-date blank"></div>
+              );
             }
-            const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}-${String(date).padStart(2, "0")}`;
+            const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(
+              2,
+              "0"
+            )}-${String(date).padStart(2, "0")}`;
             const isSelected = selectedDates.includes(dateStr);
             const isDeselected = deselectedDates.includes(dateStr);
             const isStartDate = startDate === dateStr;
@@ -346,6 +382,7 @@ const AvailabilityPage = () => {
             </p>
           </div>
         </div>
+
         {/* Stepper */}
         <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-8 mt-4 sm:mt-6">
           <div className="flex items-center justify-center mb-6 sm:mb-8">
@@ -364,9 +401,15 @@ const AvailabilityPage = () => {
                 >
                   1
                 </div>
-                <span className="text-xs sm:text-sm font-semibold text-center">Schedule</span>
+                <span className="text-xs sm:text-sm font-semibold text-center">
+                  Schedule
+                </span>
               </div>
-              <div className={`w-16 sm:w-24 h-1 rounded transition-all duration-500 ${currentStep >= 2 ? "bg-blue-600" : "bg-gray-200"}`}></div>
+              <div
+                className={`w-16 sm:w-24 h-1 rounded transition-all duration-500 ${
+                  currentStep >= 2 ? "bg-blue-600" : "bg-gray-200"
+                }`}
+              ></div>
               <div
                 className={`flex flex-col items-center gap-1 sm:gap-2 ${
                   currentStep >= 2 ? "text-blue-600" : "text-gray-400"
@@ -381,10 +424,13 @@ const AvailabilityPage = () => {
                 >
                   2
                 </div>
-                <span className="text-xs sm:text-sm font-semibold text-center">Preview & Save</span>
+                <span className="text-xs sm:text-sm font-semibold text-center">
+                  Preview & Save
+                </span>
               </div>
             </div>
           </div>
+
           {currentStep === 1 ? (
             <div className="space-y-6 sm:space-y-8">
               {/* Step 1 Content */}
@@ -398,7 +444,9 @@ const AvailabilityPage = () => {
                     {/* Month/Year Navigation */}
                     <div className="flex items-center justify-between mb-3 bg-slate-50 p-2 sm:p-3 rounded-lg">
                       <button
-                        onClick={() => setSelectedMonth((prev) => (prev === 0 ? 11 : prev - 1))}
+                        onClick={() =>
+                          setSelectedMonth((prev) => (prev === 0 ? 11 : prev - 1))
+                        }
                         className="p-1.5 sm:p-2 hover:bg-slate-100 rounded-lg transition-colors"
                       >
                         <ChevronLeft size={16} className="sm:w-[18px] sm:h-[18px]" />
@@ -407,7 +455,9 @@ const AvailabilityPage = () => {
                         {MONTHS[selectedMonth]} {selectedYear}
                       </div>
                       <button
-                        onClick={() => setSelectedMonth((prev) => (prev === 11 ? 0 : prev + 1))}
+                        onClick={() =>
+                          setSelectedMonth((prev) => (prev === 11 ? 0 : prev + 1))
+                        }
                         className="p-1.5 sm:p-2 hover:bg-slate-100 rounded-lg transition-colors"
                       >
                         <ChevronRight size={16} className="sm:w-[18px] sm:h-[18px]" />
@@ -420,22 +470,30 @@ const AvailabilityPage = () => {
                           {activeDatesCount} day(s) selected
                         </span>
                         {deselectedDates.length > 0 && (
-                          <span className="text-amber-700 ml-2">({deselectedDates.length} unavailable)</span>
+                          <span className="text-amber-700 ml-2">
+                            ({deselectedDates.length} unavailable)
+                          </span>
                         )}
                       </div>
                     )}
                   </div>
                 </div>
-                {/* Working Hours Section */}
+
+                {/* Working Hours + Fee Section */}
                 <div className="bg-slate-50 p-4 sm:p-5 rounded-xl border border-slate-200">
                   <label className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wide mb-3 block">
                     Working Hours
                   </label>
                   <div className="space-y-4">
                     <div>
-                      <label className="text-xs font-semibold text-slate-600 mb-2 block">Start Time</label>
+                      <label className="text-xs font-semibold text-slate-600 mb-2 block">
+                        Start Time
+                      </label>
                       <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 border-2 border-slate-200 rounded-lg bg-white hover:border-emerald-400 transition-colors">
-                        <Clock size={16} className="sm:w-[18px] sm:h-[18px] text-slate-400 flex-shrink-0" />
+                        <Clock
+                          size={16}
+                          className="sm:w-[18px] sm:h-[18px] text-slate-400 flex-shrink-0"
+                        />
                         <input
                           type="time"
                           value={startTime}
@@ -445,9 +503,14 @@ const AvailabilityPage = () => {
                       </div>
                     </div>
                     <div>
-                      <label className="text-xs font-semibold text-slate-600 mb-2 block">End Time</label>
+                      <label className="text-xs font-semibold text-slate-600 mb-2 block">
+                        End Time
+                      </label>
                       <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 border-2 border-slate-200 rounded-lg bg-white hover:border-emerald-400 transition-colors">
-                        <Clock size={16} className="sm:w-[18px] sm:h-[18px] text-slate-400 flex-shrink-0" />
+                        <Clock
+                          size={16}
+                          className="sm:w-[18px] sm:h-[18px] text-slate-400 flex-shrink-0"
+                        />
                         <input
                           type="time"
                           value={endTime}
@@ -455,6 +518,27 @@ const AvailabilityPage = () => {
                           className="flex-1 outline-none font-semibold text-slate-800 text-sm min-w-0"
                         />
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Simple Fee Field */}
+                  <div className="mt-5 pt-5 border-t border-slate-200">
+                    <label className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wide mb-3 block">
+                      Consultation Fee
+                    </label>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600 mb-2 block">
+                        Amount (INR)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={feeAmount}
+                        onChange={(e) => setFeeAmount(e.target.value)}
+                        className="w-full px-3 py-2 border-2 border-slate-200 rounded-lg bg-white text-sm font-semibold text-slate-800"
+                        placeholder="e.g. 500"
+                      />
                     </div>
                   </div>
                 </div>
@@ -486,6 +570,7 @@ const AvailabilityPage = () => {
                   ))}
                 </div>
               </div>
+
               {/* Slots Preview */}
               <div>
                 <label className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wide mb-3 sm:mb-4 block">
@@ -519,8 +604,23 @@ const AvailabilityPage = () => {
                   })}
                 </div>
               </div>
+
+              {/* Fee Summary (optional) */}
+              <div className="mt-6">
+                <label className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wide mb-3 sm:mb-4 block">
+                  Consultation Fee Summary
+                </label>
+                {feeAmount === "" ? (
+                  <p className="text-xs text-slate-500">No fee entered.</p>
+                ) : (
+                  <div className="bg-slate-50 p-4 sm:p-6 rounded-xl border border-slate-200 text-sm">
+                    Amount: INR {Number(feeAmount).toFixed(2)} (applies to selected dates)
+                  </div>
+                )}
+              </div>
             </div>
           )}
+
           {/* Footer Buttons */}
           <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-4 mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-slate-200">
             {currentStep === 2 && (
