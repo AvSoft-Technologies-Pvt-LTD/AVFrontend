@@ -84,22 +84,22 @@ const ReusableModal = ({
     };
   }, []);
 
-  useEffect(() => {
-    if (isOpen && ["add", "edit"].includes(mode)) {
-      const initial = {};
-      fields.forEach((f) => {
-        if (f.type === "checkboxWithInput" || f.durationField) {
-          initial[f.name] = data?.[f.name] ?? false;
-          initial[f.inputName] = data?.[f.inputName] ?? "";
-        } else {
-          initial[f.name] = data?.[f.name] ?? "";
-        }
-      });
-      setFormValues(initial);
-      setFormErrors({});
-      setCurrentFields(fields);
-    }
-  }, [isOpen, mode, data, fields]);
+useEffect(() => {
+  if (isOpen && ["add", "edit"].includes(mode)) {
+    const initial = {};
+    fields.forEach((f) => {
+      if (f.type === "checkboxWithInput" || f.durationField) {
+        initial[f.name] = data?.[f.name] ?? false;
+        initial[f.inputName] = data?.[f.inputName] ?? "";
+      } else {
+        initial[f.name] = data?.[f.name] ?? "";
+      }
+    });
+    setFormValues(initial);
+    setFormErrors({});
+    setCurrentFields(fields);
+  }
+}, [isOpen, mode, data, fields]);
 
   useEffect(() => {
     if (onFieldsUpdate && formValues) {
@@ -122,11 +122,13 @@ const ReusableModal = ({
     setDoctorSignature("");
   };
 
-  const handleChange = (name, value) => {
-  const updated = { ...formValues, [name]: value };
-  setFormValues(updated);
+const handleChange = (name, value) => {
+  setFormValues(prev => ({
+    ...prev,
+    [name]: value,
+  }));
   setFormErrors((p) => ({ ...p, [name]: undefined }));
-  onChange?.(updated);
+  onChange?.({ ...formValues, [name]: value });
 };
 
   const handleInputChange = (e, field) => {
@@ -368,17 +370,13 @@ const ReusableModal = ({
                                   {field.durationField && (() => {
                                     const selected = formValues[field.name];
                                     const df = field.durationFor;
-                                    const showInput =
-                                      df === true
-                                        ? !!selected && selected !== ""
-                                        : Array.isArray(df)
-                                          ? df.includes(selected)
-                                          : false;
+                                    // Show input if a value is selected and it's not empty
+                                    const showInput = !!selected && selected !== "";
                                     return showInput ? (
                                       <div className="mt-2 flex items-center gap-2">
                                         <input
                                           type="text"
-                                          name={field.inputName}
+                                          name={field.inputName} // Use field.inputName
                                           value={formValues[field.inputName] || ""}
                                           onChange={(e) => handleChange(field.inputName, e.target.value)}
                                           className="text-xs sm:text-sm border p-2 sm:p-2.5 border-gray-300 rounded-md w-full min-w-[80px] placeholder:text-[10px] sm:placeholder:text-xs"

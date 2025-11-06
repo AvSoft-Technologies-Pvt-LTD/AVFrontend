@@ -617,8 +617,8 @@ const OpdTab = forwardRef(
         header: "Actions",
         cell: (row) => (
           <div className="flex items-center gap-2">
-            <button onClick={() => handleAddRecord(row)} className="text-base p-1"><FaNotesMedical /></button>
-            <TeleConsultFlow phone={row.phone} patientName={row.name || `${row.firstName || ""} ${row.middleName || ""} ${row.lastName || ""}`.replace(/\s+/g, " ").trim()} context="OPD" patientEmail={row.email} hospitalName={row.hospitalName || "AV Hospital"} />
+            {/* <button onClick={() => handleAddRecord(row)} className="text-base p-1"><FaNotesMedical /></button>
+            <TeleConsultFlow phone={row.phone} patientName={row.name || `${row.firstName || ""} ${row.middleName || ""} ${row.lastName || ""}`.replace(/\s+/g, " ").trim()} context="OPD" patientEmail={row.email} hospitalName={row.hospitalName || "AV Hospital"} /> */}
             <button title="View Medical Record" onClick={() => {
               let age = "";
               if (row.dob) {

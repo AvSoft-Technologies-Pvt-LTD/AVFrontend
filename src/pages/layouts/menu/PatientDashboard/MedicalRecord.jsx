@@ -39,12 +39,11 @@ const MedicalRecords = () => {
   const [statusTypes, setStatusTypes] = useState([]);
   const [symptoms, setSymptoms] = useState([]);
 
-  // 🔹 Fetch master dropdowns
+  // Fetch master dropdowns
   useEffect(() => {
     const collator = new Intl.Collator(undefined, { sensitivity: "base" });
     const byLabelAsc = (a, b) =>
       collator.compare(String(a.label || ""), String(b.label || ""));
-
     const fetchMasterData = async () => {
       try {
         const hospitalsResponse = await getHospitalDropdown();
@@ -56,7 +55,6 @@ const MedicalRecords = () => {
           .filter((opt) => opt.label)
           .sort(byLabelAsc);
         setHospitalOptions(hospitalsList);
-
         const conditionsResponse = await getAllMedicalConditions();
         const conditionsList = (conditionsResponse?.data ?? [])
           .map((c) => ({
@@ -66,7 +64,6 @@ const MedicalRecords = () => {
           .filter((opt) => opt.label)
           .sort(byLabelAsc);
         setMedicalConditions(conditionsList);
-
         const statusResponse = await getAllMedicalStatus();
         const statusList = (statusResponse?.data ?? [])
           .map((s) => ({
@@ -76,7 +73,6 @@ const MedicalRecords = () => {
           .filter((opt) => opt.label)
           .sort(byLabelAsc);
         setStatusTypes(statusList);
-
         const symptomsResponse = await getAllSymptoms();
         const symptomsList = (symptomsResponse?.data ?? [])
           .map((s) => ({
@@ -90,11 +86,10 @@ const MedicalRecords = () => {
         console.error("Error fetching master data:", error);
       }
     };
-
     fetchMasterData();
   }, []);
 
-  // 🔹 Fetch all records
+  // Fetch all records
   useEffect(() => {
     const fetchAllRecords = async () => {
       setLoading(true);
@@ -110,7 +105,7 @@ const MedicalRecords = () => {
           IPD: ipdResponse.data || [],
           Virtual: virtualResponse.data || [],
         };
-        // ✅ Merge with localStorage states
+        // Merge with localStorage states
         const localData = JSON.parse(localStorage.getItem("recordActiveState"));
         if (localData) {
           Object.keys(newData).forEach((tab) => {
@@ -133,7 +128,7 @@ const MedicalRecords = () => {
     if (patientId) fetchAllRecords();
   }, [patientId]);
 
-  // 🔹 Save active states to localStorage on toggle
+  // Save active states to localStorage on toggle
   const handleToggleActive = (recordId, type) => {
     setMedicalData((prev) => {
       const updated = { ...prev };
@@ -185,8 +180,9 @@ const MedicalRecords = () => {
         patientId,
         hospitalId: formData.hospitalName,
         symptoms: formData.symptoms,
-        medicalConditionId: formData.conditions[0],
+          medicalConditionIds: [formData.conditions[0]],
         medicalStatusId: formData.status,
+        uploadedBy: "PATIENT", 
         ...(state.activeTab === "OPD" && { dateOfVisit: formData.dateOfVisit }),
         ...(state.activeTab === "IPD" && {
           dateOfAdmission: formData.dateOfAdmission,
@@ -201,7 +197,6 @@ const MedicalRecords = () => {
       else if (state.activeTab === "IPD")
         response = await createIPDRecord(payload);
       else response = await createVirtualRecord(payload);
-
       const mappedResponse = {
         recordId: response.data.recordId,
         patientId: response.data.patientId,
@@ -218,6 +213,7 @@ const MedicalRecords = () => {
           statusTypes,
           response.data.medicalStatusId
         ),
+        uploadedBy: response.data.uploadedBy || "patient",
         ...(state.activeTab === "OPD" && {
           dateOfVisit: response.data.dateOfVisit,
         }),
@@ -280,7 +276,9 @@ const MedicalRecords = () => {
           if (key === "hospitalName") {
             return (
               <div className={`flex items-center gap-1 ${hiddenClass}`}>
-                <CheckCircle size={14} className="text-green-600" />
+                {row.uploadedBy === "DOCTOR" && (
+                  <CheckCircle size={14} className="text-green-600" />
+                )}
                 <button
                   type="button"
                   className="text-[var(--primary-color)] underline hover:text-[var(--accent-color)] font-semibold text-xs"
@@ -351,6 +349,7 @@ const MedicalRecords = () => {
         </div>
       </div>
     );
+
   if (fetchError)
     return (
       <div className="text-center text-red-600 py-8">
@@ -392,24 +391,28 @@ const MedicalRecords = () => {
             label: "Hospital Name",
             type: "select",
             options: hospitalOptions,
+            required: true,
           },
           {
             name: "symptoms",
             label: "Symptoms",
             type: "multiselect",
             options: symptoms,
+            required: true,
           },
           {
             name: "conditions",
             label: "Medical Conditions",
             type: "multiselect",
             options: medicalConditions,
+            required: true,
           },
           {
             name: "status",
             label: "Status",
             type: "select",
             options: statusTypes,
+            required: true,
           },
           ...(state.activeTab === "OPD"
             ? [
@@ -417,6 +420,7 @@ const MedicalRecords = () => {
                   name: "dateOfVisit",
                   label: "Date of Visit",
                   type: "date",
+                  required: true,
                 },
               ]
             : state.activeTab === "IPD"
@@ -425,11 +429,13 @@ const MedicalRecords = () => {
                   name: "dateOfAdmission",
                   label: "Date of Admission",
                   type: "date",
+                  required: true,
                 },
                 {
                   name: "dateOfDischarge",
                   label: "Date of Discharge",
                   type: "date",
+                  required: true,
                 },
               ]
             : [
@@ -437,6 +443,7 @@ const MedicalRecords = () => {
                   name: "dateOfConsultation",
                   label: "Date of Consultation",
                   type: "date",
+                  required: true,
                 },
               ]),
         ]}

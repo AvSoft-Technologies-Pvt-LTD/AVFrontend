@@ -103,42 +103,45 @@ const Settings = () => {
     setHasUnsavedChanges(true);
   };
 
-  const handleSaveChanges = async (e) => {
-    e.preventDefault();
-    try {
-      setIsSaving(true);
-      const updatedFormData = new FormData();
-      updatedFormData.append("firstName", formData.firstName || "");
-      updatedFormData.append("middleName", formData.middleName || "");
-      updatedFormData.append("lastName", formData.lastName || "");
-      updatedFormData.append("phone", formData.phone || "");
-      updatedFormData.append("email", formData.email || "");
-      updatedFormData.append("genderId", formData.genderId || "");
-      updatedFormData.append("password", formData.password || "");
-      updatedFormData.append("confirmPassword", formData.confirmPassword || "");
-      updatedFormData.append("aadhaar", formData.aadhaar || "");
-      updatedFormData.append("dob", formData.dob || "");
-      updatedFormData.append("occupation", formData.occupation || "");
-      updatedFormData.append("pinCode", formData.pinCode || "");
-      updatedFormData.append("city", formData.city || "");
-      updatedFormData.append("district", formData.district || "");
-      updatedFormData.append("state", formData.state || "");
-      if (fileInputRef.current?.files?.[0]) {
-        updatedFormData.append("photo", fileInputRef.current.files[0]);
-      }
-      await dispatch(updatePatient({ id: patientId, formData: updatedFormData })).unwrap();
-      toast.success("Patient updated successfully!");
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 2500);
-      setIsEditMode(false);
-      setHasUnsavedChanges(false);
-    } catch (error) {
-      console.error("Failed to save patient:", error);
-      toast.error("Failed to save changes. Please try again.");
-    } finally {
-      setIsSaving(false);
+  
+ const handleSaveChanges = async (e) => {
+  e.preventDefault();
+  try {
+    setIsSaving(true);
+    const updatedFormData = new FormData();
+    updatedFormData.append("firstName", formData.firstName || "");
+    updatedFormData.append("middleName", formData.middleName || "");
+    updatedFormData.append("lastName", formData.lastName || "");
+    updatedFormData.append("phone", formData.phone || "");
+    updatedFormData.append("email", formData.email || "");
+    updatedFormData.append("genderId", formData.genderId || "");
+    // Append currentPassword, newPassword, and confirmPassword
+    updatedFormData.append("currentPassword", formData.currentPassword || "");
+    updatedFormData.append("Password", formData.newPassword || "");
+    updatedFormData.append("confirmPassword", formData.confirmPassword || "");
+    updatedFormData.append("aadhaar", formData.aadhaar || "");
+    updatedFormData.append("dob", formData.dob || "");
+    updatedFormData.append("occupation", formData.occupation || "");
+    updatedFormData.append("pinCode", formData.pinCode || "");
+    updatedFormData.append("city", formData.city || "");
+    updatedFormData.append("district", formData.district || "");
+    updatedFormData.append("state", formData.state || "");
+    if (fileInputRef.current?.files?.[0]) {
+      updatedFormData.append("photo", fileInputRef.current.files[0]);
     }
-  };
+    await dispatch(updatePatient({ id: patientId, formData: updatedFormData })).unwrap();
+    toast.success("Patient updated successfully!");
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 2500);
+    setIsEditMode(false);
+    setHasUnsavedChanges(false);
+  } catch (error) {
+    console.error("Failed to save patient:", error);
+    toast.error(error.message || "Failed to save changes. Please try again.");
+  } finally {
+    setIsSaving(false);
+  }
+};
 
   const handleCancelEdit = () => {
     setIsEditMode(false);
@@ -146,7 +149,7 @@ const Settings = () => {
   };
 
   const handleVerifyEmail = () => {
-    navigate("/verify-otp");
+    navigate("/healthcard-otp");
   };
 
   // --- Render Field (No hooks called here) ---
@@ -260,39 +263,39 @@ const Settings = () => {
   };
 
   // --- Early returns (after all hooks) ---
-  if (isLoading) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full mx-4">
-        <div className="animate-pulse">
-          <div className="w-24 h-24 bg-gray-200 rounded-full mx-auto mb-6"></div>
-          <div className="h-6 bg-gray-200 rounded mb-4"></div>
-          <div className="h-4 bg-gray-200 rounded mb-6"></div>
-          <div className="space-y-4">
-            <div className="h-12 bg-gray-200 rounded-lg"></div>
-            <div className="h-12 bg-gray-200 rounded-lg"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  // if (isLoading) return (
+  //   <div className="min-h-screen flex items-center justify-center bg-gray-50">
+  //     <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full mx-4">
+  //       <div className="animate-pulse">
+  //         <div className="w-24 h-24 bg-gray-200 rounded-full mx-auto mb-6"></div>
+  //         <div className="h-6 bg-gray-200 rounded mb-4"></div>
+  //         <div className="h-4 bg-gray-200 rounded mb-6"></div>
+  //         <div className="space-y-4">
+  //           <div className="h-12 bg-gray-200 rounded-lg"></div>
+  //           <div className="h-12 bg-gray-200 rounded-lg"></div>
+  //         </div>
+  //       </div>
+  //     </div>
+  //   </div>
+  // );
 
-  if (error) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full text-center">
-        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <X size={32} className="text-red-600" />
-        </div>
-        <h3 className="text-xl font-bold text-gray-900 mb-2">Oops! Something went wrong</h3>
-        <p className="text-gray-600 mb-6">{error}</p>
-        <button
-          onClick={() => window.location.reload()}
-          className="w-full bg-[var(--accent-color)] hover:bg-[var(--accent-color)] text-white font-semibold py-3 px-6 rounded-xl transition-colors duration-200"
-        >
-          Reload Page
-        </button>
-      </div>
-    </div>
-  );
+  // if (error) return (
+  //   <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+  //     <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full text-center">
+  //       <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+  //         <X size={32} className="text-red-600" />
+  //       </div>
+  //       <h3 className="text-xl font-bold text-gray-900 mb-2">Oops! Something went wrong</h3>
+  //       <p className="text-gray-600 mb-6">{error}</p>
+  //       <button
+  //         onClick={() => window.location.reload()}
+  //         className="w-full bg-[var(--accent-color)] hover:bg-[var(--accent-color)] text-white font-semibold py-3 px-6 rounded-xl transition-colors duration-200"
+  //       >
+  //         Reload Page
+  //       </button>
+  //     </div>
+  //   </div>
+  // );
 
   // --- Main Render ---
   return (

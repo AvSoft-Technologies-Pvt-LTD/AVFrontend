@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { FaNotesMedical, FaUpload } from "react-icons/fa";
+import TeleConsultFlow from "../../../../components/microcomponents/Call";
 import { usePatientContext } from "../../../../context-api/PatientContext";
 import {
   getAllMedicalRecords,
@@ -19,6 +21,7 @@ import {
 const DrMedicalRecords = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const contextPatient = usePatientContext().patient;
   const user = useSelector((state) => state.auth.user);
   const { activeTab, handleTabChange } = usePatientContext();
   const [medicalData, setMedicalData] = useState({ OPD: [], IPD: [], Virtual: [] });
@@ -35,7 +38,9 @@ const DrMedicalRecords = () => {
   const [state, setState] = useState({ showAddModal: false });
 
   // Use patient from context or location state
-  const selectedPatient = (location.state && location.state.patient && location.state.patient.patientId) ? location.state.patient : contextPatient;
+  const selectedPatient = (location.state && location.state.patient && location.state.patient.patientId)
+    ? location.state.patient
+    : contextPatient;
 
   const hospitalMap = useMemo(() => {
     const m = {};
@@ -58,30 +63,30 @@ const DrMedicalRecords = () => {
       .join("")
       .toUpperCase();
   };
-
+  const handleformAddRecord = (patient) => navigate("/doctordashboard/form", { state: { patient } });
   // Convert Java LocalDate or LocalDateTime array into a formatted date
-const formatDateArray = (dateArray) => {
-  if (!Array.isArray(dateArray)) return dateArray;
-  const [year, month, day] = dateArray;
-  return new Date(year, month - 1, day).toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-};
+  const formatDateArray = (dateArray) => {
+    if (!Array.isArray(dateArray)) return dateArray;
+    const [year, month, day] = dateArray;
+    return new Date(year, month - 1, day).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
 
-// Convert LocalDateTime array into date + time for details view
-const formatDateTimeArray = (dateArray) => {
-  if (!Array.isArray(dateArray)) return dateArray;
-  const [year, month, day, hour = 0, minute = 0, second = 0] = dateArray;
-  return new Date(year, month - 1, day, hour, minute, second).toLocaleString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-};
+  // Convert LocalDateTime array into date + time for details view
+  const formatDateTimeArray = (dateArray) => {
+    if (!Array.isArray(dateArray)) return dateArray;
+    const [year, month, day, hour = 0, minute = 0, second = 0] = dateArray;
+    return new Date(year, month - 1, day, hour, minute, second).toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
   const fetchAllRecords = async () => {
     setLoading(true);
@@ -141,7 +146,7 @@ const formatDateTimeArray = (dateArray) => {
 
     try {
       const response = await createMedicalRecord(sanitizedPayload);
-       response.data;
+      response.data;
       await fetchAllRecords();
       setState({ showAddModal: false });
     } catch (error) {
@@ -189,9 +194,9 @@ const formatDateTimeArray = (dateArray) => {
 
   const createColumns = (type) => {
     const baseFields = {
-      OPD: ["hospitalName",  "chiefComplaint", "dateOfVisit", "medicalStatusName"],
+      OPD: ["hospitalName", "chiefComplaint", "dateOfVisit", "medicalStatusName"],
       IPD: ["hospitalName", "chiefComplaint", "dateOfAdmission", "dateOfDischarge", "medicalStatusName"],
-      Virtual: ["hospitalName",  "chiefComplaint", "dateOfVisit", "medicalStatusName"],
+      Virtual: ["hospitalName", "chiefComplaint", "dateOfVisit", "medicalStatusName"],
     };
     const fieldLabels = {
       hospitalName: "Hospital",
@@ -257,24 +262,24 @@ const formatDateTimeArray = (dateArray) => {
 
 
   const getCurrentTabData = () =>
-  (medicalData[activeTab] || [])
-    .map((record) => ({
-      ...record,
-      hospitalName: resolveHospitalLabel(record.hospitalId ?? record.hospitalName),
-      chiefComplaint: record.chiefComplaint || record.diagnosis || "",
-      dateOfVisit: formatDateArray(record.dateOfVisit),
-      dateOfAdmission: formatDateArray(record.dateOfAdmission),
-      dateOfDischarge: formatDateArray(record.dateOfDischarge),
-      dateOfConsultation: formatDateArray(record.dateOfConsultation),
-      createdAt: formatDateTimeArray(record.createdAt), // detailed timestamp (if ever needed)
-    }))
-    .sort((a, b) => {
-      const dateA =
-        new Date(a.dateOfVisit || a.dateOfAdmission || a.dateOfConsultation || "1970-01-01");
-      const dateB =
-        new Date(b.dateOfVisit || b.dateOfAdmission || b.dateOfConsultation || "1970-01-01");
-      return dateB - dateA;
-    });
+    (medicalData[activeTab] || [])
+      .map((record) => ({
+        ...record,
+        hospitalName: resolveHospitalLabel(record.hospitalId ?? record.hospitalName),
+        chiefComplaint: record.chiefComplaint || record.diagnosis || "",
+        dateOfVisit: formatDateArray(record.dateOfVisit),
+        dateOfAdmission: formatDateArray(record.dateOfAdmission),
+        dateOfDischarge: formatDateArray(record.dateOfDischarge),
+        dateOfConsultation: formatDateArray(record.dateOfConsultation),
+        createdAt: formatDateTimeArray(record.createdAt), // detailed timestamp (if ever needed)
+      }))
+      .sort((a, b) => {
+        const dateA =
+          new Date(a.dateOfVisit || a.dateOfAdmission || a.dateOfConsultation || "1970-01-01");
+        const dateB =
+          new Date(b.dateOfVisit || b.dateOfAdmission || b.dateOfConsultation || "1970-01-01");
+        return dateB - dateA;
+      });
 
   const getFormFields = (recordType) => [
     {
@@ -283,14 +288,16 @@ const formatDateTimeArray = (dateArray) => {
       type: "select",
       options: hospitalOptions,
       loading: apiDataLoading.hospitals,
+      required: true,
     },
-    { name: "chiefComplaint", label: "Chief Complaint", type: "text" },
+    { name: "chiefComplaint", label: "Chief Complaint", type: "text", required: true, },
     {
       name: "medicalConditionIds",
       label: "Medical Conditions",
       type: "multiselect",
       options: medicalConditions,
       loading: apiDataLoading.conditions,
+      required: true,
     },
     {
       name: "medicalStatusId",
@@ -298,19 +305,21 @@ const formatDateTimeArray = (dateArray) => {
       type: "select",
       options: statusTypes,
       loading: apiDataLoading.status,
+      required: true,
     },
     ...(recordType === "OPD"
-      ? [{ name: "dateOfVisit", label: "Date of Visit", type: "date" }]
+      ? [{ name: "dateOfVisit", label: "Date of Visit", type: "date", required: true, }]
       : recordType === "IPD"
         ? [
-          { name: "dateOfAdmission", label: "Date of Admission", type: "date" },
-          { name: "dateOfDischarge", label: "Date of Discharge", type: "date" },
+          { name: "dateOfAdmission", label: "Date of Admission", type: "date", required: true, },
+          { name: "dateOfDischarge", label: "Date of Discharge", type: "date", required: true, },
         ]
-        : [{ name: "dateOfConsultation", label: "Date of Consultation", type: "date" }]),
+        : [{ name: "dateOfConsultation", label: "Date of Consultation", type: "date", required: true, }]),
     {
       name: "registerPhone",
       label: "Register Phone Number",
       type: "text",
+      required: true,
       hasInlineCheckbox: true,
       inlineCheckbox: {
         name: "phoneConsent",
@@ -365,13 +374,13 @@ const formatDateTimeArray = (dateArray) => {
 
   return (
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
-      <button
+      {/* <button
         className="mb-4 inline-flex items-center text-sm sm:text-base"
         onClick={() => navigate("/doctordashboard/patients")}
       >
         <ArrowLeft size={18} className="sm:h-5 sm:w-5" />
         <span className="ms-2 font-medium">Back to Patient List</span>
-      </button>
+      </button> */}
       {selectedPatient && (
         <ProfileCard
           initials={getInitials(selectedPatient.patientName || selectedPatient.name || "")}
@@ -383,16 +392,67 @@ const formatDateTimeArray = (dateArray) => {
             { label: "Visit Date", value: selectedPatient.scheduledDate || "N/A" },
             { label: "Consultation Type", value: selectedPatient.consultationTypeName || "N/A" },
           ]}
-        />
+         context={selectedPatient.context || "OPD"}
+        >
+          <div className="absolute top-3 right-4 bg-gray-100 p-2 rounded-md flex items-center gap-3">
+            <button
+              onClick={() => handleformAddRecord(selectedPatient)}
+              className="text-[var(--primary-color)] hover:text-[var(--accent-color)]"
+              title="Add Medical Record"
+            >
+              <FaNotesMedical size={18} />
+            </button>
+
+            <TeleConsultFlow
+              phone={selectedPatient.patientPhone}
+              patientName={
+                selectedPatient.patientName ||
+                `${selectedPatient.firstName || ""} ${selectedPatient.middleName || ""} ${selectedPatient.lastName || ""}`
+                  .replace(/\s+/g, " ")
+                  .trim()
+              }
+              context={selectedPatient.context || "OPD"}// use prop dynamically
+              patientEmail={selectedPatient.patientEmail}
+              hospitalName={selectedPatient.hospitalName || "AV Hospital"}
+            />
+          </div>
+        </ProfileCard>
       )}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 gap-3">
         <div className="flex items-center gap-2 sm:gap-3">
-          <Search size={20} className="text-[var(--primary-color)] sm:h-6 sm:w-6" />
-          <div>
-            <h2 className="text-lg sm:text-xl font-semibold">Medical Records History</h2>
-          </div>
+          <Search
+            size={20}
+            className="text-[var(--primary-color)] sm:h-6 sm:w-6"
+          />
+          <h2 className="text-lg sm:text-xl font-semibold">
+            Medical Records History
+          </h2>
         </div>
+        {/* 
+  <div className="flex items-center gap-3 bg-gray-100 p-1 rounded-md">
+    <button
+      onClick={() => handleformAddRecord(selectedPatient)}
+      className="text-base p-1 text-[var(--primary-color)] hover:text-[var(--accent-color)]"
+      title="Add Medical Record"
+    >
+      <FaNotesMedical size={18} />
+    </button>
+
+    <TeleConsultFlow
+      phone={selectedPatient.patientPhone}
+      patientName={
+        selectedPatient.patientName ||
+        `${selectedPatient.firstName || ""} ${selectedPatient.middleName || ""} ${selectedPatient.lastName || ""}`
+          .replace(/\s+/g, " ")
+          .trim()
+      }
+      context="OPD"
+      patientEmail={selectedPatient.patientEmail}
+      hospitalName={selectedPatient.hospitalName || "AV Hospital"}
+    />
+  </div> */}
       </div>
+
       <div className="overflow-x-auto">
         <DynamicTable
           columns={createColumns(activeTab)}

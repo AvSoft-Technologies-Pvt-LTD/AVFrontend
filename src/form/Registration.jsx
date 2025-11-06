@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { registerUser, sendOTP } from "../context-api/authSlice";
 import { Eye, EyeOff, Upload, FileText, X, Camera, ChevronDown } from 'lucide-react';
+import Navbar from "../components/Navbar";
 import {
   getAvailableTests,
   getCenterTypes,
@@ -1246,7 +1247,9 @@ const RegisterForm = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 sm:p-8">
+     <>
+        <Navbar/>
+    <div className="bg-gray-50 flex items-center justify-center p-4 sm:p-8">
       <div className="w-full max-w-5xl bg-white p-8 sm:p-10 shadow-lg border rounded-xl">
         <h2 className="text-3xl font-bold text-center mb-1">{`Register as ${displayUserType}`}</h2>
 
@@ -1445,6 +1448,7 @@ const RegisterForm = () => {
         )}
       </div>
     </div>
+    </>
   );
 };
 

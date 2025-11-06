@@ -1020,7 +1020,7 @@ const handleBedSelection = useCallback(
           header: "Actions",
           cell: (row) => (
             <div className="flex items-center gap-2">
-              <button onClick={() => handleAddRecord(row)} className="text-base p-1">
+              {/* <button onClick={() => handleAddRecord(row)} className="text-base p-1">
                 <FaNotesMedical />
               </button>
               <div className="text-sm">
@@ -1036,7 +1036,7 @@ const handleBedSelection = useCallback(
                   patientEmail={row.email}
                   hospitalName={row.hospitalName || "AV Hospital"}
                 />
-              </div>
+              </div> */}
               {hasRecording(row.email, row.hospitalName || "AV Hospital") && (
                 <button className="text-base p-1 text-green-600" title="View Recording">
                   <FaVideo />

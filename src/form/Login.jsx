@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { FiEye, FiEyeOff } from "react-icons/fi";
 import { loginUser, sendLoginOTP, verifyOTP, clearError } from "../context-api/authSlice";
+import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -113,7 +115,9 @@ const Login = () => {
 
   // ------------------ UI ------------------
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50 p-4">
+  <>
+    <Navbar/>
+    <div className="flex items-center justify-center  bg-gray-50 p-4">
       <div className="flex flex-col md:flex-row items-center w-full max-w-4xl bg-white p-6 md:p-8 rounded-2xl shadow-md border border-gray-200">
         
         {/* Form Section */}
@@ -292,6 +296,8 @@ const Login = () => {
         </div>
       </div>
     </div>
+    <Footer/>
+    </>
   );
 };
 

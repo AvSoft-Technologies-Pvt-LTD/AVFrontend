@@ -257,14 +257,14 @@ const handleSelected = (r) => {
         header: "Actions",
         cell: (r) => (
           <div className="flex items-center gap-2">
-            <button onClick={() => handleSelected(r)} className="text-base p-1"><FaNotesMedical /></button>
+            {/* <button onClick={() => handleSelected(r)} className="text-base p-1"><FaNotesMedical /></button>
             <TeleConsultFlow
               phone={r.phone}
               patientName={r.name}
               context="Virtual"
               patientEmail={r.email}
               hospitalName={r.hospitalName || "AV Hospital"}
-            />
+            /> */}
             <button
               title="View Medical Record"
               onClick={() => {

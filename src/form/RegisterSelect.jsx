@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { User, Building2, Stethoscope, FlaskConical } from 'lucide-react';
+import Navbar from '../components/Navbar';
 
 const RegisterSelect = () => {
   const navigate = useNavigate();
@@ -41,12 +42,14 @@ const RegisterSelect = () => {
   const currentSelection = userType.find(u => u.value === selectedType) || userType[0];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-100 flex flex-col">
+     <>
+        <Navbar/>
+    <div className=" bg-gradient-to-br from-green-50 via-white to-green-100 flex flex-col">
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-6 sm:px-6 lg:px-8">
         <div className="w-full max-w-md">
           {/* Header */}
-          <div className="text-center mb-6">
+          <div className="text-center ">
             <h1 className="text-2xl sm:text-2xl font-bold text-gray-900 mb-2">
               Welcome to <span className="text-[var(--primary-color)]">AVSwasthya!</span>
             </h1>
@@ -81,7 +84,7 @@ const RegisterSelect = () => {
             </button>
           </div>
 
-          <p className="text-center text-xs sm:text-sm text-gray-500 mb-6 sm:mb-8">
+          <p className="text-center text-xs sm:text-sm text-gray-500 ">
             Join us today!
           </p>
         </div>
@@ -143,6 +146,7 @@ const RegisterSelect = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 

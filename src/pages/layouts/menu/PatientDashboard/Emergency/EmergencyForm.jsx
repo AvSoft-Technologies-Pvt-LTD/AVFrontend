@@ -14,7 +14,7 @@ import {
   getAllAmbulanceEquipments,
   getAllAmbulanceCategories,
   getAllHospitals,
-  createAmbulanceBooking, // <-- POST /ambulance/bookings
+   // <-- POST /ambulance/bookings
 } from "../../../../../utils/CrudService";
 
 import { useNavigate } from "react-router-dom";
