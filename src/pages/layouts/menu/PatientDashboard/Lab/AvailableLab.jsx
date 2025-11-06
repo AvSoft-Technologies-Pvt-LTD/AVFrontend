@@ -15,7 +15,7 @@ const AvailableLabs = () => {
   const totalPrice = cart.reduce((sum, test) => sum + test.price, 0);
 
   useEffect(() => {
-    axios.get("https://mocki.io/v1/2f914b6d-3a1d-4fe4-b075-219bef09ca4a")
+    axios.get("https://mocki.io/v1/f3310a10-a507-42d7-bf38-2d9fca760693")
       .then((res) => {
         setLabs(res.data);
         setFilteredLabs(res.data);
@@ -41,15 +41,9 @@ const AvailableLabs = () => {
   }
 
   return (
-    <div className="p-4 sm:p-6 rounded-2xl mt-4 sm:mt-6 space-y-4 max-w-6xl mx-auto">
-      <div className="flex justify-between items-center">
-        <button
-          onClick={() => navigate(-1)}
-          className="text-sm sm:text-base text-gray-600 hover:text-gray-800 flex items-center gap-1"
-        >
-          <span>&larr;</span> Back to Cart
-        </button>
-      </div>
+
+<div className="p-4 sm:p-6 rounded-2xl mt-4 sm:mt-6 space-y-4 max-w-6xl mx-auto">
+  
 
       <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100">
         <h2 className="text-lg sm:text-xl font-bold text-gray-800">Selected Tests</h2>

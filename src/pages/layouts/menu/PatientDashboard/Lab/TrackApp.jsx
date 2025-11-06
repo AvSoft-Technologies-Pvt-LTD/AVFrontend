@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
-import AVLogo from "../../../../assets/AV.png";
+import AVLogo from "../../../../../assets/AV.png";
 
 const TrackAppointment = () => {
   const { bookingId } = useParams();

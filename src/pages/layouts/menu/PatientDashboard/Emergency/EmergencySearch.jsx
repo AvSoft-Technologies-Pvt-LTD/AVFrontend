@@ -12,6 +12,7 @@ import LocationModal from "./LocationModal"; // must be in same folder
 import {
   searchAmbulancesPublic,
   getNearbyAmbulances,
+  getCurrentAmbulances, // <-- added
 } from "../../../../../utils/CrudService";
 
 // Fix for Leaflet's default icon issue
@@ -330,12 +331,21 @@ const EmergencySearch = () => {
           setMarkerPosition(pos);
           reverseGeocode(...pos);
 
-          // 🔗 Fetch real nearby ambulances
+          // 🔗 Try CURRENT first, then fall back to NEARBY (radius 10km)
           try {
             setSearchLoading(true);
             setHasSearched(true);
-            const res = await getNearbyAmbulances(coords.latitude, coords.longitude, 10);
-            const list = Array.isArray(res.data) ? res.data : [];
+
+            // 1) CURRENT
+            let res = await getCurrentAmbulances(coords.latitude, coords.longitude);
+            let list = Array.isArray(res.data) ? res.data : [];
+
+            // 2) Fallback to NEARBY if CURRENT returned nothing
+            if (!list.length) {
+              res = await getNearbyAmbulances(coords.latitude, coords.longitude, 10);
+              list = Array.isArray(res.data) ? res.data : [];
+            }
+
             const cards = list.map((it) =>
               mapNearbyItemToCard(it, { lat: coords.latitude, lng: coords.longitude })
             );

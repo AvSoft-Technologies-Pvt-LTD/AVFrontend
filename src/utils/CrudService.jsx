@@ -404,3 +404,33 @@ export const getNearbyAmbulances = (latitude, longitude, radiusKm = 10) =>
   axiosInstance.get('/ambulance/public/nearby', {
     params: { latitude, longitude, radiusKm },
   });
+
+
+  //cart
+  // Cart API functions
+export const createLabCart = (patientId, payload) =>
+  axiosInstance.post('/lab/cart/add', {
+    patientId,
+    ...payload // Spread the payload (tests, scans, or packages)
+  });
+
+// Get an existing cart – GET /lab/cart/{patientId}
+export const getLabCart = (patientId) =>
+  axiosInstance.get(`/lab/cart/${patientId}`);
+
+// Update an existing cart – PUT /lab/cart/{patientId}
+export const updateLabCart = (patientId, payload) =>
+  axiosInstance.put(`/lab/cart/${patientId}`, {
+    patientId,
+    ...payload // Spread the payload (tests, scans, or packages)
+  });
+
+  // --- Lab catalog detail APIs ---
+export const getLabTestById = (id) => axiosInstance.get(`/lab-tests/${id}`);
+export const getScanById = (id) => axiosInstance.get(`/scans/${id}`);
+export const getPackageById = (id) => axiosInstance.get(`/packages/${id}`);
+// ✅ Get ambulances based on current location (no radius needed)
+export const getCurrentAmbulances = (latitude, longitude) =>
+  axiosInstance.get('/ambulance/public/current', {
+    params: { latitude, longitude },
+  });

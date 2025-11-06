@@ -13,15 +13,15 @@ import Billing from "./Billing";
 import NearbyPharmacies from "./NearbyPharmacy"
 import PatientNotifications from './Notifications';
 import PaymentForm from './PaymentForm';
-import LabHome from './LabHome';
+import LabHome from '../PatientDashboard/Lab/LabHome';
 import PrescriptionUpload from "./PrescriptionUpload";
-import TestDetail from './TestDetail';
-import CartPage from './CartPage';
-import AvailableLabs from "./AvailableLab";
-import LabBooking from "./LabBooking";
+import TestDetail from '../PatientDashboard/Lab/TestDetail';
+import CartPage from '../PatientDashboard/Lab/CartPage';
+import AvailableLabs from "../PatientDashboard/Lab/AvailableLab";
+import LabBooking from "../PatientDashboard/Lab/LabBooking";
 import MultiStepForm from "../../../../components/BookApp";
 import PaymentLab from "./PaymentLab";
-import TrackAppointment from "./TrackApp";
+import TrackAppointment from "../PatientDashboard/Lab/TrackApp";
 import Emergency from "./Emergency/EmergencyForm";
 import EmergencySearch from './Emergency/EmergencySearch';
  import BookLab from './BookLab';
@@ -59,8 +59,8 @@ const PdashboardRoutes = () => {
                 <Route path="/ambulancesearch" element={<EmergencySearch />} />
 
       <Route path="lab-tests" element={<LabHome />} />
-      <Route path="lab-tests/test/:id" element={<TestDetail />} />
-      <Route path="package-details/:id" element={<TestDetail />} />
+  <Route path=":type/:id" element={<TestDetail />} />
+
       <Route path="cart" element={<CartPage />} />
       <Route path="available-labs"element={<AvailableLabs />}/>
       <Route path="lab-booking" element={<LabBooking />} />

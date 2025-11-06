@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { addToCart } from '../../../../context-api/cartSlice';
-import { getAllTests, getAllScans, getAllhealthpackages } from '../../../../utils/masterService';
+import { hydrateCart, addToCart } from '../../../../../context-api/cartSlice';
+import { getAllTests, getAllScans, getAllhealthpackages } from '../../../../../utils/masterService';
+import { createLabCart, getLabCart } from '../../../../../utils/CrudService';
 import { ShoppingCart, Search, Upload, FileText, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -23,15 +24,31 @@ const LabHome = () => {
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [addedIds, setAddedIds] = useState(new Set());
-
   const dispatch = useDispatch();
   const cart = useSelector((state) => state.cart);
   const navigate = useNavigate();
   const { searchQuery, setSearchQuery, performSearch } = useSearch();
-
   const cartRef = useRef(null);
   const btnRefs = useRef({});
+  const patientId = parseInt(useSelector((state) => state.auth.patientId), 10);
 
+  console.log("Current patientId in LabHome:", patientId);
+
+  // Fetch cart from backend on component mount
+  useEffect(() => {
+    const fetchCart = async () => {
+      try {
+        const response = await getLabCart(patientId);
+        console.log("Fetched cart data in LabHome:", response.data);
+        dispatch(hydrateCart(response.data));
+      } catch (error) {
+        console.error('Error fetching cart in LabHome:', error.response?.data || error.message);
+      }
+    };
+    fetchCart();
+  }, [dispatch, patientId]);
+
+  // Fetch tests/scans/packages based on active tab
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -52,7 +69,6 @@ const LabHome = () => {
         setLoading(false);
       }
     };
-
     fetchData();
   }, [activeTab, searchQuery]);
 
@@ -72,20 +88,17 @@ const LabHome = () => {
       opacity: '1',
       boxShadow: '0 0 15px rgba(255, 165, 0, 0.7)',
       borderRadius: '8px',
-      transition:
-        'transform 1s cubic-bezier(0.4, 0, 0.2, 1), opacity 1s ease',
+      transition: 'transform 1s cubic-bezier(0.4, 0, 0.2, 1), opacity 1s ease',
       background: 'white',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
     });
     document.body.appendChild(clone);
-
     const startX = src.left + src.width / 2;
     const startY = src.top + src.height / 2;
     const endX = dst.left + dst.width / 2;
     const endY = dst.top + dst.height / 2;
-
     clone
       .animate(
         [
@@ -121,12 +134,32 @@ const LabHome = () => {
     };
   };
 
-  const handleAdd = (item, key, pushToCart = false) => {
+  const handleAdd = async (item, key, pushToCart = false) => {
     if (!addedIds.has(key)) {
-      dispatch(addToCart(item));
-      animateFly(btnRefs.current[key]);
-      setAddedIds((prev) => new Set(prev).add(key));
-      if (pushToCart) navigate('/patientdashboard/cart');
+      const cartItem = {
+        id: item.id,
+        title: item.title,
+        price: item.price,
+        type: activeTab,
+        quantity: 1,
+        code: item.code,
+      };
+      try {
+        const payload = { [activeTab]: [cartItem] };
+        console.log("Payload being sent to createLabCart:", payload);
+        const createResponse = await createLabCart(patientId, payload);
+        console.log("createLabCart response:", createResponse.data);
+
+        const fetchResponse = await getLabCart(patientId);
+        console.log("Refetched cart data:", fetchResponse.data);
+        dispatch(hydrateCart(fetchResponse.data));
+
+        animateFly(btnRefs.current[key]);
+        setAddedIds((prev) => new Set(prev).add(key));
+        if (pushToCart) navigate('/patientdashboard/cart');
+      } catch (error) {
+        console.error('Error adding to cart:', error.response?.data || error.message);
+      }
     }
   };
 
@@ -140,13 +173,12 @@ const LabHome = () => {
     const cls = pushToCart
       ? 'bg-[var(--primary-color)] text-white'
       : 'bg-gray-200 text-gray-800 hover:bg-gray-300';
-
     return (
       <button
         ref={(el) => (btnRefs.current[key] = el)}
         className={`${cls} px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors`}
         onClick={(e) => {
-          e.stopPropagation(); // prevent card click navigation
+          e.stopPropagation();
           handleAdd(item, key, pushToCart);
         }}
       >
@@ -189,7 +221,6 @@ const LabHome = () => {
               )}
             </div>
           </div>
-
           {/* Desktop: Search + Cart */}
           <div className="hidden sm:flex sm:flex-row sm:items-center sm:justify-between w-full">
             <form className="w-full sm:w-auto sm:max-w-md relative">
@@ -218,7 +249,6 @@ const LabHome = () => {
             </div>
           </div>
         </div>
-
         {/* Prescription Upload CTA */}
         <div className="bg-gradient-to-r from-[var(--primary-color)] to-[var(--accent-color)] rounded-xl shadow-lg p-4 sm:p-6 mb-6 sm:mb-8">
           <div className="flex flex-col sm:flex-row items-center gap-4">
@@ -232,8 +262,7 @@ const LabHome = () => {
                 Have a prescription? Upload it!
               </h3>
               <p className="text-sm sm:text-base text-blue-100">
-                Get personalized test recommendations based on your doctor's
-                prescription
+                Get personalized test recommendations based on your doctor's prescription
               </p>
             </div>
             <button
@@ -245,7 +274,6 @@ const LabHome = () => {
             </button>
           </div>
         </div>
-
         {/* Tab Navigation */}
         <div className="flex overflow-x-auto pb-1 mb-4 sm:mb-6">
           {['tests', 'scans', 'packages'].map((tab) => (
@@ -262,7 +290,6 @@ const LabHome = () => {
             </button>
           ))}
         </div>
-
         {/* Tests/Scans/Packages Section */}
         <div className="mb-8 sm:mb-12">
           {loading ? (
@@ -300,7 +327,6 @@ const LabHome = () => {
           )}
         </div>
       </div>
-
       <style jsx>{`
         .cart-bounce {
           animation: cart-bounce-glow 0.4s ease;

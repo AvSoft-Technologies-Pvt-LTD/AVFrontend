@@ -222,7 +222,7 @@ const App = () => {
         
         {/* ✅ Patient Dashboard */}
         <Route element={<PrivateRoute allowedTypes={["patient"]} />}>
-          <Route path="/patientdashboard" element={<DashboardLayout />}>
+          <Route path="/patientdashboard/*" element={<DashboardLayout />}>
      <Route index element={<Dashboard />} />
             <Route path="*" element={<PdashboardRoutes />} />
           </Route>
