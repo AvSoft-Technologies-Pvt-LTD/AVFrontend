@@ -20,7 +20,9 @@ import DischargeModal from "./DischargeModal";
 
 
 const DrRoutes = () => {
+  
   return (
+    <>
     <Routes>
       <Route index element={<Overview />} /> {/* renders at /doctordashboard */}
       <Route path="appointments" element={<Appointments />} />
@@ -45,6 +47,7 @@ const DrRoutes = () => {
 
 
     </Routes>
+    </>
   );
 };
 export default DrRoutes;

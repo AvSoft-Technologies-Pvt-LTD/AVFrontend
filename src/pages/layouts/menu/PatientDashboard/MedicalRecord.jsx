@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useMedicalRecords } from "../../../../context-api/MedicalRecordsContext";
 import { useSelector } from "react-redux";
 import {
   getHospitalDropdown,
@@ -18,10 +19,11 @@ import {
   createVirtualRecord,
 } from "../../../../utils/CrudService";
 import { CheckCircle } from "lucide-react";
-
 const MedicalRecords = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { activeTab, setActiveTab, setClickedRecord } = useMedicalRecords();
+
   const patientId = useSelector((state) => state.auth.patientId);
   const [state, setState] = useState({
     activeTab: "OPD",
@@ -127,6 +129,22 @@ const MedicalRecords = () => {
     };
     if (patientId) fetchAllRecords();
   }, [patientId]);
+  // ✅ ADDED normalizeTab
+  const normalizeTab = (tab) => {
+    if (!tab) return "OPD";
+    const formatted = tab.toLowerCase();
+    if (formatted === "opd") return "OPD";
+    if (formatted === "ipd") return "IPD";
+    if (formatted === "virtual") return "Virtual";
+    return "OPD";
+  };
+  // ✅ READ ACTIVE TAB FROM STORAGE (initial load)
+  useEffect(() => {
+    const storedTab = localStorage.getItem("activeMedicalTab");
+    if (storedTab) {
+      setActiveTab(normalizeTab(storedTab));
+    }
+  }, [setActiveTab]);
 
   // Save active states to localStorage on toggle
   const handleToggleActive = (recordId, type) => {
@@ -166,13 +184,15 @@ const MedicalRecords = () => {
   };
 
   const handleViewDetails = (record) => {
-    const currentPath = location.pathname;
-    let targetPath =
-      currentPath.startsWith("/patientdashboard/medical-record")
-        ? "/patientdashboard/medical-record-details"
-        : "/medical-record-details";
-    navigate(targetPath, { state: { selectedRecord: record } });
-  };
+  const currentPath = location.pathname;
+  let targetPath =
+    currentPath.startsWith("/patientdashboard/medical-record")
+      ? "/patientdashboard/medical-record-details"
+      : "/medical-record-details";
+  localStorage.setItem("clickedHospitalRecord", JSON.stringify(record));
+  setClickedRecord(record);
+  navigate(targetPath, { state: { selectedRecord: record } });
+};
 
   const handleAddRecord = async (formData) => {
     try {
@@ -370,7 +390,7 @@ const MedicalRecords = () => {
         data={medicalData[state.activeTab] || []}
         filters={filters}
         tabs={tabs}
-        activeTab={state.activeTab}
+         activeTab={normalizeTab(activeTab)}
         onTabChange={(tab) => setState((prev) => ({ ...prev, activeTab: tab }))}
         tabActions={[
           {
@@ -455,3 +475,4 @@ const MedicalRecords = () => {
 };
 
 export default MedicalRecords;
+

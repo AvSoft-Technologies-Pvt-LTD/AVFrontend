@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
 import axios from "axios";
@@ -8,6 +8,8 @@ import DynamicTable from "../../../../components/microcomponents/DynamicTable";
 import { ArrowLeft, User, Stethoscope, ChevronDown, X, Printer, CheckCircle, FileText, Pill, TestTube, Mail, MessageCircle, Send, Phone, AtSign } from "lucide-react";
 import { useSelector } from "react-redux";
 import ProfileCard from "../../../../components/microcomponents/ProfileCard";
+import { useMedicalRecords } from "../../../../context-api/MedicalRecordsContext";
+import { getDoctorPatientPrescriptions, getClinicalNotes } from "../../../../utils/masterService"; // Adjust the path as needed
 
 const PrintContent = ({ requestData, selectedRecord, formData, user }) => (
   <div style={{ fontFamily: "Arial, sans-serif", maxWidth: "800px", margin: "0 auto", padding: "20px" }}>
@@ -112,6 +114,17 @@ const PrintContent = ({ requestData, selectedRecord, formData, user }) => (
             </tbody>
           </table>
         </div>
+        <div style={{ marginBottom: "24px" }}>
+          <h4 style={{ fontSize: "18px", fontWeight: "bold", color: "#0E1630", marginBottom: "10px" }}>Clinical Notes</h4>
+          <div style={{ background: "#fff", border: "1px solid #f3f4f6", borderRadius: "10px", padding: "16px" }}>
+            {(selectedRecord.clinicalNotes || []).map((note, idx) => (
+              <div key={idx} style={{ marginBottom: "12px", padding: "8px", borderBottom: "1px solid #eee" }}>
+                <div style={{ fontWeight: "bold", color: "#333" }}>{note.date} - {note.doctorName}</div>
+                <div style={{ color: "#666" }}>{note.notes}</div>
+              </div>
+            ))}
+          </div>
+        </div>
         <div>
           <h4 style={{ fontSize: "18px", fontWeight: "bold", color: "#0E1630", marginBottom: "10px" }}>Lab Tests</h4>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
@@ -165,6 +178,17 @@ const MedicalRecordsDetailsPreview = ({ selectedRecord, onClose, user }) => {
                 <div key={label} className="bg-white p-6 rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
                   <div className="font-bold text-sm text-gray-600 mb-2">{label.replace(/([A-Z])/g, " $1")}</div>
                   <div className="text-gray-800 text-sm">{value || "N/A"}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+          <section className="mb-6">
+            <h4 className="text-xl font-semibold text-gray-800 mb-4">Clinical Notes</h4>
+            <div className="bg-white p-6 rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
+              {(selectedRecord.clinicalNotes || []).map((note, idx) => (
+                <div key={idx} className="mb-4 pb-2 border-b last:border-0">
+                  <div className="font-bold text-sm text-gray-600">{note.date} - {note.doctorName}</div>
+                  <div className="text-gray-800 text-sm mt-1">{note.notes}</div>
                 </div>
               ))}
             </div>
@@ -247,50 +271,23 @@ const MedicalRecordsDetailsPreview = ({ selectedRecord, onClose, user }) => {
               ))}
             </div>
           </section>
-          <section className="mb-6">
-            <h4 className="text-xl font-semibold text-gray-800 mb-4">Medical Information</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {Object.entries(selectedRecord?.medicalDetails || {}).map(([label, value]) => (
-                <div key={label} className="bg-white p-6 rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
-                  <div className="font-bold text-sm text-gray-600 mb-2">{label.replace(/([A-Z])/g, " $1")}</div>
-                  <div className="text-gray-800 text-sm">{value || "N/A"}</div>
-                </div>
-              ))}
-            </div>
-          </section>
-          <section className="mb-6">
-            <h4 className="text-xl font-semibold text-gray-800 mb-4">Prescriptions</h4>
-            <DynamicTable
-              columns={[
-                { header: "Date", accessor: "date" },
-                { header: "Doctor Name", accessor: "doctorName" },
-                { header: "Medicines", accessor: "medicines" },
-                { header: "Instructions", accessor: "instructions" },
-              ]}
-              data={selectedRecord.prescriptionsData || []}
-            />
-          </section>
-          <section className="mb-6">
-            <h4 className="text-xl font-semibold text-gray-800 mb-4">Lab Tests</h4>
-            <DynamicTable
-              columns={[
-                { header: "Date", accessor: "date" },
-                { header: "Test Name", accessor: "testName" },
-                { header: "Result", accessor: "result" },
-                { header: "Normal Range", accessor: "normalRange" },
-                {
-                  header: "Status",
-                  accessor: "status",
-                  cell: (row) => (
-                    <span className={`text-sm font-semibold px-2 py-1 rounded-full ${row.status === "Normal" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
-                      {row.status}
-                    </span>
-                  ),
-                },
-              ]}
-              data={selectedRecord.labTestsData || []}
-            />
-          </section>
+          <div className="flex gap-4 mb-6">
+            {detailsTabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setDetailsActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
+                  detailsActiveTab === tab.id
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                }`}
+              >
+                <tab.icon size={18} />
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
+          {renderTabContent()}
         </div>
       </div>
     </div>
@@ -301,11 +298,44 @@ const SecondOpinion = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const user = useSelector((state) => state.auth.user);
+  const { clickedRecord, activeTab } = useMedicalRecords();
   const printContentRef = useRef();
-  const selectedRecord = location.state?.selectedRecord || {
+  const [prescriptions, setPrescriptions] = useState([]);
+  const [clinicalNotes, setClinicalNotes] = useState([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!clickedRecord) return;
+
+      try {
+        const doctorId = clickedRecord.doctorId || "default-doctor-id";
+        const patientId = clickedRecord.id || "default-patient-id";
+        const context = activeTab || "OPD";
+
+        const [prescriptionsRes, clinicalNotesRes] = await Promise.all([
+          getDoctorPatientPrescriptions(doctorId, patientId, context),
+          getClinicalNotes(patientId, doctorId, context),
+        ]);
+
+        setPrescriptions(prescriptionsRes.data || []);
+        setClinicalNotes(clinicalNotesRes.data || []);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        toast.error("Failed to fetch additional patient data.");
+      }
+    };
+
+    fetchData();
+  }, [clickedRecord, activeTab]);
+
+  const selectedRecord = {
+    ...clickedRecord,
+    prescriptionsData: prescriptions.length ? prescriptions : clickedRecord?.prescriptionsData || [],
+    clinicalNotes: clinicalNotes.length ? clinicalNotes : clickedRecord?.clinicalNotes || [],
+  } || {
     patientName: "John Doe", age: "45", sex: "Male", id: "P001", hospitalName: "General Hospital", diagnosis: "Chest Pain", dateOfVisit: "2024-01-15", "K/C/O": "Hypertension", vitals: { bp: "140/90", pulse: "80", temp: "98.6" }, medicalDetails: {
       chiefComplaint: "Chest pain since 2 days", pastHistory: "Hypertension for 5 years", examination: "Tenderness over chest",
-    }, prescriptionsData: [{ date: "2024-01-15", doctorName: "Dr. Smith", medicines: "Aspirin 75mg", instructions: "Once daily", }], labTestsData: [{ date: "2024-01-15", testName: "ECG", result: "Normal", normalRange: "Normal", status: "Normal", }],
+    }, prescriptionsData: [], labTestsData: [{ date: "2024-01-15", testName: "ECG", result: "Normal", normalRange: "Normal", status: "Normal", }],
   };
 
   const [formData, setFormData] = useState({
@@ -316,24 +346,19 @@ const SecondOpinion = () => {
     contactEmail: "",
     contactPhone: "",
   });
-
   const [showMedicalRecords, setShowMedicalRecords] = useState(false);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isSending, setIsSending] = useState({ whatsapp: false, email: false });
-
   const doctors = ["Dr. Rajesh Kumar (Cardiologist)", "Dr. Priya Sharma (Physician)", "Dr. Amit Patel (Neurologist)", "Dr. Sunita Reddy (Gastroenterologist)"];
   const urgencyLevels = [{ label: "Normal (3-5 days)", value: "normal" }, { label: "Urgent (1-2 days)", value: "urgent" }, { label: "Critical (Same day)", value: "critical" }];
   const consultationModes = [{ label: "In-person Visit", value: "in-person" }, { label: "Teleconsultation", value: "teleconsultation" }, { label: "Email Report", value: "email" }, { label: "Phone Consultation", value: "phone" }];
-
   const handleInputChange = (field, value) => setFormData((prev) => ({ ...prev, [field]: value }));
   const handleDoctorSelect = (doctor) => { setFormData((prev) => ({ ...prev, selectedDoctor: doctor })); setIsDropdownOpen(false); };
   const handleBack = () => navigate(-1);
-
   const isFormValid = () => {
     return formData.selectedDoctor && formData.urgencyLevel && formData.preferredMode;
   };
-
   const handlePreview = () => {
     if (!isFormValid()) {
       toast.error("Please fill in all required fields (Doctor, Urgency Level, and Preferred Consultation Mode).");
@@ -341,7 +366,6 @@ const SecondOpinion = () => {
     }
     setShowPrintPreview(true);
   };
-
   const generateRequestData = () => ({
     id: `SO-${Date.now()}`,
     requestDate: new Date().toLocaleDateString("en-GB"),
@@ -355,7 +379,6 @@ const SecondOpinion = () => {
       VisitDate: selectedRecord.dateOfVisit || selectedRecord.dateOfAdmission || selectedRecord.dateOfConsultation,
     },
   });
-
   const generateMessageContent = () => {
     const requestData = generateRequestData();
     return {
@@ -363,7 +386,6 @@ const SecondOpinion = () => {
       body: `SECOND OPINION REQUEST\n\nRequest Details:\n• Request ID: ${requestData.id}\n• Date: ${requestData.requestDate}\n• Status: Pending Review\n\nPatient Information:\n• Name: ${requestData.patientInfo.Name}\n• Age: ${requestData.patientInfo.Age}\n• Gender: ${requestData.patientInfo.Sex}\n• Hospital: ${requestData.patientInfo.HospitalName}\n• Diagnosis: ${requestData.patientInfo.Diagnosis}\n• Visit Date: ${requestData.patientInfo.VisitDate}\n• K/C/O: ${selectedRecord["K/C/O"] ?? "--"}\n\nConsultation Request Details:\n• Selected Doctor: ${formData.selectedDoctor || "Not specified"}\n• Urgency Level: ${formData.urgencyLevel || "Not specified"}\n• Preferred Mode: ${formData.preferredMode || "Not specified"}\n• Additional Notes: ${formData.additionalNotes || "Not specified"}\n\nMedical Records: Complete patient medical history, vitals, prescriptions, and lab reports are included with this request.\n\nGenerated on: ${new Date().toLocaleString()}\nFor queries, please contact the medical records department.`
     };
   };
-
   const generateMedicalRecordsPreviewHTML = () => {
     return `
       <div style="margin-top:40px; font-family: Arial, sans-serif; max-width: 900px; margin-left:auto; margin-right:auto;">
@@ -427,6 +449,17 @@ const SecondOpinion = () => {
               </tbody>
             </table>
           </div>
+          <div style="margin-bottom: 24px;">
+            <h4 style="font-size: 18px; font-weight: bold; color: #0E1630; margin-bottom: 10px;">Clinical Notes</h4>
+            <div style='background:#fff; border:1px solid #f3f4f6; border-radius:10px; padding:16px;'>
+              ${(selectedRecord.clinicalNotes || []).map(note => `
+                <div style='margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #eee;'>
+                  <div style='font-weight:bold; font-size:13px; color:#666; margin-bottom:4px;'>${note.date} - ${note.doctorName}</div>
+                  <div style='color:#222; font-size:14px;'>${note.notes}</div>
+                </div>
+              `).join("")}
+            </div>
+          </div>
           <div>
             <h4 style="font-size: 18px; font-weight: bold; color: #0E1630; margin-bottom: 10px;">Lab Tests</h4>
             <table style='width:100%; border-collapse:collapse; font-size:14px;'>
@@ -456,7 +489,6 @@ const SecondOpinion = () => {
       </div>
     `;
   };
-
   const generatePrintTemplate = () => {
     const requestData = generateRequestData();
     const patientInfoGrid = `
@@ -511,7 +543,6 @@ const SecondOpinion = () => {
       </div>
     `;
   };
-
   const generatePDF = async () => {
     const element = document.createElement("div");
     element.innerHTML = generatePrintTemplate();
@@ -530,7 +561,6 @@ const SecondOpinion = () => {
       throw error;
     }
   };
-
   const blobToBase64 = (blob) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -542,7 +572,6 @@ const SecondOpinion = () => {
       reader.readAsDataURL(blob);
     });
   };
-
   const sendWhatsAppMessage = async () => {
     if (!formData.contactPhone) {
       toast.error("Please enter a WhatsApp number");
@@ -592,7 +621,6 @@ const SecondOpinion = () => {
       setIsSending((prev) => ({ ...prev, whatsapp: false }));
     }
   };
-
   const sendEmail = async () => {
     if (!formData.contactEmail.trim()) {
       toast.error("Please enter an email address");
@@ -645,7 +673,6 @@ const SecondOpinion = () => {
       setIsSending((prev) => ({ ...prev, email: false }));
     }
   };
-
   const handlePrintOnly = () => {
     const printContent = generatePrintTemplate();
     const printWindow = window.open('', '_blank');
@@ -670,7 +697,6 @@ const SecondOpinion = () => {
     printWindow.print();
     printWindow.close();
   };
-
   if (showMedicalRecords) {
     return (
       <MedicalRecordsDetailsPreview
@@ -680,7 +706,6 @@ const SecondOpinion = () => {
       />
     );
   }
-
   return (
     <div className="p-4 sm:p-6 space-y-6">
       <button onClick={handleBack} className="flex items-center gap-2 hover:text-blue-600 transition-colors text-gray-600">

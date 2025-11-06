@@ -1,17 +1,33 @@
 import React, { useState, useEffect } from "react";
 import { Monitor, Clock, AlertCircle } from "lucide-react";
 import DynamicTable from "./microcomponents/DynamicTable";
+import { getQueueTokens } from "../utils/masterService";
 
 const TOKENS_KEY = "hospital_tokens";
 
-const DisplayBoard = ({ tokens }) => {
+const DisplayBoard = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [allTokens, setAllTokens] = useState(tokens || []);
+  const [allTokens, setAllTokens] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    if (tokens && tokens.length > 0) {
+  const fetchTokens = async () => {
+    try {
+      setLoading(true);
+      const response = await getQueueTokens();
+      console.log("Fetched tokens from API:", response.data);
+
+      const tokens = response.data.map((t) => ({
+        ...t,
+        generatedAt: new Date(t.generatedAt),
+      }));
+
       setAllTokens(tokens);
-    } else {
+      localStorage.setItem(TOKENS_KEY, JSON.stringify(tokens));
+    } catch (err) {
+      console.error("Failed to fetch tokens:", err);
+      setError("Failed to fetch tokens. Using local data if available.");
+
       const stored = localStorage.getItem(TOKENS_KEY);
       if (stored) {
         try {
@@ -27,8 +43,14 @@ const DisplayBoard = ({ tokens }) => {
       } else {
         setAllTokens([]);
       }
+    } finally {
+      setLoading(false);
     }
-  }, [tokens]);
+  };
+
+  useEffect(() => {
+    fetchTokens();
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -37,7 +59,6 @@ const DisplayBoard = ({ tokens }) => {
     return () => clearInterval(timer);
   }, []);
 
-  // Prepare columns for DynamicTable
   const columns = [
     {
       header: "Token",
@@ -49,26 +70,27 @@ const DisplayBoard = ({ tokens }) => {
     },
     {
       header: "Department",
-      accessor: "departmentLabel",
-      cell: (row) => row.departmentLabel || row.department,
+      accessor: "departmentId",
+      cell: (row) => `Department ${row.departmentId}`,
     },
     {
       header: "Doctor",
-      accessor: "doctorName",
+      accessor: "doctorId",
+      cell: (row) => `Doctor ${row.doctorId}`,
     },
     {
       header: "Priority",
-      accessor: "priority",
+      accessor: "priorityLevel",
       cell: (row) => (
         <span
           className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-            row.priority === "emergency"
+            row.priorityLevel === "EMERGENCY"
               ? "bg-red-500 text-white"
               : "bg-green-500 text-white"
           }`}
         >
           <AlertCircle className="w-3 h-3" />
-          {row.priority}
+          {row.priorityLevel}
         </span>
       ),
     },
@@ -78,7 +100,7 @@ const DisplayBoard = ({ tokens }) => {
       cell: (row) => (
         <span
           className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-            row.status === "called"
+            row.status === "CALLED"
               ? "bg-blue-500 text-white"
               : "bg-gray-500 text-white"
           }`}
@@ -88,39 +110,44 @@ const DisplayBoard = ({ tokens }) => {
       ),
     },
     {
-      header: "Estimated",
-      accessor: "estimatedTime",
+      header: "Estimated Wait (mins)",
+      accessor: "estimatedWaitMinutes",
     },
   ];
 
-  // Filters for DynamicTable
   const filters = [
     {
       key: "status",
       label: "Status",
       options: [
-        { value: "waiting", label: "Waiting" },
-        { value: "called", label: "Called" },
+        { value: "WAITING", label: "Waiting" },
+        { value: "CALLED", label: "Called" },
       ],
     },
     {
-      key: "priority",
+      key: "priorityLevel",
       label: "Priority",
       options: [
-        { value: "normal", label: "Normal" },
-        { value: "emergency", label: "Emergency" },
+        { value: "NORMAL", label: "Normal" },
+        { value: "EMERGENCY", label: "Emergency" },
       ],
     },
   ];
 
-  // Show waiting + top 3 called tokens
-  const waitingTokens = allTokens.filter((t) => t.status === "waiting");
-  const calledTokens = allTokens.filter((t) => t.status === "called").slice(0, 3);
+  const waitingTokens = allTokens.filter((t) => t.status === "WAITING");
+  const calledTokens = allTokens.filter((t) => t.status === "CALLED").slice(0, 3);
   const displayTokens = [...waitingTokens, ...calledTokens];
+
+  if (loading) {
+    return <div className="text-center py-8">Loading tokens...</div>;
+  }
+
+  if (error) {
+    return <div className="text-center py-8 text-red-500">{error}</div>;
+  }
 
   return (
     <div className="min-h-screen bg-white text-black p-0 m-0">
-      {/* Header */}
       <div className="text-center mb-2 p-2">
         <h1 className="text-lg md:text-xl lg:text-2xl font-bold my-2 text-[var(--accent-color)]">
           Hospital Queue Management
@@ -135,7 +162,6 @@ const DisplayBoard = ({ tokens }) => {
         </div>
       </div>
 
-      {/* DynamicTable for tokens */}
       <div className="w-full mx-auto p-0 m-0 bg-white rounded-none border-none">
         <h2 className="text-base md:text-lg font-bold mb-2 text-[var(--color-surface)] text-start pl-2">
           Waiting and Recently Called Tokens
@@ -144,6 +170,7 @@ const DisplayBoard = ({ tokens }) => {
           <DynamicTable
             data={displayTokens}
             columns={columns}
+            filters={filters}
             className="w-full border-none"
           />
         </div>

@@ -176,8 +176,8 @@ export const getDoctorsBySpecialty = (specialtyId) =>
 
 // prescription api master data
 export const getAllPrescriptions = () => axiosInstance.get("/prescriptions");
-export const getPrescriptionById = id => axiosInstance.get(`/prescriptions/${id}`);
-export const getPrescriptionsByDoctorPatient = params => axiosInstance.get("/prescriptions/by-doctor-patient", { params });
+export const getDoctorPatientPrescriptions = (doctorId, patientId,context) =>
+  axiosInstance.get("/doctor/prescriptions/by-doctor-patient", { params: { doctorId, patientId, context } });export const getPrescriptionsByDoctorPatient = params => axiosInstance.get("/prescriptions/by-doctor-patient", { params });
 export const createPrescription = data => axiosInstance.post("/prescriptions", data);
 export const updatePrescription = (id, data) => axiosInstance.put(`/prescriptions/${id}`, data);
 export const deletePrescription = id => axiosInstance.delete(`/prescriptions/${id}`);
@@ -199,8 +199,8 @@ export const updateLabAction = (id, data) => axiosInstance.put(`/lab-actions/${i
 export const deleteLabAction = id => axiosInstance.delete(`/lab-actions/${id}`);
 
 export const getAllClinicalNotes = () => axiosInstance.get("/clinical-notes");
-export const getClinicalNoteById = id => axiosInstance.get(`/clinical-notes/${id}`);
-export const createClinicalNote = data => axiosInstance.post("/clinical-notes", data);
+export const getClinicalNotes = (patientId, doctorId, context) =>
+  axiosInstance.get("/clinical-notes", { params: { patientId, doctorId, context } });export const createClinicalNote = data => axiosInstance.post("/clinical-notes", data);
 export const updateClinicalNote = (id, data) => axiosInstance.put(`/clinical-notes/${id}`, data);
 export const deleteClinicalNote = id => axiosInstance.delete(`/clinical-notes/${id}`);
 
@@ -242,3 +242,27 @@ export const uploadDoctorSignature = data => axiosInstance.post("/v1/doctor-sign
 // dental exam api
 export const createDentalActions = (patientId, doctorId, context, data) =>
   axiosInstance.post(`/dental-actions/bulk/${patientId}/${doctorId}/${context}`, data);
+
+
+// ✅ GET ALL queue tokens
+export const getQueueTokens = () => axiosInstance.get("/queue-tokens");
+// ✅ CREATE a new queue token
+export const createQueueToken = (data) =>axiosInstance.post("/queue-tokens", data);
+export const patchQueueTokenStatus = (id, status) => axiosInstance.patch(`/queue-tokens/${id}/status`, null, { params: { status }});
+
+
+// pani medical record details api
+export const getLabScanByPatient = (patientId) => axiosInstance.get(`/medical-record-lab-scan/${patientId}`);
+// ✅ Get hospital billing by patientId
+export const getHospitalBilling = (patientId) => axiosInstance.get(`/medical-record-billing/hospitals/${patientId}`);
+// ✅ Get lab billing by patientId
+export const getLabBilling = (patientId) =>axiosInstance.get(`/medical-record-billing/labs/${patientId}`);
+// ✅ Get pharmacy billing by patientId
+export const getPharmacyBilling = (patientId) =>axiosInstance.get(`/medical-record-billing/pharmacy/${patientId}`);
+// ✅ Get medical info by patientId
+export const getPatientMedicalInfo = (patientId) => axiosInstance.get(`/patient/medical-info/${patientId}`);
+
+
+
+export const getDoctorIpdVitalsByContext = (doctorId, patientId, context) =>
+  axiosInstance.get(`/doctor/ipd-vitals/doctor/${doctorId}/patient/${patientId}/context/${context}`);

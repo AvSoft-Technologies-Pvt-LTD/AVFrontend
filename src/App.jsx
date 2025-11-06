@@ -17,6 +17,7 @@ import Registration from "./form/Registration";
 import Verification from "./form/Verification";
 import PasswordResetPage from "./form/PasswordResetPage";
 import { PatientProvider } from "./context-api/PatientContext";
+import { MedicalRecordsProvider } from "./context-api/MedicalRecordsContext";
 import BookApp from "./components/BookApp";
 import Home from "./pages/Home";
 import MedicalRecords from "./pages/layouts/menu/PatientDashboard/MedicalRecord"
@@ -210,7 +211,7 @@ const App = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/bookconsultation" element={<BookApp />} />
         <Route path="/medical-records" element={<MedicalRecords />} />
-        <Route path="/medical-record-details" element={<MedicalRecordDetails />} />
+  <Route path="/medical-record-details" element={<Navigate to="/patientdashboard/medical-record-details" replace />} />
         
         {/* Healthcard */}
          <Route path="/healthcard" element={<Healthcard />} />

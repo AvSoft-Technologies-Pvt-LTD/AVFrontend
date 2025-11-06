@@ -290,15 +290,19 @@ export const createAmbulanceBooking = (data) =>
 // Get all virtual appointments
 export const getAllVirtualAppointments = () =>
   axiosInstance.get('/doc-virtual-appointments');
+ 
 // Get virtual appointment by ID
 export const getVirtualAppointmentById = (id) =>
   axiosInstance.get(`/doc-virtual-appointments/${id}`);
+
 // Create a new virtual appointment
 export const createVirtualAppointment = (data) =>
   axiosInstance.post('/doc-virtual-appointments', data);
+ 
 // Update virtual appointment by ID
 export const updateVirtualAppointment = (id, data) =>
   axiosInstance.put(`/doc-virtual-appointments/${id}`, data);
+ 
 // Delete virtual appointment by ID
 export const deleteVirtualAppointment = (id) =>
   axiosInstance.delete(`/doc-virtual-appointments/${id}`);

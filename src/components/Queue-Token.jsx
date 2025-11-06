@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import {
   User, Phone, CreditCard, CheckCircle, Fingerprint,
   Calendar, Droplet, MapPin, Lock, Loader2, ChevronRight,
   Activity, Stethoscope, Clock, AlertCircle, Search, Users, List
 } from 'lucide-react';
-import { getSpecializationsBySymptoms } from "../utils/masterService";
+import { getSpecializationsBySymptoms, createQueueToken } from "../utils/masterService";
+import { setUser } from '../context-api/authSlice'; // Adjust the import path
 
 const TOKENS_KEY = 'hospital_tokens';
 const validatePhone = (p) => /^\d{10}$/.test(p);
@@ -31,15 +33,6 @@ const hardcodedPatients = [
     phoneNumber: '9876543210',
     aadharNumber: '123456789012',
     address: '123, MG Road, Bangalore, Karnataka',
-  },
-  {
-    id: 2,
-    fullName: 'Priya Sharma',
-    gender: 'Female',
-    dateOfBirth: '1990-08-22',
-    phoneNumber: '8765432109',
-    aadharNumber: '987654321098',
-    address: '456, Indira Nagar, Bangalore, Karnataka',
   },
 ];
 
@@ -168,6 +161,9 @@ const FingerprintScanner = ({ onComplete, isScanning }) => {
 
 // --- Main Component ---
 const TokenGenerator = () => {
+  const dispatch = useDispatch();
+  const doctorId = useSelector((state) => state.auth.doctorId);
+
   const [step, setStep] = useState(1);
   const [verificationMethod, setVerificationMethod] = useState(null);
   const [formData, setFormData] = useState({
@@ -299,15 +295,16 @@ const TokenGenerator = () => {
     try {
       const response = await getSpecializationsBySymptoms({ q: symptoms });
       if (response.data && response.data.length > 0) {
-        const mappedSpecializations = response.data.map((spec, index) => ({
-          id: index + 1,
-          name: spec,
+        const mappedSpecializations = response.data.map((spec) => ({
+          id: spec.id,
+          name: typeof spec === 'string' ? spec : spec.specializationName,
           description: `Specialization for ${symptoms}`,
         }));
         setSuggestedSpecializations(mappedSpecializations);
       } else {
         setErrors({ symptoms: 'No specializations found. Please try different symptoms.' });
       }
+  
     } catch (error) {
       setErrors({ symptoms: 'Error loading specializations. Please try again.' });
       console.error("Error fetching specializations:", error);
@@ -317,31 +314,34 @@ const TokenGenerator = () => {
   };
 
   useEffect(() => {
-    const fetchSpecializations = async () => {
-      if (!symptoms.trim()) {
-        setSuggestedSpecializations([]);
-        return;
-      }
-      setIsSearchingSpecializations(true);
-      try {
-        const response = await getSpecializationsBySymptoms({ q: symptoms });
-        if (response.data && response.data.length > 0) {
-          const mappedSpecializations = response.data.map((spec, index) => ({
-            id: index + 1,
-            name: spec,
-            description: `Specialization for ${symptoms}`,
-          }));
-          setSuggestedSpecializations(mappedSpecializations);
-        } else {
-          setSuggestedSpecializations([]);
-        }
-      } catch (error) {
-        console.error("Error fetching specializations:", error);
-        setSuggestedSpecializations([]);
-      } finally {
-        setIsSearchingSpecializations(false);
-      }
-    };
+ const fetchSpecializations = async () => {
+  if (!symptoms.trim()) {
+    setSuggestedSpecializations([]);
+    return;
+  }
+  setIsSearchingSpecializations(true);
+  try {
+    const response = await getSpecializationsBySymptoms({ q: symptoms });
+    let mappedSpecializations = [];
+    if (response.data && response.data.length > 0) {
+      mappedSpecializations = response.data.map((spec) => ({
+        id: spec.id,
+        name: typeof spec === 'string' ? spec : spec.specializationName,
+        description: `Specialization for ${symptoms}`,
+      }));
+      setSuggestedSpecializations(mappedSpecializations);
+    } else {
+      setSuggestedSpecializations([]);
+    }
+    console.log("mappedSpecializations:", mappedSpecializations);
+  } catch (error) {
+    console.error("Error fetching specializations:", error);
+    setSuggestedSpecializations([]);
+  } finally {
+    setIsSearchingSpecializations(false);
+  }
+};
+
     const debounceTimer = setTimeout(() => {
       fetchSpecializations();
     }, 1000);
@@ -358,38 +358,27 @@ const TokenGenerator = () => {
   };
 
   const handleGenerateToken = async () => {
-    if (!selectedDoctor) {
-      setErrors({ doctor: 'Please select a doctor' });
-      return;
-    }
-    setIsVerifying(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    const tokenNum = getNextTokenNumber();
-    const newToken = {
-      id: `token-${Date.now()}`,
-      tokenNumber: `T${tokenNum.toString().padStart(3, '0')}`,
-      patientId: patientData.id,
-      patientName: patientData.fullName,
-      phoneNumber: patientData.phoneNumber,
-      aadharNumber: patientData.aadharNumber,
-      symptoms,
-      specialization: selectedSpecialization?.name,
-      doctorId: selectedDoctor.id,
-      doctorName: selectedDoctor.name,
-      priority,
-      status: 'waiting',
-      generatedAt: new Date().toISOString(),
-      queue: selectedDoctor.queue,
-    };
     try {
-      const tokens = JSON.parse(localStorage.getItem(TOKENS_KEY) || '[]');
-      tokens.push(newToken);
-      localStorage.setItem(TOKENS_KEY, JSON.stringify(tokens));
+      const requestBody = {
+        patientName: patientData.fullName,
+        phoneNumber: patientData.phoneNumber,
+        departmentId: selectedSpecialization?.id,
+        doctorId: doctorId,
+        priorityLevel: priority.toUpperCase(),
+        reasonForVisit: symptoms,
+        status: 'WAITING',
+        estimatedWaitMinutes: priority === 'emergency' ? 5 : 30,
+      };
+      console.log('Request Body for Token Generation:', requestBody);
+      const response = await createQueueToken(requestBody);
+      console.log('API Response:', response);
+      setStep(5);
     } catch (error) {
-      console.error('Error saving token:', error);
+      console.error('API Error:', error);
+      setErrors({ api: 'Failed to generate token. Please try again.' });
+    } finally {
+      setIsVerifying(false);
     }
-    setStep(5);
-    setIsVerifying(false);
   };
 
   const resetForm = () => {
@@ -646,7 +635,7 @@ const TokenGenerator = () => {
                     </span>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {suggestedSpecializations.map((spec, index) => (
+                    {suggestedSpecializations.map((spec) => (
                       <div
                         key={spec.id}
                         onClick={() => handleSpecializationSelect(spec)}
@@ -665,7 +654,7 @@ const TokenGenerator = () => {
                               <h4 className="font-bold text-base text-gray-800 group-hover:text-[#01D48C] transition-colors">
                                 {spec.name}
                               </h4>
-                              {index === 0 && (
+                              {spec.id === 1 && (
                                 <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
                                   Best Match
                                 </span>
@@ -704,7 +693,10 @@ const TokenGenerator = () => {
                 {availableDoctors.map((doctor) => (
                   <div
                     key={doctor.id}
-                    onClick={() => setSelectedDoctor(doctor)}
+                    onClick={() => {
+                      setSelectedDoctor(doctor);
+                      dispatch(setUser({ ...user, doctorId: doctor.id }));
+                    }}
                     className={`p-6 border-2 rounded-2xl cursor-pointer transition-all hover:shadow-lg ${
                       selectedDoctor?.id === doctor.id
                         ? 'border-[#01D48C] bg-green-50 shadow-md'
@@ -782,7 +774,6 @@ const TokenGenerator = () => {
                 </button>
                 <button
                   onClick={handleGenerateToken}
-                  disabled={!selectedDoctor || isVerifying}
                   className="btn btn-primary w-full"
                 >
                   {isVerifying ? 'Generating...' : 'Generate Token'}
@@ -867,3 +858,14 @@ const TokenGenerator = () => {
 };
 
 export default TokenGenerator;
+
+
+
+
+
+
+
+
+
+
+

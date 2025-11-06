@@ -37,9 +37,11 @@ import DocsReader from "../../../../components/DocsReader";
 import SecondOpinion from "./SecondOpinion";
 import MedicalRecordDetails from "./MedicalRecordDetails";
 import Help from "./Help";
-
+import { MedicalRecordsProvider } from "../../../../context-api/MedicalRecordsContext";
 const PdashboardRoutes = () => {
   return (
+    <>
+     <MedicalRecordsProvider>
     <Routes>
       <Route index element={<Dashboard />} />
       <Route path="medical-records" element={<MedicalRecord/>} />
@@ -83,7 +85,7 @@ const PdashboardRoutes = () => {
       {/* Fallback route */}
       <Route path="*" element={<h1>404 - Page Not Found</h1>} />
       
-    </Routes>
+    </Routes></MedicalRecordsProvider></>
   );
 };
 
