@@ -184,14 +184,9 @@ const MedicalRecords = () => {
   };
 
   const handleViewDetails = (record) => {
-  const currentPath = location.pathname;
-  let targetPath =
-    currentPath.startsWith("/patientdashboard/medical-record")
-      ? "/patientdashboard/medical-record-details"
-      : "/medical-record-details";
   localStorage.setItem("clickedHospitalRecord", JSON.stringify(record));
   setClickedRecord(record);
-  navigate(targetPath, { state: { selectedRecord: record } });
+  navigate("/patientdashboard/medical-record-details", { state: { selectedRecord: record } });
 };
 
   const handleAddRecord = async (formData) => {
@@ -475,4 +470,3 @@ const MedicalRecords = () => {
 };
 
 export default MedicalRecords;
-

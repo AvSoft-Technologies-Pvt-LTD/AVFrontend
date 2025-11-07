@@ -121,37 +121,34 @@ const DrMedicalRecords = () => {
   };
 
 
-  const handleAddRecord = async (formData) => {
-    const recordType = formData.type || activeTab;
-    const sanitizedPayload = {
-      patientId: Number(selectedPatient?.patientId || selectedPatient?.id || 1), // ✅ reversed order
-      patientName: selectedPatient?.patientName || selectedPatient?.name || "Unknown",
-      doctorId: Number(user?.doctorId || 1),
-      context: recordType.toUpperCase(),
-      hospitalId: Number(formData.hospitalId),
-      chiefComplaint: formData.chiefComplaint || "",
-      medicalConditionIds: Array.isArray(formData.medicalConditionIds)
-        ? formData.medicalConditionIds.map((id) => Number(id))
-        : [],
-      medicalStatusId: formData.medicalStatusId ? Number(formData.medicalStatusId) : null,
-      dateOfVisit: formData.dateOfVisit || new Date().toISOString().split("T")[0],
-      registerPhone: formData.registerPhone || "",
-    };
-
-    console.log("Payload sent to backend:", sanitizedPayload);
-    // if (!sanitizedPayload.medicalStatusId) {
-    //   alert("Please select a valid Medical Status before saving.");
-    //   return;
-    // }
-
-    try {
-      const response = await createMedicalRecord(sanitizedPayload);
-      response.data;
-      await fetchAllRecords();
-      setState({ showAddModal: false });
-    } catch (error) {
-    }
+ const handleAddRecord = async (formData) => {
+  const recordType = formData.type || activeTab;
+  const sanitizedPayload = {
+    patientId: Number(selectedPatient?.patientId || selectedPatient?.id || 1),
+    patientName: selectedPatient?.patientName || selectedPatient?.name || "Unknown",
+    doctorId: Number(user?.doctorId || 1),
+    context: recordType.toUpperCase(),
+    hospitalId: Number(formData.hospitalId),
+    chiefComplaint: formData.chiefComplaint || "",
+    medicalConditionIds: Array.isArray(formData.medicalConditionIds)
+      ? formData.medicalConditionIds.map((id) => Number(id))
+      : [],
+    medicalStatusId: formData.medicalStatusId ? Number(formData.medicalStatusId) : null,
+    dateOfVisit: formData.dateOfVisit || new Date().toISOString().split("T")[0],
+    registerPhone: formData.registerPhone || "",
+    uploadedBy: Number(user?.doctorId || "" ), // Add this line
   };
+  console.log("Payload sent to backend:", sanitizedPayload);
+  try {
+    const response = await createMedicalRecord(sanitizedPayload);
+    response.data;
+    await fetchAllRecords();
+    setState({ showAddModal: false });
+  } catch (error) {
+    console.error("Error creating medical record:", error);
+  }
+};
+
 
   const handleViewDetails = (row) => {
     // Navigate to a detailed view of the record, passing the record data as state
