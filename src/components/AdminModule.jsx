@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   FaUserCircle,
   FaEnvelope,
@@ -13,161 +13,26 @@ import {
   FaUserNurse,
   FaUserTie,
   FaUserCog,
-  FaFlask
+  FaFlask,
+  FaTrash,
+  FaEdit
 } from "react-icons/fa";
-
-const initialStaff = [
-  {
-    id: 1,
-    name: "Dr. Trupti Chavan",
-    email: "snehakonnur23@gmail.com",
-    phone: "9082640664",
-    role: "Doctor",
-    gender: "Female",
-    password: "",
-    department: "Cardiology",
-    signature: "",
-    permissions: ["View Patients", "Write Prescriptions", "Access Reports"],
-    availability: {
-      slotDuration: "30",
-      isAvailable: true,
-      days: {
-        Monday: { from: "09:00", to: "17:00" },
-        Tuesday: { from: "09:00", to: "17:00" },
-        Wednesday: { from: "09:00", to: "17:00" },
-        Thursday: { from: "09:00", to: "17:00" },
-        Friday: { from: "09:00", to: "17:00" },
-        Saturday: { from: "09:00", to: "13:00" },
-        Sunday: { from: "", to: "" },
-      },
-      holidays: []
-    }
-  },
-  {
-    id: 2,
-    name: "Kavya Sharma",
-    email: "kavya11@gmail.com",
-    phone: "7895461235",
-    role: "Nurse",
-    gender: "Female",
-    password: "",
-    department: "ICU",
-    signature: "",
-    permissions: ["View Patients", "Update Vitals"],
-    availability: {
-      slotDuration: "15",
-      isAvailable: true,
-      days: {
-        Monday: { from: "08:00", to: "16:00" },
-        Tuesday: { from: "08:00", to: "16:00" },
-        Wednesday: { from: "08:00", to: "16:00" },
-        Thursday: { from: "08:00", to: "16:00" },
-        Friday: { from: "08:00", to: "16:00" },
-        Saturday: { from: "", to: "" },
-        Sunday: { from: "", to: "" },
-      },
-      holidays: []
-    }
-  },
-  {
-    id: 3,
-    name: "Sahana Kadrolli",
-    email: "sahan@gmail.com",
-    phone: "9901341761",
-    role: "LabTech",
-    gender: "Female",
-    password: "",
-    department: "Laboratory",
-    signature: "",
-    permissions: ["View Reports", "Upload Test Results"],
-    availability: {
-      slotDuration: "20",
-      isAvailable: true,
-      days: {
-        Monday: { from: "07:00", to: "15:00" },
-        Tuesday: { from: "07:00", to: "15:00" },
-        Wednesday: { from: "07:00", to: "15:00" },
-        Thursday: { from: "07:00", to: "15:00" },
-        Friday: { from: "07:00", to: "15:00" },
-        Saturday: { from: "07:00", to: "12:00" },
-        Sunday: { from: "", to: "" },
-      },
-      holidays: []
-    }
-  },
-  {
-    id: 4,
-    name: "Bill Anderson",
-    email: "bill12@gmail.com",
-    phone: "1234576892",
-    role: "Frontdesk",
-    gender: "Male",
-    password: "",
-    department: "Reception",
-    signature: "",
-    permissions: ["Manage Appointments", "Register Patients"],
-    availability: {
-      slotDuration: "10",
-      isAvailable: true,
-      days: {
-        Monday: { from: "08:00", to: "18:00" },
-        Tuesday: { from: "08:00", to: "18:00" },
-        Wednesday: { from: "08:00", to: "18:00" },
-        Thursday: { from: "08:00", to: "18:00" },
-        Friday: { from: "08:00", to: "18:00" },
-        Saturday: { from: "08:00", to: "14:00" },
-        Sunday: { from: "", to: "" },
-      },
-      holidays: []
-    }
-  },
-  {
-    id: 5,
-    name: "Roshani Kailas Thakare",
-    email: "roshanithakare879@gmail.com",
-    phone: "7483018998",
-    role: "Admin",
-    gender: "Female",
-    password: "",
-    department: "Administration",
-    signature: "",
-    permissions: ["Full Access", "User Management", "System Settings", "Reports Access"],
-    availability: {
-      slotDuration: "60",
-      isAvailable: true,
-      days: {
-        Monday: { from: "09:00", to: "17:00" },
-        Tuesday: { from: "09:00", to: "17:00" },
-        Wednesday: { from: "09:00", to: "17:00" },
-        Thursday: { from: "09:00", to: "17:00" },
-        Friday: { from: "09:00", to: "17:00" },
-        Saturday: { from: "", to: "" },
-        Sunday: { from: "", to: "" },
-      },
-      holidays: []
-    }
-  }
-];
-
-const permissionsByRole = {
-  Doctor: ["View Patients", "Write Prescriptions", "Access Reports", "Surgery Authorization", "Discharge Patients"],
-  Nurse: ["View Patients", "Update Vitals", "Medication Administration", "Patient Care Notes"],
-  LabTech: ["View Reports", "Upload Test Results", "Sample Collection", "Equipment Maintenance"],
-  Frontdesk: ["Manage Appointments", "Register Patients", "Billing Support", "Insurance Verification"],
-  Admin: ["Full Access", "User Management", "System Settings", "Reports Access", "Audit Logs"],
-  Pharmacist: ["Medication Dispensing", "Inventory Management", "Drug Interaction Checks"],
-};
-
-const departments = [
-  "Cardiology", "ICU", "Laboratory", "Reception", "Administration",
-  "Emergency", "Pediatrics", "Orthopedics", "Radiology", "Pharmacy"
-];
+import { getGenders, getRoles, getAllSpecializations } from "../utils/masterService";
+import { getAllStaff, createStaff, updateStaff, deleteStaff } from "../utils/CrudService";
 
 const tabs = ["Details", "Permissions", "Availability", "IPD Permission"];
 
 const emptyForm = {
-  name: "", email: "", phone: "", role: "", gender: "",
-  password: "", department: "", signature: "", permissions: [],
+  fullName: "", 
+  emailId: "", 
+  phoneNumber: "", 
+  roleId: "", 
+  genderId: "",
+  password: "", 
+  specializationId: "", 
+  signature: "", 
+  photo: "",
+  permissions: [],
   availability: {
     slotDuration: "",
     isAvailable: true,
@@ -184,7 +49,8 @@ const emptyForm = {
     holidayFrom: "",
     holidayTo: "",
     holidays: [],
-  }
+  },
+  ipdPermissions: [],
 };
 
 const roleIcons = {
@@ -195,8 +61,53 @@ const roleIcons = {
   Admin: <FaUserCog className="text-indigo-500" />,
 };
 
+const getRoleIcon = (role) => {
+  const roleName = typeof role === 'string' ? role : role?.name || role?.roleName;
+  return roleIcons[roleName] || <FaUserCog className="text-gray-500" />;
+};
+
+const permissionsByRole = {
+  Doctor: [
+    "View Patient Records",
+    "Edit Patient Records", 
+    "Add Prescription",
+    "View Lab Results",
+    "Schedule Appointments",
+    "Medical Dashboard Access"
+  ],
+  Nurse: [
+    "View Patient Records",
+    "Edit Patient Records",
+    "Add Vital Signs",
+    "View Lab Results",
+    "Schedule Appointments",
+    "Ward Management"
+  ],
+  LabTech: [
+    "View Lab Requests",
+    "Add Lab Results",
+    "Edit Lab Results",
+    "Lab Dashboard Access"
+  ],
+  Frontdesk: [
+    "Patient Registration",
+    "Schedule Appointments", 
+    "Billing Access",
+    "Front Desk Dashboard"
+  ],
+  Admin: [
+    "View Patient Records",
+    "Edit Patient Records",
+    "Staff Management",
+    "Billing Access",
+    "Reports Access",
+    "System Settings",
+    "Full Dashboard Access"
+  ]
+};
+
 export default function StaffManagement({ onBack }) {
-  const [staffList, setStaffList] = useState(initialStaff);
+  const [staffList, setStaffList] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [activeTab, setActiveTab] = useState("Details");
   const [formData, setFormData] = useState(emptyForm);
@@ -204,20 +115,80 @@ export default function StaffManagement({ onBack }) {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [errors, setErrors] = useState({});
+  const [genders, setGenders] = useState([]);
+  const [roles, setRoles] = useState([]);
+  const [specializations, setSpecializations] = useState([]);
+  const [dropdownLoading, setDropdownLoading] = useState(false);
+  const [staffLoading, setStaffLoading] = useState(false);
+
+  // Fetch dropdown data on component mount
+  useEffect(() => {
+    fetchDropdownData();
+    fetchStaffData();
+  }, []);
+
+  const fetchDropdownData = async () => {
+    setDropdownLoading(true);
+    try {
+      const [gendersRes, rolesRes, specializationsRes] = await Promise.all([
+        getGenders(),
+        getRoles(),
+        getAllSpecializations()
+      ]);
+      
+      setGenders(gendersRes.data || []);
+      setRoles(rolesRes.data || []);
+      setSpecializations(specializationsRes.data || []);
+    } catch (error) {
+      console.error('Error fetching dropdown data:', error);
+      setGenders([]);
+      setRoles([]);
+      setSpecializations([]);
+    } finally {
+      setDropdownLoading(false);
+    }
+  };
+
+  const fetchStaffData = async () => {
+    setStaffLoading(true);
+    try {
+      const staffRes = await getAllStaff();
+      setStaffList(staffRes.data || []);
+    } catch (error) {
+      console.error('Error fetching staff data:', error);
+      
+      // Log detailed error information
+      if (error.response) {
+        console.error('Backend Response Error:', {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: error.response.data
+        });
+      } else if (error.request) {
+        console.error('No Response Received:', error.request);
+      } else {
+        console.error('Request Setup Error:', error.message);
+      }
+      
+      setStaffList([]);
+    } finally {
+      setStaffLoading(false);
+    }
+  };
 
   const filteredStaff = staffList.filter(staff =>
-    staff.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    staff.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    staff.role.toLowerCase().includes(searchTerm.toLowerCase())
+    (staff.fullName || staff.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (staff.emailId || staff.email || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (staff.roleName || staff.role?.name || staff.role || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const validateForm = () => {
     const newErrors = {};
-    if (!formData.name.trim()) newErrors.name = "Name is required";
-    if (!formData.email.trim()) newErrors.email = "Email is required";
-    if (!formData.phone.trim()) newErrors.phone = "Phone is required";
-    if (!formData.role) newErrors.role = "Role is required";
-    if (!formData.gender) newErrors.gender = "Gender is required";
+    if (!formData.fullName.trim()) newErrors.fullName = "Name is required";
+    if (!formData.emailId.trim()) newErrors.emailId = "Email is required";
+    if (!formData.phoneNumber.trim()) newErrors.phoneNumber = "Phone is required";
+    if (!formData.roleId) newErrors.roleId = "Role is required";
+    if (!formData.genderId) newErrors.genderId = "Gender is required";
     if (!formData.password && editId === null) newErrors.password = "Password is required";
     if (formData.password && formData.password.length < 8) newErrors.password = "Password must be at least 8 characters";
 
@@ -225,7 +196,7 @@ export default function StaffManagement({ onBack }) {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validateForm()) {
       Object.keys(errors).forEach(field => {
         const element = document.querySelector(`[name="${field}"]`);
@@ -236,53 +207,138 @@ export default function StaffManagement({ onBack }) {
       });
       return;
     }
+
     setLoading(true);
-    setTimeout(() => {
+    try {
+      // Prepare the payload with proper structure
+      const payload = {
+        fullName: formData.fullName,
+        emailId: formData.emailId,
+        phoneNumber: formData.phoneNumber,
+        roleId: parseInt(formData.roleId),
+        genderId: parseInt(formData.genderId),
+        password: formData.password,
+        specializationId: parseInt(formData.specializationId),
+        signature: formData.signature,
+        photo: formData.photo
+      };
+
       if (editId !== null) {
-        setStaffList(prev => prev.map(s => s.id === editId ? { ...formData, id: editId } : s));
+        // Update existing staff
+        await updateStaff(editId, payload);
+        await fetchStaffData(); // Refresh the list
       } else {
-        setStaffList(prev => [...prev, { ...formData, id: Date.now() }]);
+        // Create new staff
+        await createStaff(payload);
+        await fetchStaffData(); // Refresh the list
       }
-      setLoading(false);
+      
       setFormData(emptyForm);
       setEditId(null);
       setShowForm(false);
       setActiveTab("Details");
       setErrors({});
-    }, 1000);
-  };
-
-  const togglePermission = (perm) => {
-    setFormData(prev => ({
-      ...prev,
-      permissions: prev.permissions.includes(perm)
-        ? prev.permissions.filter(p => p !== perm)
-        : [...prev.permissions, perm],
-    }));
+    } catch (error) {
+      console.error('Error saving staff:', error);
+      
+      // Log detailed error information
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        console.error('Backend Response Error:', {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: error.response.data,
+          headers: error.response.headers
+        });
+        
+        // Show user-friendly error messages
+        const errorData = error.response.data;
+        if (errorData && errorData.error) {
+          if (errorData.error.includes('duplicate key') && errorData.error.includes('email')) {
+            alert('Error: This email address is already registered. Please use a different email.');
+          } else if (errorData.error.includes('duplicate key') && errorData.error.includes('phone')) {
+            alert('Error: This phone number is already registered. Please use a different phone number.');
+          } else {
+            alert('Error: ' + (errorData.message || errorData.error || 'Failed to save staff member.'));
+          }
+        } else {
+          alert('Error: Failed to save staff member. Please try again.');
+        }
+      } else if (error.request) {
+        // The request was made but no response was received
+        console.error('No Response Received:', error.request);
+        alert('Error: Unable to connect to the server. Please check your connection.');
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        console.error('Request Setup Error:', error.message);
+        alert('Error: ' + error.message);
+      }
+      
+      // You could show an error message to the user here
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleEditClick = (staff) => {
-    setFormData(staff);
+    setFormData({
+      fullName: staff.fullName || staff.name || "",
+      emailId: staff.emailId || staff.email || "",
+      phoneNumber: staff.phoneNumber || staff.phone || "",
+      roleId: staff.roleId || staff.role?.id || staff.role || "",
+      genderId: staff.genderId || staff.gender?.id || staff.gender || "",
+      password: "", // Don't populate password for edit
+      specializationId: staff.specializationId || staff.specialization?.id || staff.specialization || "",
+      signature: staff.signaturePath || staff.signature || "",
+      photo: staff.photoPath || staff.photo || "",
+      permissions: staff.permissions || [],
+      availability: staff.availability || emptyForm.availability,
+      ipdPermissions: staff.ipdPermissions || [],
+    });
     setEditId(staff.id);
     setShowForm(true);
     setActiveTab("Details");
     setErrors({});
   };
 
-  const addHoliday = () => {
-    if (!formData.availability.holidayDate) return;
+  const togglePermission = (permission) => {
+    setFormData(prev => ({
+      ...prev,
+      permissions: prev.permissions.includes(permission)
+        ? prev.permissions.filter(p => p !== permission)
+        : [...prev.permissions, permission]
+    }));
+  };
 
-    const newHoliday = {
-      date: formData.availability.holidayDate,
-      from: formData.availability.holidayFrom || "Full Day",
-      to: formData.availability.holidayTo || "Full Day"
-    };
-
+  const updateAvailabilityDay = (day, field, value) => {
     setFormData(prev => ({
       ...prev,
       availability: {
         ...prev.availability,
-        holidays: [...(prev.availability.holidays || []), newHoliday],
+        days: {
+          ...prev.availability.days,
+          [day]: {
+            ...prev.availability.days[day],
+            [field]: value
+          }
+        }
+      }
+    }));
+  };
+
+  const addHoliday = () => {
+    const holiday = {
+      id: Date.now(),
+      date: formData.availability.holidayDate,
+      from: formData.availability.holidayFrom,
+      to: formData.availability.holidayTo
+    };
+    setFormData(prev => ({
+      ...prev,
+      availability: {
+        ...prev.availability,
+        holidays: [...prev.availability.holidays, holiday],
         holidayDate: "",
         holidayFrom: "",
         holidayTo: ""
@@ -290,14 +346,41 @@ export default function StaffManagement({ onBack }) {
     }));
   };
 
-  const removeHoliday = (index) => {
+  const removeHoliday = (holidayId) => {
     setFormData(prev => ({
       ...prev,
       availability: {
         ...prev.availability,
-        holidays: prev.availability.holidays.filter((_, i) => i !== index)
+        holidays: prev.availability.holidays.filter(h => h.id !== holidayId)
       }
     }));
+  };
+
+  const handleDelete = async (staffId) => {
+    if (window.confirm('Are you sure you want to delete this staff member?')) {
+      try {
+        await deleteStaff(staffId);
+        await fetchStaffData(); // Refresh the list
+      } catch (error) {
+        console.error('Error deleting staff:', error);
+        // You could show an error message to the user here
+      }
+    }
+  };
+
+  const getRoleDisplayName = (roleId) => {
+    const role = roles.find(r => r.id === roleId);
+    return role ? role.name : roleId;
+  };
+
+  const getGenderDisplayName = (genderId) => {
+    const gender = genders.find(g => g.id === genderId);
+    return gender ? gender.name : genderId;
+  };
+
+  const getSpecializationDisplayName = (specId) => {
+    const spec = specializations.find(s => s.id === specId);
+    return spec ? spec.specializationName : specId;
   };
 
   return (
@@ -331,26 +414,68 @@ export default function StaffManagement({ onBack }) {
           </div>
 
           <div className="p-2">
-            {filteredStaff.map(staff => (
-              <div
-                key={staff.id}
-                onClick={() => handleEditClick(staff)}
-                className="flex items-center p-3 mb-2 bg-white rounded-lg shadow-sm hover:shadow-md cursor-pointer transition-shadow"
-              >
-                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
-                  <span className="text-[var(--primary-color)] font-semibold">{staff.name.charAt(0)}</span>
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-medium text-gray-800">{staff.name}</h3>
-                    <div className="text-xs text-gray-500">{roleIcons[staff.role]}</div>
-                  </div>
-                  <p className="text-sm text-gray-500">{staff.role}</p>
-                  <p className="text-xs text-green-500">{staff.department}</p>
-                  <p className="text-xs text-gray-400">{staff.phone}</p>
-                </div>
+            {staffLoading ? (
+              <div className="p-4 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--primary-color)]"></div>
               </div>
-            ))}
+            ) : filteredStaff.length === 0 ? (
+              <div className="p-4 text-center">
+                <FaUsers className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500">No staff members found</p>
+                <p className="text-sm text-gray-400">Add your first staff member to get started</p>
+              </div>
+            ) : (
+              filteredStaff.map(staff => (
+                <div
+                  key={staff.id}
+                  className="flex items-center p-3 mb-2 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow"
+                >
+                  <div 
+                    className="flex-1 cursor-pointer"
+                    onClick={() => handleEditClick(staff)}
+                  >
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                        <span className="text-[var(--primary-color)] font-semibold">{(staff.fullName || staff.name || "").charAt(0)}</span>
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-medium text-gray-800">{staff.fullName || staff.name}</h3>
+                          <div className="text-xs text-gray-500">{getRoleIcon(staff.roleName || staff.role)}</div>
+                        </div>
+                        <p className="text-sm text-gray-500">{staff.roleName || getRoleDisplayName(staff.roleId || staff.role?.id || staff.role)}</p>
+                        {staff.specializationName && (
+                          <p className="text-xs text-green-500">{staff.specializationName}</p>
+                        )}
+                        <p className="text-xs text-gray-400">{staff.phoneNumber || staff.phone}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 ml-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditClick(staff);
+                      }}
+                      className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                      title="Edit"
+                    >
+                      <FaEdit className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(staff.id);
+                      }}
+                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Delete"
+                    >
+                      <FaTrash className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </aside>
 
@@ -427,53 +552,59 @@ export default function StaffManagement({ onBack }) {
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
                           <input
-                            name="name"
-                            className={`w-full p-2 border rounded-lg ${errors.name ? 'border-red-500' : 'border-gray-300'}`}
-                            value={formData.name}
-                            onChange={e => setFormData({ ...formData, name: e.target.value })}
+                            name="fullName"
+                            className={`w-full p-2 border rounded-lg ${errors.fullName ? 'border-red-500' : 'border-gray-300'}`}
+                            value={formData.fullName}
+                            onChange={e => setFormData({ ...formData, fullName: e.target.value })}
                             placeholder="Enter full name"
                           />
-                          {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+                          {errors.fullName && <p className="text-red-500 text-xs mt-1">{errors.fullName}</p>}
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Email Address *</label>
                           <input
-                            name="email"
+                            name="emailId"
                             type="email"
-                            className={`w-full p-2 border rounded-lg ${errors.email ? 'border-red-500' : 'border-gray-300'}`}
-                            value={formData.email}
-                            onChange={e => setFormData({ ...formData, email: e.target.value })}
+                            className={`w-full p-2 border rounded-lg ${errors.emailId ? 'border-red-500' : 'border-gray-300'}`}
+                            value={formData.emailId}
+                            onChange={e => setFormData({ ...formData, emailId: e.target.value })}
                             placeholder="Enter email address"
                           />
-                          {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+                          {errors.emailId && <p className="text-red-500 text-xs mt-1">{errors.emailId}</p>}
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
                           <input
-                            name="phone"
-                            className={`w-full p-2 border rounded-lg ${errors.phone ? 'border-red-500' : 'border-gray-300'}`}
-                            value={formData.phone}
-                            onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                            name="phoneNumber"
+                            className={`w-full p-2 border rounded-lg ${errors.phoneNumber ? 'border-red-500' : 'border-gray-300'}`}
+                            value={formData.phoneNumber}
+                            onChange={e => setFormData({ ...formData, phoneNumber: e.target.value })}
                             placeholder="Enter phone number"
                           />
-                          {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
+                          {errors.phoneNumber && <p className="text-red-500 text-xs mt-1">{errors.phoneNumber}</p>}
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Gender *</label>
-                          <div className="mt-2">
-                            <select
-                              name="gender"
-                              value={formData.gender}
-                              onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                              className="block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[var(--primary-color)] focus:border-[var(--primary-color)]"
-                            >
-                              <option value="">Select Gender</option>
-                              <option value="Male">Male</option>
-                              <option value="Female">Female</option>
-                              <option value="Other">Other</option>
-                            </select>
-                          </div>
-                          {errors.gender && <p className="text-red-500 text-xs mt-1">{errors.gender}</p>}
+                          {dropdownLoading ? (
+                            <div className="w-full h-10 bg-gray-100 rounded-lg animate-pulse"></div>
+                          ) : (
+                            <div className="mt-2">
+                              <select
+                                name="genderId"
+                                value={formData.genderId}
+                                onChange={(e) => setFormData({ ...formData, genderId: e.target.value })}
+                                className="block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[var(--primary-color)] focus:border-[var(--primary-color)]"
+                              >
+                                <option value="">Select Gender</option>
+                                {genders.map(gender => (
+                                  <option key={gender.id} value={gender.id}>
+                                    {gender.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+                          {errors.genderId && <p className="text-red-500 text-xs mt-1">{errors.genderId}</p>}
                         </div>
                       </div>
 
@@ -481,34 +612,46 @@ export default function StaffManagement({ onBack }) {
                         <h4 className="text-lg font-semibold mb-4">Professional Information</h4>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Role/Designation *</label>
-                          <select
-                            name="role"
-                            className={`w-full p-2 border rounded-lg ${errors.role ? 'border-red-500' : 'border-gray-300'}`}
-                            value={formData.role}
-                            onChange={e => {
-                              const role = e.target.value;
-                              setFormData({ ...formData, role, permissions: [] });
-                            }}
-                          >
-                            <option value="">Select Role</option>
-                            {Object.keys(permissionsByRole).map(role => (
-                              <option key={role} value={role}>{role}</option>
-                            ))}
-                          </select>
-                          {errors.role && <p className="text-red-500 text-xs mt-1">{errors.role}</p>}
+                          {dropdownLoading ? (
+                            <div className="w-full h-10 bg-gray-100 rounded-lg animate-pulse"></div>
+                          ) : (
+                            <select
+                              name="roleId"
+                              className={`w-full p-2 border rounded-lg ${errors.roleId ? 'border-red-500' : 'border-gray-300'}`}
+                              value={formData.roleId}
+                              onChange={e => {
+                                const role = e.target.value;
+                                setFormData({ ...formData, roleId: role });
+                              }}
+                            >
+                              <option value="">Select Role</option>
+                              {roles.map(role => (
+                                <option key={role.id} value={role.id}>
+                                  {role.name}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                          {errors.roleId && <p className="text-red-500 text-xs mt-1">{errors.roleId}</p>}
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-                          <select
-                            className="w-full p-2 border border-gray-300 rounded-lg"
-                            value={formData.department}
-                            onChange={e => setFormData({ ...formData, department: e.target.value })}
-                          >
-                            <option value="">Select Department</option>
-                            {departments.map(dept => (
-                              <option key={dept} value={dept}>{dept}</option>
-                            ))}
-                          </select>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Specialization</label>
+                          {dropdownLoading ? (
+                            <div className="w-full h-10 bg-gray-100 rounded-lg animate-pulse"></div>
+                          ) : (
+                            <select
+                              className="w-full p-2 border border-gray-300 rounded-lg"
+                              value={formData.specializationId}
+                              onChange={e => setFormData({ ...formData, specializationId: e.target.value })}
+                            >
+                              <option value="">Select Specialization</option>
+                              {specializations.map(spec => (
+                                <option key={spec.id} value={spec.id}>
+                                  {spec.specializationName}
+                                </option>
+                              ))}
+                            </select>
+                          )}
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Password {editId ? "" : "*"}</label>
@@ -527,38 +670,32 @@ export default function StaffManagement({ onBack }) {
                           <textarea
                             className="w-full p-2 border border-gray-300 rounded-lg"
                             rows="2"
-                            value={typeof formData.signature === "string" && !formData.signature.startsWith("data:") ? formData.signature : ""}
+                            value={formData.signature || ""}
                             onChange={e => setFormData({ ...formData, signature: e.target.value })}
                             placeholder="Enter signature text"
-                            disabled={typeof formData.signature === "string" && formData.signature.startsWith("data:")}
                           />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Profile Photo</label>
                           <input
                             type="file"
                             accept="image/*"
                             onChange={e => {
                               const file = e.target.files[0];
                               if (file) {
-                                const reader = new FileReader();
-                                reader.onload = (ev) => {
-                                  setFormData(prev => ({ ...prev, signature: ev.target.result }));
-                                };
-                                reader.readAsDataURL(file);
+                                setFormData(prev => ({ ...prev, photo: file }));
                               }
                             }}
                           />
-                          {typeof formData.signature === "string" && formData.signature.startsWith("data:") && (
+                          {typeof formData.photo === "object" && formData.photo instanceof File && (
                             <div className="mt-2">
-                              <img
-                                src={formData.signature}
-                                alt="Signature Preview"
-                                className="h-16 border rounded shadow-sm"
-                              />
+                              <p className="text-sm text-gray-600">Selected file: {formData.photo.name}</p>
                               <button
                                 type="button"
                                 className="text-xs text-red-500 mt-1 underline"
-                                onClick={() => setFormData(prev => ({ ...prev, signature: "" }))}
+                                onClick={() => setFormData(prev => ({ ...prev, photo: "" }))}
                               >
-                                Remove Image
+                                Remove File
                               </button>
                             </div>
                           )}
@@ -569,213 +706,299 @@ export default function StaffManagement({ onBack }) {
                 )}
 
                 {activeTab === "Permissions" && (
-                  <div className="max-w-3xl">
-                    <h4 className="text-lg font-semibold mb-4">Role-Based Permissions</h4>
-                    {formData.role ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {permissionsByRole[formData.role]?.map(permission => (
-                          <label key={permission} className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                  <div className="max-w-3xl space-y-6">
+                    <div className="bg-white rounded-lg border border-gray-200 p-6">
+                      <h4 className="text-lg font-semibold mb-4">System Permissions</h4>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Select the permissions this staff member should have based on their role.
+                      </p>
+                      
+                      <div className="space-y-3">
+                        {permissionsByRole[formData.roleId ? getRoleDisplayName(formData.roleId) : 'Admin']?.map(permission => (
+                          <label key={permission} className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded">
                             <input
                               type="checkbox"
                               checked={formData.permissions.includes(permission)}
                               onChange={() => togglePermission(permission)}
-                              className="text-[var(--primary-color)]"
+                              className="w-4 h-4 text-[var(--primary-color)] border-gray-300 rounded focus:ring-[var(--primary-color)]"
                             />
-                            <span>{permission}</span>
+                            <span className="text-sm text-gray-700">{permission}</span>
                           </label>
                         ))}
                       </div>
-                    ) : (
-                      <div className="text-center py-8">
-                        <FaUserShield className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                        <p className="text-gray-600">Please select a role first to assign permissions</p>
-                      </div>
-                    )}
+
+                      {formData.permissions.length === 0 && (
+                        <p className="text-sm text-gray-500 mt-4">No permissions selected. This user will have limited access.</p>
+                      )}
+                    </div>
+
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <h5 className="font-medium text-blue-900 mb-2">Permission Notes</h5>
+                      <ul className="text-sm text-blue-800 space-y-1">
+                        <li>• Permissions are based on the selected role</li>
+                        <li>• Admin users have full system access</li>
+                        <li>• Medical staff can access patient records</li>
+                        <li>• Front desk staff can manage appointments and billing</li>
+                      </ul>
+                    </div>
                   </div>
                 )}
 
                 {activeTab === "Availability" && (
                   <div className="max-w-3xl space-y-6">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Slot Duration (minutes)</label>
-                        <input
-                          type="number"
-                          min="5"
-                          max="120"
-                          className="w-full p-2 border border-gray-300 rounded-lg"
+                    <div className="bg-white rounded-lg border border-gray-200 p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="text-lg font-semibold">Weekly Schedule</h4>
+                        <div className="flex items-center space-x-2">
+                          <label className="flex items-center space-x-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={formData.availability.isAvailable}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                availability: { ...prev.availability, isAvailable: e.target.checked }
+                              }))}
+                              className="w-4 h-4 text-[var(--primary-color)] border-gray-300 rounded focus:ring-[var(--primary-color)]"
+                            />
+                            <span className="text-sm text-gray-700">Available for scheduling</span>
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Default Slot Duration</label>
+                        <select
                           value={formData.availability.slotDuration}
-                          onChange={e => setFormData(prev => ({
+                          onChange={(e) => setFormData(prev => ({
                             ...prev,
                             availability: { ...prev.availability, slotDuration: e.target.value }
                           }))}
-                          placeholder="e.g., 30"
-                        />
+                          className="w-full p-2 border border-gray-300 rounded-lg"
+                        >
+                          <option value="">Select duration</option>
+                          <option value="15">15 minutes</option>
+                          <option value="30">30 minutes</option>
+                          <option value="45">45 minutes</option>
+                          <option value="60">1 hour</option>
+                        </select>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <label className="text-sm font-medium text-gray-700">Available for Appointments</label>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            className="sr-only peer"
-                            checked={formData.availability.isAvailable}
-                            onChange={e => setFormData(prev => ({
-                              ...prev,
-                              availability: { ...prev.availability, isAvailable: e.target.checked }
-                            }))}
-                          />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[var(--primary-color)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--primary-color)]"></div>
-                        </label>
-                      </div>
-                    </div>
 
-                    <div>
-                      <h4 className="text-lg font-semibold mb-4">Weekly Schedule</h4>
                       <div className="space-y-3">
                         {Object.keys(formData.availability.days).map(day => (
-                          <div key={day} className="flex items-center gap-4 p-3 border border-gray-200 rounded-lg">
-                            <div className="w-20 font-medium">{day}</div>
-                            <input
-                              type="time"
-                              className="p-2 border border-gray-300 rounded-lg flex-1"
-                              value={formData.availability.days[day].from}
-                              onChange={e => {
-                                const updated = { ...formData.availability.days[day], from: e.target.value };
-                                setFormData(prev => ({
-                                  ...prev,
-                                  availability: {
-                                    ...prev.availability,
-                                    days: { ...prev.availability.days, [day]: updated }
-                                  }
-                                }));
-                              }}
-                            />
-                            <span className="text-gray-500">to</span>
-                            <input
-                              type="time"
-                              className="p-2 border border-gray-300 rounded-lg flex-1"
-                              value={formData.availability.days[day].to}
-                              onChange={e => {
-                                const updated = { ...formData.availability.days[day], to: e.target.value };
-                                setFormData(prev => ({
-                                  ...prev,
-                                  availability: {
-                                    ...prev.availability,
-                                    days: { ...prev.availability.days, [day]: updated }
-                                  }
-                                }));
-                              }}
-                            />
+                          <div key={day} className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg">
+                            <div className="w-24 font-medium text-gray-700">{day}</div>
+                            <div className="flex items-center space-x-2">
+                              <label className="text-sm text-gray-600">From:</label>
+                              <input
+                                type="time"
+                                value={formData.availability.days[day].from}
+                                onChange={(e) => updateAvailabilityDay(day, 'from', e.target.value)}
+                                className="p-1 border border-gray-300 rounded text-sm"
+                              />
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <label className="text-sm text-gray-600">To:</label>
+                              <input
+                                type="time"
+                                value={formData.availability.days[day].to}
+                                onChange={(e) => updateAvailabilityDay(day, 'to', e.target.value)}
+                                className="p-1 border border-gray-300 rounded text-sm"
+                              />
+                            </div>
                           </div>
                         ))}
                       </div>
                     </div>
 
-                    <div>
-                      <h4 className="text-lg font-semibold mb-4">Holidays & Leave</h4>
-                      <div className="space-y-4">
-                        <div className="flex gap-3 items-end">
-                          <div className="flex-1">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                            <input
-                              type="date"
-                              className="w-full p-2 border border-gray-300 rounded-lg"
-                              value={formData.availability.holidayDate}
-                              onChange={e => setFormData(prev => ({
-                                ...prev,
-                                availability: { ...prev.availability, holidayDate: e.target.value }
-                              }))}
-                            />
-                          </div>
-                          <div className="flex-1">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">From (Optional)</label>
-                            <input
-                              type="time"
-                              className="w-full p-2 border border-gray-300 rounded-lg"
-                              value={formData.availability.holidayFrom}
-                              onChange={e => setFormData(prev => ({
-                                ...prev,
-                                availability: { ...prev.availability, holidayFrom: e.target.value }
-                              }))}
-                            />
-                          </div>
-                          <div className="flex-1">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">To (Optional)</label>
-                            <input
-                              type="time"
-                              className="w-full p-2 border border-gray-300 rounded-lg"
-                              value={formData.availability.holidayTo}
-                              onChange={e => setFormData(prev => ({
-                                ...prev,
-                                availability: { ...prev.availability, holidayTo: e.target.value }
-                              }))}
-                            />
-                          </div>
-                          <button
-                            onClick={addHoliday}
-                            className="bg-[var(--primary-color)] hover:bg-[var(--primary-color)] text-white py-2 px-4 rounded-lg"
-                            disabled={!formData.availability.holidayDate}
-                          >
-                            Add
-                          </button>
+                    <div className="bg-white rounded-lg border border-gray-200 p-6">
+                      <h4 className="text-lg font-semibold mb-4">Holidays / Time Off</h4>
+                      
+                      <div className="grid grid-cols-3 gap-4 mb-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                          <input
+                            type="date"
+                            value={formData.availability.holidayDate}
+                            onChange={(e) => setFormData(prev => ({
+                              ...prev,
+                              availability: { ...prev.availability, holidayDate: e.target.value }
+                            }))}
+                            className="w-full p-2 border border-gray-300 rounded-lg"
+                          />
                         </div>
-
-                        {formData.availability.holidays?.length > 0 && (
-                          <div className="border rounded-lg overflow-hidden">
-                            <div className="bg-gray-50 px-4 py-2 border-b">
-                              <h5 className="font-medium">Scheduled Holidays</h5>
-                            </div>
-                            <div className="divide-y">
-                              {formData.availability.holidays.map((holiday, index) => (
-                                <div key={index} className="flex items-center justify-between p-3">
-                                  <div>
-                                    <span className="font-medium">{holiday.date}</span>
-                                    {holiday.from !== "Full Day" && (
-                                      <span className="text-sm text-gray-600 ml-2">
-                                        {holiday.from} - {holiday.to}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <button
-                                    onClick={() => removeHoliday(index)}
-                                    className="text-red-500 hover:text-red-700 text-sm"
-                                  >
-                                    Remove
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">From</label>
+                          <input
+                            type="time"
+                            value={formData.availability.holidayFrom}
+                            onChange={(e) => setFormData(prev => ({
+                              ...prev,
+                              availability: { ...prev.availability, holidayFrom: e.target.value }
+                            }))}
+                            className="w-full p-2 border border-gray-300 rounded-lg"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">To</label>
+                          <input
+                            type="time"
+                            value={formData.availability.holidayTo}
+                            onChange={(e) => setFormData(prev => ({
+                              ...prev,
+                              availability: { ...prev.availability, holidayTo: e.target.value }
+                            }))}
+                            className="w-full p-2 border border-gray-300 rounded-lg"
+                          />
+                        </div>
                       </div>
+
+                      <button
+                        type="button"
+                        onClick={addHoliday}
+                        disabled={!formData.availability.holidayDate}
+                        className="px-4 py-2 bg-[var(--primary-color)] text-white rounded-lg hover:bg-[var(--primary-color)] disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Add Holiday
+                      </button>
+
+                      {formData.availability.holidays.length > 0 && (
+                        <div className="mt-4 space-y-2">
+                          {formData.availability.holidays.map(holiday => (
+                            <div key={holiday.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                              <div className="text-sm">
+                                <span className="font-medium">{holiday.date}</span>
+                                {holiday.from && holiday.to && (
+                                  <span className="text-gray-600 ml-2">({holiday.from} - {holiday.to})</span>
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => removeHoliday(holiday.id)}
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                <FaTrash className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
 
                 {activeTab === "IPD Permission" && (
-                  <div className="max-w-3xl">
-                    <h4 className="text-lg font-semibold mb-4">IPD (In-Patient Department) Permissions</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {[
-                        "Admit Patients",
-                        "Discharge Patients",
-                        "Transfer Patients",
-                        "Access Patient Records",
-                        "Update Treatment Plans",
-                        "Medication Orders",
-                        "Surgery Scheduling",
-                        "Emergency Procedures"
-                      ].map(permission => (
-                        <label key={permission} className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={formData.permissions.includes(permission)}
-                            onChange={() => togglePermission(permission)}
-                            className="text-[var(--primary-color)]"
-                          />
-                          <span>{permission}</span>
-                        </label>
-                      ))}
+                  <div className="max-w-3xl space-y-6">
+                    <div className="bg-white rounded-lg border border-gray-200 p-6">
+                      <h4 className="text-lg font-semibold mb-4">IPD (Inpatient Department) Permissions</h4>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Configure inpatient department access and permissions for this staff member.
+                      </p>
+                      
+                      <div className="space-y-4">
+                        <div className="border border-gray-200 rounded-lg p-4">
+                          <h5 className="font-medium text-gray-900 mb-3">Patient Management</h5>
+                          <div className="space-y-2">
+                            {[
+                              "Admit Patients",
+                              "Discharge Patients", 
+                              "View IPD Patient Records",
+                              "Edit IPD Patient Records",
+                              "Manage Patient Beds"
+                            ].map(permission => (
+                              <label key={permission} className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                                <input
+                                  type="checkbox"
+                                  checked={formData.ipdPermissions.includes(permission)}
+                                  onChange={() => {
+                                    setFormData(prev => ({
+                                      ...prev,
+                                      ipdPermissions: prev.ipdPermissions.includes(permission)
+                                        ? prev.ipdPermissions.filter(p => p !== permission)
+                                        : [...prev.ipdPermissions, permission]
+                                    }));
+                                  }}
+                                  className="w-4 h-4 text-[var(--primary-color)] border-gray-300 rounded focus:ring-[var(--primary-color)]"
+                                />
+                                <span className="text-sm text-gray-700">{permission}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="border border-gray-200 rounded-lg p-4">
+                          <h5 className="font-medium text-gray-900 mb-3">Medical Operations</h5>
+                          <div className="space-y-2">
+                            {[
+                              "Prescribe Medications",
+                              "Order Lab Tests",
+                              "View Test Results",
+                              "Manage Treatment Plans",
+                              "Access Medical History"
+                            ].map(permission => (
+                              <label key={permission} className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                                <input
+                                  type="checkbox"
+                                  checked={formData.ipdPermissions.includes(permission)}
+                                  onChange={() => {
+                                    setFormData(prev => ({
+                                      ...prev,
+                                      ipdPermissions: prev.ipdPermissions.includes(permission)
+                                        ? prev.ipdPermissions.filter(p => p !== permission)
+                                        : [...prev.ipdPermissions, permission]
+                                    }));
+                                  }}
+                                  className="w-4 h-4 text-[var(--primary-color)] border-gray-300 rounded focus:ring-[var(--primary-color)]"
+                                />
+                                <span className="text-sm text-gray-700">{permission}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="border border-gray-200 rounded-lg p-4">
+                          <h5 className="font-medium text-gray-900 mb-3">Administrative Access</h5>
+                          <div className="space-y-2">
+                            {[
+                              "View Ward Reports",
+                              "Manage Staff Schedules",
+                              "Access Billing Information",
+                              "Generate Discharge Summaries",
+                              "Emergency Access"
+                            ].map(permission => (
+                              <label key={permission} className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                                <input
+                                  type="checkbox"
+                                  checked={formData.ipdPermissions.includes(permission)}
+                                  onChange={() => {
+                                    setFormData(prev => ({
+                                      ...prev,
+                                      ipdPermissions: prev.ipdPermissions.includes(permission)
+                                        ? prev.ipdPermissions.filter(p => p !== permission)
+                                        : [...prev.ipdPermissions, permission]
+                                    }));
+                                  }}
+                                  className="w-4 h-4 text-[var(--primary-color)] border-gray-300 rounded focus:ring-[var(--primary-color)]"
+                                />
+                                <span className="text-sm text-gray-700">{permission}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {formData.ipdPermissions.length === 0 && (
+                        <p className="text-sm text-gray-500 mt-4">No IPD permissions selected. This user will not have inpatient department access.</p>
+                      )}
+                    </div>
+
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                      <h5 className="font-medium text-orange-900 mb-2">IPD Access Notes</h5>
+                      <ul className="text-sm text-orange-800 space-y-1">
+                        <li>• IPD permissions control access to inpatient facilities</li>
+                        <li>• Medical staff typically need patient management permissions</li>
+                        <li>• Administrative staff may need billing and report access</li>
+                        <li>• Emergency access provides critical care override capabilities</li>
+                      </ul>
                     </div>
                   </div>
                 )}

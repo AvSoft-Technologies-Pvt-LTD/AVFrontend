@@ -41,7 +41,7 @@ const formFields = {
   ],
   password: [
     { id: "currentPassword", label: "Current Password", type: "password", toggleVisibility: true },
-    { id: "newPassword", label: "New Password", type: "password", toggleVisibility: true },
+    { id: "password", label: "New Password", type: "password", toggleVisibility: true },
     { id: "confirmPassword", label: "Confirm Password", type: "password", toggleVisibility: true },
   ],
 };
@@ -112,7 +112,7 @@ const DoctorSettings = () => {
           state: doctor.state || "",
           pincode: doctor.pincode || "",
           currentPassword: "",
-          newPassword: "",
+          password: "",
           confirmPassword: "",
         });
 
@@ -166,13 +166,13 @@ const DoctorSettings = () => {
         updatedForm.append("photo", fileInputRef.current.files[0]);
       }
 
-      if (formData.newPassword) {
-        if (formData.newPassword !== formData.confirmPassword) {
+      if (formData.password) {
+        if (formData.password !== formData.confirmPassword) {
           toast.error("Passwords do not match.");
           setIsSaving(false);
           return;
         }
-        updatedForm.append("password", formData.newPassword);
+        updatedForm.append("password", formData.password);
       }
 console.log("Calling API!");
       const data = dispatch(updateDoctor({ id: doctorId, formData: formData }));

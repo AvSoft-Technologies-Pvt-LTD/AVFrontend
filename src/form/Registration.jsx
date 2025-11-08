@@ -12,7 +12,8 @@ import {
   getSpecializationsByPracticeType,
   getScanServices,
   getSpecialServices,
-  getGenders
+  getGenders,
+  getAllHospitals
 } from '../utils/masterService';
 import PatientRegistration from "./PatientRegistration";
 
@@ -25,12 +26,6 @@ const NeatFileUpload = ({ name, accept, multiple = false, files, onFileChange, l
     setPreviewDoc(file);
     setIsModalOpen(true);
   };
-
-
-// friendly label for heading
-
-
-
   return (
     <div className="relative floating-input" data-placeholder={`${label}${required ? ' *' : ''}`}>
       <label className="block cursor-pointer">
@@ -285,7 +280,11 @@ const RegisterForm = () => {
       specializationId: '',
       qualification: '',
       agreeDeclaration: false
-    }
+    },
+    // Associated with clinic/hospital fields
+    isAssociatedWithClinicHospital: '',
+    associatedClinic: '',
+    associatedHospital: ''
   });
 
   // API Data State
@@ -293,6 +292,7 @@ const RegisterForm = () => {
     availableTests: [],
     centerTypes: [],
     hospitalTypes: [],
+    hospitals: [], // For associated hospital dropdown
     practiceTypes: [],
     specializations: [],
     scanServices: [],
@@ -305,6 +305,7 @@ const RegisterForm = () => {
       availableTests: false,
       centerTypes: false,
       hospitalTypes: false,
+      hospitals: false,
       practiceTypes: false,
       specializations: false,
       scanServices: false,
@@ -374,143 +375,208 @@ const RegisterForm = () => {
   };
 
   // Load API Data
-  useEffect(() => {
-    const loadApiData = async () => {
-      if (userType === 'patient' || userType === 'doctor') {
-        setApiData(prev => ({ ...prev, loading: { ...prev.loading, genders: true } }));
-        try {
-          const response = await getGenders();
-          const { options: genders, mapping: genderIdMapping } = extractApiDataWithId(response, 'genderName', 'id');
-          setApiData(prev => ({
-            ...prev,
-            genders: genders || [],
-            genderIdMapping: genderIdMapping || {},
-            loading: { ...prev.loading, genders: false }
-          }));
-        } catch (error) {
-          setApiData(prev => ({
-            ...prev,
-            genders: [],
-            genderIdMapping: {},
-            loading: { ...prev.loading, genders: false }
-          }));
-        }
+ useEffect(() => {
+  const loadApiData = async () => {
+    // ---------------- PATIENT & DOCTOR (Genders) ----------------
+    if (userType === "patient" || userType === "doctor") {
+      setApiData(prev => ({
+        ...prev,
+        loading: { ...prev.loading, genders: true }
+      }));
+
+      try {
+        const response = await getGenders();
+        const { options: genders, mapping: genderIdMapping } =
+          extractApiDataWithId(response, "genderName", "id");
+
+        setApiData(prev => ({
+          ...prev,
+          genders,
+          genderIdMapping,
+          loading: { ...prev.loading, genders: false }
+        }));
+      } catch (err) {
+        setApiData(prev => ({
+          ...prev,
+          genders: [],
+          genderIdMapping: {},
+          loading: { ...prev.loading, genders: false }
+        }));
+      }
+    }
+
+    // ---------------- LAB MODULE ----------------
+    if (userType === "lab") {
+      // ✅ Tests
+      setApiData(prev => ({
+        ...prev,
+        loading: { ...prev.loading, availableTests: true }
+      }));
+      try {
+        const res = await getAvailableTests();
+        const tests = extractApiData(res, "testName");
+
+        setApiData(prev => ({
+          ...prev,
+          availableTests: tests,
+          loading: { ...prev.loading, availableTests: false }
+        }));
+      } catch {
+        setApiData(prev => ({
+          ...prev,
+          availableTests: [],
+          loading: { ...prev.loading, availableTests: false }
+        }));
       }
 
-      if (userType === 'lab') {
-        // Load lab-specific data
-        setApiData(prev => ({ ...prev, loading: { ...prev.loading, availableTests: true } }));
-        try {
-          const response = await getAvailableTests();
-          const tests = extractApiData(response, 'testName');
-          setApiData(prev => ({
-            ...prev,
-            availableTests: tests,
-            loading: { ...prev.loading, availableTests: false }
-          }));
-        } catch (error) {
-          setApiData(prev => ({
-            ...prev,
-            availableTests: [],
-            loading: { ...prev.loading, availableTests: false }
-          }));
-        }
+      // ✅ Center Types
+      setApiData(prev => ({
+        ...prev,
+        loading: { ...prev.loading, centerTypes: true }
+      }));
+      try {
+        const res = await getCenterTypes();
+        const centerTypes = extractApiData(res, "centerTypeName");
 
-        setApiData(prev => ({ ...prev, loading: { ...prev.loading, centerTypes: true } }));
-        try {
-          const response = await getCenterTypes();
-          const centerTypes = extractApiData(response, 'centerTypeName');
-          setApiData(prev => ({
-            ...prev,
-            centerTypes: centerTypes,
-            loading: { ...prev.loading, centerTypes: false }
-          }));
-        } catch (error) {
-          setApiData(prev => ({
-            ...prev,
-            centerTypes: [],
-            loading: { ...prev.loading, centerTypes: false }
-          }));
-        }
-
-        setApiData(prev => ({ ...prev, loading: { ...prev.loading, scanServices: true } }));
-        try {
-          const response = await getScanServices();
-          const scanServices = extractApiData(response, 'scanName');
-          setApiData(prev => ({
-            ...prev,
-            scanServices: scanServices,
-            loading: { ...prev.loading, scanServices: false }
-          }));
-        } catch (error) {
-          setApiData(prev => ({
-            ...prev,
-            scanServices: [],
-            loading: { ...prev.loading, scanServices: false }
-          }));
-        }
-
-        setApiData(prev => ({ ...prev, loading: { ...prev.loading, specialServices: true } }));
-        try {
-          const response = await getSpecialServices();
-          const specialServices = extractApiData(response, 'serviceName');
-          setApiData(prev => ({
-            ...prev,
-            specialServices: specialServices,
-            loading: { ...prev.loading, specialServices: false }
-          }));
-        } catch (error) {
-          setApiData(prev => ({
-            ...prev,
-            specialServices: [],
-            loading: { ...prev.loading, specialServices: false }
-          }));
-        }
+        setApiData(prev => ({
+          ...prev,
+          centerTypes,
+          loading: { ...prev.loading, centerTypes: false }
+        }));
+      } catch {
+        setApiData(prev => ({
+          ...prev,
+          centerTypes: [],
+          loading: { ...prev.loading, centerTypes: false }
+        }));
       }
 
-      if (userType === 'hospital') {
-        setApiData(prev => ({ ...prev, loading: { ...prev.loading, hospitalTypes: true } }));
-        try {
-          const response = await getHospitalTypes();
-          const hospitalTypes = extractApiData(response, 'hospitalTypeName');
-          setApiData(prev => ({
-            ...prev,
-            hospitalTypes: hospitalTypes,
-            loading: { ...prev.loading, hospitalTypes: false }
-          }));
-        } catch (error) {
-          setApiData(prev => ({
-            ...prev,
-            hospitalTypes: [],
-            loading: { ...prev.loading, hospitalTypes: false }
-          }));
-        }
+      // ✅ Scan Services
+      setApiData(prev => ({
+        ...prev,
+        loading: { ...prev.loading, scanServices: true }
+      }));
+      try {
+        const res = await getScanServices();
+        const scanServices = extractApiData(res, "scanName");
+
+        setApiData(prev => ({
+          ...prev,
+          scanServices,
+          loading: { ...prev.loading, scanServices: false }
+        }));
+      } catch {
+        setApiData(prev => ({
+          ...prev,
+          scanServices: [],
+          loading: { ...prev.loading, scanServices: false }
+        }));
       }
 
-      if (userType === 'doctor') {
-        setApiData(prev => ({ ...prev, loading: { ...prev.loading, practiceTypes: true } }));
-        try {
-          const response = await getPracticeTypes();
-          const { options: practiceTypes, mapping: practiceTypeMapping } = extractApiDataWithId(response, 'practiceName', 'id');
-          setApiData(prev => ({
-            ...prev,
-            practiceTypes: practiceTypes,
-            practiceTypeMapping: practiceTypeMapping,
-            loading: { ...prev.loading, practiceTypes: false }
-          }));
-        } catch (error) {
-          setApiData(prev => ({
-            ...prev,
-            practiceTypes: [],
-            practiceTypeMapping: {},
-            loading: { ...prev.loading, practiceTypes: false }
-          }));
-        }
-      }
-    };
+      // ✅ Special Services
+      setApiData(prev => ({
+        ...prev,
+        loading: { ...prev.loading, specialServices: true }
+      }));
+      try {
+        const res = await getSpecialServices();
+        const specialServices = extractApiData(res, "serviceName");
 
-    loadApiData();
-  }, [userType]);
+        setApiData(prev => ({
+          ...prev,
+          specialServices,
+          loading: { ...prev.loading, specialServices: false }
+        }));
+      } catch {
+        setApiData(prev => ({
+          ...prev,
+          specialServices: [],
+          loading: { ...prev.loading, specialServices: false }
+        }));
+      }
+    }
+
+    // ---------------- HOSPITAL MODULE ----------------
+    if (userType === "hospital") {
+      setApiData(prev => ({
+        ...prev,
+        loading: { ...prev.loading, hospitalTypes: true }
+      }));
+
+      try {
+        const res = await getHospitalTypes();
+        const hospitalTypes = extractApiData(res, "hospitalTypeName");
+
+        setApiData(prev => ({
+          ...prev,
+          hospitalTypes,
+          loading: { ...prev.loading, hospitalTypes: false }
+        }));
+      } catch {
+        setApiData(prev => ({
+          ...prev,
+          hospitalTypes: [],
+          loading: { ...prev.loading, hospitalTypes: false }
+        }));
+      }
+    }
+
+    // ---------------- DOCTOR MODULE ----------------
+    if (userType === "doctor") {
+      // ✅ Practice Types
+      setApiData(prev => ({
+        ...prev,
+        loading: { ...prev.loading, practiceTypes: true }
+      }));
+
+      try {
+        const res = await getPracticeTypes();
+        const { options, mapping } =
+          extractApiDataWithId(res, "practiceName", "id");
+
+        setApiData(prev => ({
+          ...prev,
+          practiceTypes: options,
+          practiceTypeMapping: mapping,
+          loading: { ...prev.loading, practiceTypes: false }
+        }));
+      } catch {
+        setApiData(prev => ({
+          ...prev,
+          practiceTypes: [],
+          practiceTypeMapping: {},
+          loading: { ...prev.loading, practiceTypes: false }
+        }));
+      }
+
+      // ✅ Hospitals List
+      setApiData(prev => ({
+        ...prev,
+        loading: { ...prev.loading, hospitals: true }
+      }));
+
+      try {
+        const res = await getAllHospitals();
+        const hospitals = extractApiData(res, "hospitalName");
+
+        setApiData(prev => ({
+          ...prev,
+          hospitals,
+          loading: { ...prev.loading, hospitals: false }
+        }));
+      } catch {
+        setApiData(prev => ({
+          ...prev,
+          hospitals: [],
+          loading: { ...prev.loading, hospitals: false }
+        }));
+      }
+    }
+  };
+
+  loadApiData();
+}, [userType]);
+
 
   // Load specializations when practice type changes
   useEffect(() => {
@@ -746,6 +812,12 @@ const RegisterForm = () => {
       if (!formData.roleSpecificData.practiceType) newErrors.practiceType = "Practice type is required";
       if (!formData.roleSpecificData.specialization) newErrors.specialization = "Specialization is required";
       if (!formData.roleSpecificData.qualification?.trim()) newErrors.qualification = "Qualification is required";
+      if (formData.isAssociatedWithClinicHospital === 'clinic' && !formData.associatedClinic?.trim()) {
+        newErrors.associatedClinic = "Clinic name is required";
+      }
+      if (formData.isAssociatedWithClinicHospital === 'hospital' && !formData.associatedHospital?.trim()) {
+        newErrors.associatedHospital = "Hospital is required";
+      }
       if (!formData.roleSpecificData.agreeDeclaration) {
         newErrors.agreeDeclaration = "Please accept the declaration";
       }
@@ -819,6 +891,8 @@ const RegisterForm = () => {
         formDataToSubmit.append('aadhaar', formData.aadhaar);
         formDataToSubmit.append('genderId', formData.gender_id);
         formDataToSubmit.append('occupation', formData.occupation);
+        formDataToSubmit.append('password', formData.password);
+        formDataToSubmit.append('confirmPassword', formData.confirmPassword);
         formDataToSubmit.append('agreeDeclaration', formData.agreeDeclaration);
       }
 
@@ -859,7 +933,16 @@ const RegisterForm = () => {
         formDataToSubmit.append('practiceTypeId', formData.roleSpecificData.practiceTypeId);
         formDataToSubmit.append('specializationId', formData.roleSpecificData.specializationId);
         formDataToSubmit.append('qualification', formData.roleSpecificData.qualification);
+        formDataToSubmit.append('password', formData.password);
+        formDataToSubmit.append('confirmPassword', formData.confirmPassword);
         formDataToSubmit.append('agreeDeclaration', formData.roleSpecificData.agreeDeclaration);
+        formDataToSubmit.append('isAssociatedWithClinicHospital', formData.isAssociatedWithClinicHospital);
+        if (formData.isAssociatedWithClinicHospital === 'clinic') {
+          formDataToSubmit.append('associatedClinic', formData.associatedClinic);
+        }
+        if (formData.isAssociatedWithClinicHospital === 'hospital') {
+          formDataToSubmit.append('associatedHospital', formData.associatedHospital);
+        }
       }
 
       // First register the user
@@ -1241,6 +1324,83 @@ const RegisterForm = () => {
             onPhotoChange={handleFileChange}
             onPreviewClick={() => setIsModalOpen(true)}
           />
+        </div>
+        
+        {/* Association with Clinic/Hospital */}
+        <div>
+          <label className="paragraph">
+            Are you associated with any clinic or hospital?
+          </label>
+          <div className="grid grid-cols-2 gap-4 items-center">
+            {/* Left column - Radio buttons centered */}
+            <div className="flex ">
+              <div className="flex space-x-6">
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="isAssociatedWithClinicHospital"
+                    value="clinic"
+                    checked={formData.isAssociatedWithClinicHospital === 'clinic'}
+                    onChange={handleInputChange}
+                    className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="paragraph">Clinic</span>
+                </label>
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="isAssociatedWithClinicHospital"
+                    value="hospital"
+                    checked={formData.isAssociatedWithClinicHospital === 'hospital'}
+                    onChange={handleInputChange}
+                    className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="paragraph">Hospital</span>
+                </label>
+              </div>
+            </div>
+            
+            {/* Right column - Conditional fields */}
+            {formData.isAssociatedWithClinicHospital === 'clinic' && (
+              <div className="floating-input relative w-full" data-placeholder="Clinic Name *">
+                <input
+                  type="text"
+                  name="associatedClinic"
+                  placeholder=" "
+                  value={formData.associatedClinic}
+                  onChange={handleInputChange}
+                  className={`input-field peer ${errors.associatedClinic ? "input-error" : ""}`}
+                  required
+                />
+                {errors.associatedClinic && <p className="error-text">{errors.associatedClinic}</p>}
+              </div>
+            )}
+            
+            {formData.isAssociatedWithClinicHospital === 'hospital' && (
+              <div className="floating-input relative w-full" data-placeholder="Hospital *">
+                <select
+                  name="associatedHospital"
+                  value={formData.associatedHospital}
+                  onChange={handleInputChange}
+                  disabled={apiData.loading.hospitals}
+                  className={`input-field peer ${errors.associatedHospital ? "input-error" : ""} ${
+                    apiData.loading.hospitals ? 'bg-gray-100 cursor-not-allowed' : ''
+                  }`}
+                  required
+                >
+                  <option value="">
+                    {apiData.loading.hospitals ? "Loading hospitals..." : "Select Hospital"}
+                  </option>
+                  {apiData.hospitals.map((hospital, index) => (
+                    <option key={`${hospital}-${index}`} value={hospital}>
+                      {hospital}
+                    </option>
+                  ))}
+                </select>
+                {errors.associatedHospital && <p className="error-text">{errors.associatedHospital}</p>}
+              </div>
+            )}
+          </div>
         </div>
       </>
     );

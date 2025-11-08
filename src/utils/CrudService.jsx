@@ -434,3 +434,81 @@ export const getCurrentAmbulances = (latitude, longitude) =>
   axiosInstance.get('/ambulance/public/current', {
     params: { latitude, longitude },
   });
+
+
+  // Addd staff 
+  // ✅ Get all staff
+export const getAllStaff = () => 
+  axiosInstance.get('/dashboard/staff');
+
+// ✅ Get staff by ID
+export const getStaffById = (id) => 
+  axiosInstance.get(`/dashboard/staff/${id}`);
+
+// ✅ Get staff by role ID
+export const getStaffByRoleId = (roleId) =>
+  axiosInstance.get(`/dashboard/staff/role/${roleId}`);
+
+// ✅ Get staff by role name
+export const getStaffByRoleName = (roleName) =>
+  axiosInstance.get(`/dashboard/staff/role/name/${roleName}`);
+
+// ✅ Create new staff (multipart for photo upload only)
+export const createStaff = (data) => {
+  const formData = new FormData();
+  
+  // Append text fields
+  if (data.fullName) formData.append('fullName', data.fullName);
+  if (data.emailId) formData.append('emailId', data.emailId);
+  if (data.phoneNumber) formData.append('phoneNumber', data.phoneNumber);
+  if (data.roleId) formData.append('roleId', data.roleId);
+  if (data.genderId) formData.append('genderId', data.genderId);
+  if (data.password) formData.append('password', data.password);
+  if (data.specializationId) formData.append('specializationId', data.specializationId);
+  
+  // Signature as text (not file)
+  if (data.signature) formData.append('signature', data.signature);
+  
+  // Only append photo if it's a file object (not empty string)
+  if (data.photo && data.photo instanceof File) {
+    formData.append('photo', data.photo);
+  }
+  
+  return axiosInstance.post('/dashboard/staff', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+};
+
+// ✅ Update staff by ID (multipart for photo upload only)
+export const updateStaff = (id, data) => {
+  const formData = new FormData();
+  
+  // Append text fields
+  if (data.fullName) formData.append('fullName', data.fullName);
+  if (data.emailId) formData.append('emailId', data.emailId);
+  if (data.phoneNumber) formData.append('phoneNumber', data.phoneNumber);
+  if (data.roleId) formData.append('roleId', data.roleId);
+  if (data.genderId) formData.append('genderId', data.genderId);
+  if (data.password) formData.append('password', data.password);
+  if (data.specializationId) formData.append('specializationId', data.specializationId);
+  
+  // Signature as text (not file)
+  if (data.signature) formData.append('signature', data.signature);
+  
+  // Only append photo if it's a file object (not empty string)
+  if (data.photo && data.photo instanceof File) {
+    formData.append('photo', data.photo);
+  }
+  
+  return axiosInstance.put(`/dashboard/staff/${id}`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+};
+
+// ✅ Delete staff by ID
+export const deleteStaff = (id) =>
+  axiosInstance.delete(`/dashboard/staff/${id}`);

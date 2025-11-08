@@ -168,9 +168,8 @@ export const deleteSurgery = (id) => axiosInstance.delete(`/surgeries/${id}`);
 
 // Doctor Appointments
 
-// masterService.js
-export const getDoctorsBySpecialty = (specialtyId) =>
-  axiosInstance.get("/doctor-additional-details/search/"+specialtyId+"?specialityId="+specialtyId);
+export const getDoctorsBySpecialty = (specializationId) =>
+  axiosInstance.get(`/doctors/availability/specialization/${specializationId}`);
 
 // **********medical record details api*********//
 
@@ -182,7 +181,8 @@ export const createPrescription = data => axiosInstance.post("/prescriptions", d
 export const updatePrescription = (id, data) => axiosInstance.put(`/prescriptions/${id}`, data);
 export const deletePrescription = id => axiosInstance.delete(`/prescriptions/${id}`);
 
-
+// 
+export const getRoles = () => axiosInstance.get("/roles");
 //dosage unit api 
 
 // lab test api in medicalrecord in dr dashboard
@@ -248,7 +248,7 @@ export const createDentalActions = (patientId, doctorId, context, data) =>
 export const getQueueTokens = () => axiosInstance.get("/queue-tokens");
 // ✅ CREATE a new queue token
 export const createQueueToken = (data) =>axiosInstance.post("/queue-tokens", data);
-export const patchQueueTokenStatus = (id, status) => axiosInstance.patch(`/queue-tokens/${id}/status`, null, { params: { status }});
+export const patchQueueTokenStatus = (id, status) => axiosInstance.put(`/queue-tokens/${id}/status`, null, { params: { status }});
 
 
 // pani medical record details api

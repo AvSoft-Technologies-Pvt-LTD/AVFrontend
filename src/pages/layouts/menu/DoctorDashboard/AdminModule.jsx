@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FaUserCircle, FaEnvelope, FaPhone, FaSearch, FaArrowLeft, FaUsers, FaUserShield, FaClock, FaBed } from "react-icons/fa";
+import { getGenders, getRoles, getAllSpecializations } from "../../../utils/masterService";
 
 const initialStaff = [
   { 
@@ -10,7 +11,7 @@ const initialStaff = [
     role: "Doctor", 
     gender: "Female", 
     password: "", 
-    department: "Cardiology", 
+    specialization: "Cardiology", 
     signature: "", 
     permissions: ["View Patients", "Write Prescriptions", "Access Reports"],
     availability: {
@@ -36,7 +37,7 @@ const initialStaff = [
     role: "Nurse", 
     gender: "Female", 
     password: "", 
-    department: "ICU", 
+    specialization: "ICU", 
     signature: "", 
     permissions: ["View Patients", "Update Vitals"],
     availability: {
@@ -62,7 +63,7 @@ const initialStaff = [
     role: "LabTech", 
     gender: "Female", 
     password: "", 
-    department: "Laboratory", 
+    specialization: "Laboratory", 
     signature: "", 
     permissions: ["View Reports", "Upload Test Results"],
     availability: {
@@ -88,7 +89,7 @@ const initialStaff = [
     role: "Frontdesk", 
     gender: "Male", 
     password: "", 
-    department: "Reception", 
+    specialization: "Reception", 
     signature: "", 
     permissions: ["Manage Appointments", "Register Patients"],
     availability: {
@@ -114,7 +115,7 @@ const initialStaff = [
     role: "Admin", 
     gender: "Female", 
     password: "", 
-    department: "Administration", 
+    specialization: "Administration", 
     signature: "", 
     permissions: ["Full Access", "User Management", "System Settings", "Reports Access"],
     availability: {
@@ -143,17 +144,12 @@ const permissionsByRole = {
   Pharmacist: ["Medication Dispensing", "Inventory Management", "Drug Interaction Checks"],
 };
 
-const departments = [
-  "Cardiology", "ICU", "Laboratory", "Reception", "Administration", 
-  "Emergency", "Pediatrics", "Orthopedics", "Radiology", "Pharmacy"
-];
-
 const tabs = ["Details", "Permissions", "Availability", "IPD Permission"];
 const topTabs = ["Staff", "Referral Doctors", "Vendors"];
 
 const emptyForm = {
   name: "", email: "", phone: "", role: "", gender: "",
-  password: "", department: "", signature: "", permissions: [],
+  password: "", specialization: "", signature: "", permissions: [],
   availability: {
     slotDuration: "",
     isAvailable: true,
@@ -183,6 +179,38 @@ export default function StaffManagement({ onBack }) {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [errors, setErrors] = useState({});
+  const [genders, setGenders] = useState([]);
+  const [roles, setRoles] = useState([]);
+  const [specializations, setSpecializations] = useState([]);
+  const [dropdownLoading, setDropdownLoading] = useState(false);
+
+  // Fetch dropdown data on component mount
+  useEffect(() => {
+    fetchDropdownData();
+  }, []);
+
+  const fetchDropdownData = async () => {
+    setDropdownLoading(true);
+    try {
+      const [gendersRes, rolesRes, specializationsRes] = await Promise.all([
+        getGenders(),
+        getRoles(),
+        getAllSpecializations()
+      ]);
+      
+      setGenders(gendersRes.data || []);
+      setRoles(rolesRes.data || []);
+      setSpecializations(specializationsRes.data || []);
+    } catch (error) {
+      console.error('Error fetching dropdown data:', error);
+      // Fallback to default values if API fails
+      setGenders([{ id: 1, name: 'Male' }, { id: 2, name: 'Female' }, { id: 3, name: 'Other' }]);
+      setRoles(['Doctor', 'Nurse', 'LabTech', 'Frontdesk', 'Admin', 'Pharmacist']);
+      setSpecializations(['Cardiology', 'ICU', 'Laboratory', 'Reception', 'Administration']);
+    } finally {
+      setDropdownLoading(false);
+    }
+  };
 
   const filteredStaff = staffList.filter(staff => 
     staff.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -349,9 +377,9 @@ export default function StaffManagement({ onBack }) {
                         <FaPhone className="w-3 h-3" />
                         {staff.phone}
                       </p>
-                      {staff.department && (
+                      {staff.specialization && (
                         <p className="text-xs text-[var(--accent-color)] mt-1 font-medium">
-                          {staff.department}
+                          {staff.specialization}
                         </p>
                       )}
                     </div>
@@ -477,21 +505,23 @@ export default function StaffManagement({ onBack }) {
 
                         <div>
                           <label className="detail-label">Gender *</label>
-                          <div className="flex gap-4 mt-2">
-                            {["Male", "Female", "Other"].map(gender => (
-                              <label key={gender} className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                  type="radio"
-                                  name="gender"
-                                  value={gender}
-                                  checked={formData.gender === gender}
-                                  onChange={e => setFormData({ ...formData, gender: e.target.value })}
-                                  className="text-[var(--accent-color)]"
-                                />
-                                <span className="text-sm">{gender}</span>
-                              </label>
-                            ))}
-                          </div>
+                          {dropdownLoading ? (
+                            <div className="w-full h-10 bg-gray-100 rounded-lg animate-pulse"></div>
+                          ) : (
+                            <select
+                              name="gender"
+                              className={`input-field ${errors.gender ? 'border-red-500' : ''}`}
+                              value={formData.gender}
+                              onChange={e => setFormData({ ...formData, gender: e.target.value })}
+                            >
+                              <option value="">Select Gender</option>
+                              {genders.map(gender => (
+                                <option key={gender.id || gender} value={gender.name || gender}>
+                                  {gender.name || gender}
+                                </option>
+                              ))}
+                            </select>
+                          )}
                           {errors.gender && <p className="text-red-500 text-xs mt-1">{errors.gender}</p>}
                         </div>
                       </div>
@@ -502,35 +532,49 @@ export default function StaffManagement({ onBack }) {
                         
                         <div>
                           <label className="detail-label">Role/Designation *</label>
-                          <select
-                            name="role"
-                            className={`input-field ${errors.role ? 'border-red-500' : ''}`}
-                            value={formData.role}
-                            onChange={e => {
-                              const role = e.target.value;
-                              setFormData({ ...formData, role, permissions: [] });
-                            }}
-                          >
-                            <option value="">Select Role</option>
-                            {Object.keys(permissionsByRole).map(role => (
-                              <option key={role} value={role}>{role}</option>
-                            ))}
-                          </select>
+                          {dropdownLoading ? (
+                            <div className="w-full h-10 bg-gray-100 rounded-lg animate-pulse"></div>
+                          ) : (
+                            <select
+                              name="role"
+                              className={`input-field ${errors.role ? 'border-red-500' : ''}`}
+                              value={formData.role}
+                              onChange={e => {
+                                const role = e.target.value;
+                                setFormData({ ...formData, role, permissions: [] });
+                              }}
+                            >
+                              <option value="">Select Role</option>
+                              {Array.isArray(roles) ? roles.map(role => (
+                                <option key={typeof role === 'string' ? role : role.id} value={typeof role === 'string' ? role : role.name}>
+                                  {typeof role === 'string' ? role : role.name}
+                                </option>
+                              )) : Object.keys(permissionsByRole).map(role => (
+                                <option key={role} value={role}>{role}</option>
+                              ))}
+                            </select>
+                          )}
                           {errors.role && <p className="text-red-500 text-xs mt-1">{errors.role}</p>}
                         </div>
 
                         <div>
-                          <label className="detail-label">Department</label>
-                          <select
-                            className="input-field"
-                            value={formData.department}
-                            onChange={e => setFormData({ ...formData, department: e.target.value })}
-                          >
-                            <option value="">Select Department</option>
-                            {departments.map(dept => (
-                              <option key={dept} value={dept}>{dept}</option>
-                            ))}
-                          </select>
+                          <label className="detail-label">Specialization</label>
+                          {dropdownLoading ? (
+                            <div className="w-full h-10 bg-gray-100 rounded-lg animate-pulse"></div>
+                          ) : (
+                            <select
+                              className="input-field"
+                              value={formData.specialization}
+                              onChange={e => setFormData({ ...formData, specialization: e.target.value })}
+                            >
+                              <option value="">Select Specialization</option>
+                              {specializations.map(spec => (
+                                <option key={spec.id || spec} value={spec.name || spec}>
+                                  {spec.name || spec}
+                                </option>
+                              ))}
+                            </select>
+                          )}
                         </div>
 
                         <div>

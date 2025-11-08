@@ -16,6 +16,7 @@ import {
   getHospitalDropdown,
   getAllMedicalConditions,
   getAllMedicalStatus,
+  getAllSymptoms,
 } from "../../../../utils/masterService";
 
 const DrMedicalRecords = () => {
@@ -30,10 +31,12 @@ const DrMedicalRecords = () => {
   const [hospitalOptions, setHospitalOptions] = useState([]);
   const [medicalConditions, setMedicalConditions] = useState([]);
   const [statusTypes, setStatusTypes] = useState([]);
+  const [symptoms, setSymptoms] = useState([]);
   const [apiDataLoading, setApiDataLoading] = useState({
     hospitals: false,
     conditions: false,
     status: false,
+    symptoms: false,
   });
   const [state, setState] = useState({ showAddModal: false });
 
@@ -166,6 +169,7 @@ const DrMedicalRecords = () => {
         .filter((opt) => opt.label);
       setHospitalOptions(hospitalsList);
       setApiDataLoading((prev) => ({ ...prev, hospitals: false }));
+      
       setApiDataLoading((prev) => ({ ...prev, conditions: true }));
       const conditionsResponse = await getAllMedicalConditions();
       const conditionsList = (conditionsResponse?.data ?? [])
@@ -176,6 +180,7 @@ const DrMedicalRecords = () => {
         .filter((opt) => opt.label);
       setMedicalConditions(conditionsList);
       setApiDataLoading((prev) => ({ ...prev, conditions: false }));
+      
       setApiDataLoading((prev) => ({ ...prev, status: true }));
       const statusResponse = await getAllMedicalStatus();
       const statusList = (statusResponse?.data ?? []).map((status) => ({
@@ -184,6 +189,17 @@ const DrMedicalRecords = () => {
       }));
       setStatusTypes(statusList);
       setApiDataLoading((prev) => ({ ...prev, status: false }));
+      
+      setApiDataLoading((prev) => ({ ...prev, symptoms: true }));
+      const symptomsResponse = await getAllSymptoms();
+      const symptomsList = (symptomsResponse?.data ?? [])
+        .map((symptom) => ({
+          label: symptom?.name || symptom?.symptomName || symptom?.label || "",
+          value: symptom?.id || symptom?.name,
+        }))
+        .filter((opt) => opt.label);
+      setSymptoms(symptomsList);
+      setApiDataLoading((prev) => ({ ...prev, symptoms: false }));
     } catch (error) {
       console.error("Error fetching master data:", error);
     }
@@ -197,7 +213,7 @@ const DrMedicalRecords = () => {
     };
     const fieldLabels = {
       hospitalName: "Hospital",
-      chiefComplaint: "Chief Complaint",
+      chiefComplaint: "Symptoms",
       dateOfVisit: "Date of Visit",
       dateOfAdmission: "Date of Admission",
       dateOfDischarge: "Date of Discharge",
@@ -287,7 +303,14 @@ const DrMedicalRecords = () => {
       loading: apiDataLoading.hospitals,
       required: true,
     },
-    { name: "chiefComplaint", label: "Chief Complaint", type: "text", required: true, },
+    { 
+      name: "chiefComplaint", 
+      label: "Symptoms", 
+      type: "multiselect",        // Changed from "select" to "multiselect"
+      options: symptoms,
+      loading: apiDataLoading.symptoms,
+      required: true,
+    },
     {
       name: "medicalConditionIds",
       label: "Medical Conditions",

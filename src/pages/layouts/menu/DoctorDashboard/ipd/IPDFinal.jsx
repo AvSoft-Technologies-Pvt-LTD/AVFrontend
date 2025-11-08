@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Bed } from "lucide-react";
 import {
   Users,
@@ -9,6 +10,7 @@ import {
   Stethoscope,
   Activity,
 } from "lucide-react";
+import { getAllSymptoms } from "../../../../../utils/masterService";
 import { getAllSymptoms } from "../../../../../utils/masterService";
 
 const WARD_ICONS = {
@@ -197,6 +199,41 @@ const IPDFinal = ({ data, selectedWard, selectedRoom, selectedBed, fields, onCha
               {field.label}
               {field.required && " *"}
             </label>
+          </>
+        ) : field.type === "multiselect" ? (
+          <>
+            <div className="relative">
+              <div className="min-h-[42px] max-h-32 overflow-y-auto border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#01B07A] px-3 py-2">
+                {loadingSymptoms ? (
+                  <div className="text-xs text-gray-500">Loading symptoms...</div>
+                ) : symptomsList.length === 0 ? (
+                  <div className="text-xs text-gray-500">No symptoms available</div>
+                ) : (
+                  <div className="space-y-1">
+                    {symptomsList.map((symptom) => (
+                      <label key={symptom.key} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                        <input
+                          type="checkbox"
+                          checked={selectedSymptoms.includes(symptom.value)}
+                          onChange={() => handleSymptomToggle(symptom.value)}
+                          className="w-3 h-3 text-[#01B07A] border-gray-300 rounded focus:ring-[#01B07A]"
+                        />
+                        <span className="text-xs sm:text-sm">{symptom.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <label className="absolute left-3 -top-2 text-xs text-gray-600 bg-white px-1 transition-all">
+                {field.label}
+                {field.required && " *"}
+              </label>
+              {selectedSymptoms.length > 0 && (
+                <div className="mt-1 text-xs text-gray-600">
+                  {selectedSymptoms.length} symptom{selectedSymptoms.length !== 1 ? 's' : ''} selected
+                </div>
+              )}
+            </div>
           </>
         ) : field.type === "textarea" ? (
           <>

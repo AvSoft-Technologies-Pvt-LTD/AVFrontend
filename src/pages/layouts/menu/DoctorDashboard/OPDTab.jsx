@@ -10,7 +10,7 @@ import TeleConsultFlow from "../../../../components/microcomponents/Call";
 import { getFamilyMembersByPatient, getPersonalHealthByPatientId } from "../../../../utils/CrudService";
 import { useDispatch, useSelector } from "react-redux";
 import { registerUser } from "../../../../context-api/authSlice";
-import { getPatientById, updatePatient, getGenders } from "../../../../utils/masterService";
+import { getPatientById, updatePatient, getGenders, getAllSymptoms } from "../../../../utils/masterService";
 import axiosInstance from "../../../../utils/axiosInstance";
 import PatientVerificationSteps from "../../../../components/Profile"; // Import the new component
 
@@ -295,6 +295,7 @@ const OpdTab = forwardRef(
     const [vitalSigns, setVitalSigns] = useState(null);
     const [detailsLoading, setDetailsLoading] = useState(false);
     const [genderOptions, setGenderOptions] = useState([]);
+    const [symptomsOptions, setSymptomsOptions] = useState([]);
 
     useEffect(() => {
       const fetchGenders = async () => {
@@ -311,6 +312,23 @@ const OpdTab = forwardRef(
         }
       };
       fetchGenders();
+    }, []);
+
+    useEffect(() => {
+      const fetchSymptoms = async () => {
+        try {
+          const response = await getAllSymptoms();
+          const symptoms = response.data.map((symptom) => ({
+            value: symptom.id || symptom.name,
+            label: symptom.name || symptom.symptom,
+          }));
+          setSymptomsOptions(symptoms);
+        } catch (error) {
+          console.error("Error fetching symptoms:", error);
+          toast.error("Failed to fetch symptoms");
+        }
+      };
+      fetchSymptoms();
     }, []);
 
     useImperativeHandle(ref, () => ({
@@ -356,7 +374,7 @@ const OpdTab = forwardRef(
               temporaryAddress: p.temporaryAddress || p.addressTemp || p.address || "",
               address: p.address || p.temporaryAddress || p.addressTemp || "",
               addressTemp: p.addressTemp || p.temporaryAddress || p.address || "",
-              diagnosis: p.diagnosis || "Not specified",
+              Symptoms: p.Symptoms || "Not specified",
               reason: p.reason || "General consultation",
             }))
         );
@@ -570,7 +588,7 @@ const OpdTab = forwardRef(
           ...formData,
           appointmentDate: formData.date,
           appointmentTime: formData.time,
-          diagnosis: formData.diagnosis,
+          symptoms: formData.symptoms,
           reason: formData.reason,
           doctorName,
           type: "OPD",
@@ -712,7 +730,7 @@ const OpdTab = forwardRef(
           fields={[
             { name: "date", label: "Appointment Date", type: "date", required: true },
             { name: "time", label: "Appointment Time", type: "time", required: true },
-            { name: "diagnosis", label: "Diagnosis", type: "text", required: true },
+            { name: "symptoms", label: "Symptoms", type: "multiselect", required: true, options: symptomsOptions },
             { name: "reason", label: "Reason for Visit", type: "select", required: true, options: ["Consultation", "Follow-up", "Test", "Other"].map((r) => ({ value: r, label: r })) },
           ]}
           data={appointmentFormData}

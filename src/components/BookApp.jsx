@@ -96,18 +96,67 @@ const MultiStepForm = () => {
 
   // Fetch doctors by specialtyId
   const fetchDoctorsBySpecialty = async () => {
-    if (!state.specialtyId) return;
+    if (!state.specialtyId) {
+      console.log("No specialtyId provided, skipping doctor fetch");
+      return;
+    }
+    
     try {
       updateState({ loadingDoctors: true });
+      console.log("Fetching doctors for specialtyId:", state.specialtyId);
+      
       const response = await getDoctorsBySpecialty(state.specialtyId);
+      console.log("Doctors API response:", response.data);
+      
       let doctors = response.data || [];
+      
+      // Ensure doctors array has proper structure
+      if (!Array.isArray(doctors)) {
+        console.warn("API response is not an array, converting:", doctors);
+        doctors = [];
+      }
+      
+      // Process doctors to ensure they have required fields
+      const processedDoctors = doctors.map(doctor => ({
+        id: doctor.id || doctor.doctorId,
+        doctorId: doctor.doctorId || doctor.id,
+        doctorName: doctor.doctorName || doctor.name || 'Unknown Doctor',
+        name: doctor.name || doctor.doctorName || 'Unknown Doctor',
+        specializationName: doctor.specializationName || doctor.specialty || state.specialty,
+        fees: doctor.fees || doctor.consultationFee || 0,
+        experience: doctor.experience || 0,
+        education: doctor.education || doctor.qualification || '',
+        city: doctor.city || doctor.location || '',
+        doctorPanelName: doctor.doctorPanelName || doctor.doctorType || 'General',
+        hospital: doctor.hospital || '',
+        image: doctor.image || doctor.photo || '',
+        availability: doctor.availability || [],
+        bookedSlots: doctor.bookedSlots || []
+      }));
+      
+      console.log("Processed doctors:", processedDoctors);
+      
       updateState({
-        doctors: doctors,
-        filteredDoctors: doctors,
+        doctors: processedDoctors,
+        filteredDoctors: processedDoctors,
         loadingDoctors: false,
       });
     } catch (error) {
       console.error("Failed to fetch doctors:", error);
+      
+      // Detailed error logging
+      if (error.response) {
+        console.error("API Error Response:", {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: error.response.data
+        });
+      } else if (error.request) {
+        console.error("No response received:", error.request);
+      } else {
+        console.error("Request setup error:", error.message);
+      }
+      
       updateState({
         doctors: [],
         filteredDoctors: [],
@@ -132,6 +181,13 @@ const MultiStepForm = () => {
 
   // On specialty selection: fetch by specialty; if cleared, clear doctors
   useEffect(() => {
+    console.log("Specialty changed:", { 
+      specialtyId: state.specialtyId, 
+      specialty: state.specialty,
+      consultationType: state.consultationType,
+      location: state.location 
+    });
+    
     if (state.specialtyId) {
       fetchDoctorsBySpecialty();
     } else {

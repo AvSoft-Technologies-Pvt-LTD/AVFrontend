@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { Eye, EyeOff, Camera } from "lucide-react";
+import PatientRegistration from "../../../../../form/PatientRegistration";
+
 
 // Helper: Convert file to base64
 export const fileToBase64 = (file) => {
@@ -200,6 +202,14 @@ const IPDBasic = ({
   availableCities,
 }) => {
   const [showPassword, setShowPassword] = useState(false);
+  const [activeSection, setActiveSection] = useState("transfer");
+
+  // Placeholder handlers; replace with real ones if available in parent
+  const fetchPatientByAadhar = async () => {};
+  const fetchPatientByPhone = async () => {};
+  const sendOtp = async () => {};
+  const handleConfirm = () => setActiveSection("transfer");
+  const handleCancel = () => setActiveSection("transfer");
 
   const renderField = (field) => (
     <div
@@ -329,53 +339,84 @@ const IPDBasic = ({
 
   return (
     <div>
-      <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">
-        Basic Patient Details
-      </h3>
-      <div className="mb-4 sm:mb-6">
-        <div className="p-3 sm:p-4 bg-blue-50 rounded-md border border-blue-200">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
-            <h4 className="text-xs sm:text-sm font-semibold text-blue-800 flex items-center gap-2">
-              <svg
-                className="w-3 h-3 sm:w-4 sm:h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+    <div className="flex items-center justify-between mb-4">
+  <h3 className="text-base sm:text-lg font-semibold">
+    Basic Patient Details
+  </h3>
+  <div className="flex items-center gap-2">
+    <button 
+      className="view-btn"
+      onClick={() => setActiveSection("transfer")}
+    >
+      Transfer Patient
+    </button>
+    <button 
+      className="view-btn"
+      onClick={() => setActiveSection("add")}
+    >
+      Add Patient
+    </button>
+  </div>
+</div>
+
+      {activeSection === "transfer" ? (
+        <>
+          <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-blue-50 rounded-md border border-blue-200">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
+              <h4 className="text-xs sm:text-sm font-semibold text-blue-800 flex items-center gap-2">
+                <svg
+                  className="w-3 h-3 sm:w-4 sm:h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+                Transfer OPD Patient to IPD
+              </h4>
+              <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
+                Optional
+              </span>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+              <input
+                type="text"
+                value={patientIdInput}
+                onChange={(e) => setPatientIdInput(e.target.value)}
+                className="flex-1 px-3 py-2 border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
+                placeholder="Enter OPD Patient ID"
+              />
+              <button
+                onClick={onFetchPatient}
+                disabled={!patientIdInput.trim()}
+                className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed text-xs sm:text-sm font-medium w-full sm:w-auto"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-              Transfer OPD Patient to IPD
-            </h4>
-            <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
-              Optional
-            </span>
+                Search
+              </button>
+            </div>
           </div>
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-            <input
-              type="text"
-              value={patientIdInput}
-              onChange={(e) => setPatientIdInput(e.target.value)}
-              className="flex-1 px-3 py-2 border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
-              placeholder="Enter OPD Patient ID"
-            />
-            <button
-              onClick={onFetchPatient}
-              disabled={!patientIdInput.trim()}
-              className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed text-xs sm:text-sm font-medium w-full sm:w-auto"
-            >
-              Search
-            </button>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            {fields.map((field) => renderField(field))}
           </div>
+        </>
+      ) : (
+        <div className="mt-2">
+          <PatientRegistration
+            fetchPatientByAadhar={fetchPatientByAadhar}
+            fetchPatientByPhone={fetchPatientByPhone}
+            sendOtp={sendOtp}
+            onConfirm={handleConfirm}
+            onCancel={handleCancel}
+            otpLength={4}
+          />
         </div>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-        {fields.map((field) => renderField(field))}
-      </div>
+      )}
     </div>
   );
 };

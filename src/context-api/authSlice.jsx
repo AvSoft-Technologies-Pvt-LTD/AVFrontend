@@ -34,6 +34,8 @@ export const registerUser = createAsyncThunk(
         userType,
         phone: formData.get('phone'),
         email: formData.get('email'),
+        password: formData.get('password'),
+        confirmPassword: formData.get('confirmPassword'),
         name: formData.get('name'),
         number: formData.get('number'),
         address: formData.get('address'),
