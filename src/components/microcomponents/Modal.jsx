@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { toast } from "react-toastify";
 import SignatureCanvas from "react-signature-canvas";
-import { Eye, EyeOff, X, Save, ChevronDown } from "lucide-react";
+import { Eye, EyeOff, X, Save, ChevronDown, Search } from "lucide-react";
 
 const getColSpanClass = (colSpan = 1) => {
   switch (colSpan) {
@@ -64,6 +64,7 @@ const ReusableModal = ({
   const [suggestions, setSuggestions] = useState({});
   const signaturePadRef = useRef();
   const modalRef = useRef();
+  const dropdownRefs = useRef({});
 
   // Helper function to get the label for a selected value
   const getSelectedLabel = (options, value) => {
@@ -74,9 +75,19 @@ const ReusableModal = ({
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (modalRef.current && !modalRef.current.contains(event.target)) {
-        setSuggestions({});
-      }
+      setSuggestions({});
+      
+      // Check if click is outside any dropdown
+      Object.keys(dropdownRefs.current).forEach((fieldName) => {
+        const dropdownElement = dropdownRefs.current[fieldName];
+        if (dropdownElement && !dropdownElement.contains(event.target)) {
+          setFormValues((p) => ({
+            ...p,
+            [`${fieldName}Open`]: false,
+            [`${fieldName}Search`]: "",
+          }));
+        }
+      });
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
@@ -284,89 +295,125 @@ const handleChange = (name, value) => {
                             <div className="floating-input relative" data-placeholder={field.label}>
                               {field.type === "select" || field.type === "multiselect" ? (
                                 <div className="relative">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setFormValues((p) => ({
-                                        ...p,
-                                        [`${field.name}Open`]: !p[`${field.name}Open`],
-                                        [`${field.name}Search`]: "",
-                                      }))
-                                    }
-                                    className="input-field peer w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 rounded-md text-left bg-white focus:outline-none focus:ring-2 flex justify-between items-center"
+                                  <div 
+                                    ref={(el) => dropdownRefs.current[field.name] = el}
+                                    className="relative"
                                   >
-                                    <span className="truncate text-xs sm:text-sm">
-                                      {field.type === "multiselect"
-                                        ? Array.isArray(formValues[field.name]) && formValues[field.name].length
-                                          ? `${formValues[field.name].length} selected`
-                                          : `Select ${field.label}`
-                                        : getSelectedLabel(field.options, formValues[field.name]) || `Select ${field.label}`}
-                                    </span>
-                                    <ChevronDown size={14} className="sm:size-4" />
-                                  </button>
-                                  {formValues[`${field.name}Open`] && (
-                                    <div className="absolute z-[1000] mt-1 max-h-40 sm:max-h-60 min-w-auto overflow-auto rounded bg-white shadow">
+                                    {formValues[`${field.name}Open`] ? (
                                       <input
                                         type="text"
-                                        placeholder="Search..."
+                                        placeholder={field.type === "multiselect" && Array.isArray(formValues[field.name]) && formValues[field.name].length > 0 
+                                          ? `${formValues[field.name].map((value) => {
+                                              const selectedOption = field.options.find((opt) => opt.value === value);
+                                              return selectedOption?.label || value;
+                                            }).join(", ")} • Search ${field.label}...`
+                                          : `Search ${field.label}...`}
                                         value={formValues[`${field.name}Search`] || ""}
-                                        onChange={(e) =>
+                                        onChange={(e) => {
+                                          const searchValue = e.target.value;
                                           setFormValues((p) => ({
                                             ...p,
-                                            [`${field.name}Search`]: e.target.value,
+                                            [`${field.name}Search`]: searchValue,
+                                            [`${field.name}Open`]: true,
+                                          }));
+                                        }}
+                                        className="input-field peer w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 rounded-md text-left bg-white focus:outline-none focus:ring-2 pr-8 sm:pr-10"
+                                        autoFocus
+                                      />
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setFormValues((p) => ({
+                                            ...p,
+                                            [`${field.name}Open`]: true,
                                           }))
                                         }
-                                        className="input-field peer w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border-b border-gray-100 outline-none"
-                                      />
-                                      {field.options
-                                        ?.filter((opt) =>
-                                          opt.label
-                                            .toLowerCase()
-                                            .includes((formValues[`${field.name}Search`] || "").toLowerCase())
-                                        )
-                                        .map((opt) =>
-                                          field.type === "select" ? (
-                                            <div
-                                              key={opt.value}
-                                              onClick={() => {
-                                                handleChange(field.name, opt.value);
-                                                setFormValues((p) => ({
-                                                  ...p,
-                                                  [`${field.name}Open`]: false,
-                                                }));
-                                              }}
-                                              className="px-3 sm:px-4 py-1.5 sm:py-2 hover:bg-gray-100 cursor-pointer text-xs sm:text-sm"
-                                            >
-                                              {opt.label}
-                                            </div>
-                                          ) : (
-                                            <label
-                                              key={opt.value}
-                                              className="flex items-center px-3 sm:px-4 py-1.5 sm:py-2 hover:bg-gray-100 cursor-pointer text-xs sm:text-sm"
-                                            >
-                                              <input
-                                                type="checkbox"
-                                                className="mr-1.5 sm:mr-2"
-                                                checked={
-                                                  Array.isArray(formValues[field.name]) &&
-                                                  formValues[field.name].includes(opt.value)
-                                                }
-                                                onChange={(e) => {
-                                                  const prev = Array.isArray(formValues[field.name])
-                                                    ? formValues[field.name]
-                                                    : [];
-                                                  const next = e.target.checked
-                                                    ? [...prev, opt.value]
-                                                    : prev.filter((v) => v !== opt.value);
-                                                  handleChange(field.name, next);
-                                                }}
-                                              />
-                                              {opt.label}
-                                            </label>
+                                        className="input-field peer w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 rounded-md text-left bg-white focus:outline-none focus:ring-2 flex justify-between items-center"
+                                      >
+                                        <span className="truncate text-xs sm:text-sm">
+                                          {field.type === "multiselect"
+                                            ? Array.isArray(formValues[field.name]) && formValues[field.name].length > 0
+                                              ? formValues[field.name].map((value) => {
+                                                  const selectedOption = field.options.find((opt) => opt.value === value);
+                                                  return selectedOption?.label || value;
+                                                }).join(", ")
+                                              : `Select ${field.label}`
+                                            : getSelectedLabel(field.options, formValues[field.name]) || `Select ${field.label}`}
+                                        </span>
+                                        <ChevronDown size={14} className="sm:size-4" />
+                                      </button>
+                                    )}
+                                    {formValues[`${field.name}Open`] && (
+                                      <div 
+                                        id={`dropdown-${field.name}`} 
+                                        className="absolute z-[1000] mt-1 w-full max-h-40 sm:max-h-60 overflow-auto rounded-md bg-white shadow-lg border border-gray-200"
+                                      >
+                                      <div className="max-h-40 sm:max-h-60 overflow-auto">
+                                        {field.options
+                                          ?.filter((opt) =>
+                                            opt.label
+                                              .toLowerCase()
+                                              .includes((formValues[`${field.name}Search`] || "").toLowerCase())
                                           )
+                                          .length > 0 ? (
+                                          field.options
+                                            ?.filter((opt) =>
+                                              opt.label
+                                                .toLowerCase()
+                                                .includes((formValues[`${field.name}Search`] || "").toLowerCase())
+                                            )
+                                            .map((opt) =>
+                                              field.type === "select" ? (
+                                                <div
+                                                  key={opt.value}
+                                                  onClick={() => {
+                                                    handleChange(field.name, opt.value);
+                                                    setFormValues((p) => ({
+                                                      ...p,
+                                                      [`${field.name}Open`]: false,
+                                                      [`${field.name}Search`]: "",
+                                                    }));
+                                                  }}
+                                                  className="px-3 sm:px-4 py-1.5 sm:py-2 hover:bg-gray-100 cursor-pointer text-xs sm:text-sm transition-colors duration-150"
+                                                >
+                                                  {opt.label}
+                                                </div>
+                                              ) : (
+                                                <label
+                                                  key={opt.value}
+                                                  className="flex items-center px-3 sm:px-4 py-1.5 sm:py-2 hover:bg-gray-100 cursor-pointer text-xs sm:text-sm transition-colors duration-150"
+                                                >
+                                                  <input
+                                                    type="checkbox"
+                                                    className="mr-2 sm:mr-3 h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                                    checked={
+                                                      Array.isArray(formValues[field.name]) &&
+                                                      formValues[field.name].includes(opt.value)
+                                                    }
+                                                    onChange={(e) => {
+                                                      const prev = Array.isArray(formValues[field.name])
+                                                        ? formValues[field.name]
+                                                        : [];
+                                                      const next = e.target.checked
+                                                        ? [...prev, opt.value]
+                                                        : prev.filter((v) => v !== opt.value);
+                                                      handleChange(field.name, next);
+                                                    }}
+                                                  />
+                                                  <span className="flex-1">{opt.label}</span>
+                                                </label>
+                                              )
+                                            )
+                                        ) : (
+                                          <div className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-500 text-center">
+                                            No options found
+                                          </div>
                                         )}
+                                      </div>
                                     </div>
-                                  )}
+                                    )}
+                                  </div>
                                   {field.durationField && (() => {
                                     const selected = formValues[field.name];
                                     const df = field.durationFor;

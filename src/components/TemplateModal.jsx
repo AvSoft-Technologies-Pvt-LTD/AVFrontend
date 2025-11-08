@@ -1,6 +1,43 @@
-import React, { useState } from 'react';
-import { X, Palette, Stethoscope, Heart, Eye, Brain, Baby, Crown, Sparkles, Shield, Star, Activity, Book, Leaf, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useEffect, useState, useMemo } from 'react';
+import { 
+  X, 
+  Palette, 
+  Stethoscope, 
+  Heart, 
+  FileText,
+  Eye, 
+  Brain, 
+  Baby, 
+  Crown, 
+  Sparkles, 
+  Shield, 
+  Star, 
+  Activity, 
+  Book, 
+  Leaf, 
+  ChevronDown, 
+  ChevronUp 
+} from 'lucide-react';
 import { SketchPicker } from 'react-color';
+import { toast } from 'react-toastify';
+import axiosInstance from '../utils/axiosInstance';
+
+// Icon mapping for template icons
+const iconComponents = {
+  'stethoscope': Stethoscope,
+  'heart': Heart,
+  'eye': Eye,
+  'brain': Brain,
+  'baby': Baby,
+  'crown': Crown,
+  'sparkles': Sparkles,
+  'shield': Shield,
+  'star': Star,
+  'activity': Activity,
+  'book': Book,
+  'leaf': Leaf,
+  'default': FileText
+};
 
 const layoutStyles = {
   traditional: {
@@ -41,28 +78,60 @@ const layoutStyles = {
   },
 };
 
-const prescriptionTemplates = {
-  classic: { id: 'classic', name: 'Classic Medical', icon: Stethoscope, preview: 'Traditional medical prescription format', layout: 'traditional' },
-  modern: { id: 'modern', name: 'Modern Healthcare', icon: Heart, preview: 'Clean, modern design with emphasis on readability', layout: 'modern' },
-  pediatric: { id: 'pediatric', name: 'Pediatric Care', icon: Baby, preview: 'Child-friendly design with soft colors', layout: 'pediatric' },
-  specialist: { id: 'specialist', name: 'Specialist Clinic', icon: Brain, preview: 'Professional template for specialist consultations', layout: 'specialist' },
-  minimalist: { id: 'minimalist', name: 'Minimalist Care', icon: Shield, preview: 'Simple and clean design', layout: 'minimalist' },
-  vintage: { id: 'vintage', name: 'Vintage Clinic', icon: Book, preview: 'Retro design with classic elements', layout: 'vintage' },
-  futuristic: { id: 'futuristic', name: 'Futuristic Health', icon: Activity, preview: 'Advanced design with a modern touch', layout: 'futuristic' },
-  luxury: { id: 'luxury', name: 'Luxury Clinic', icon: Crown, preview: 'Premium design with gold accents', layout: 'luxury' },
-  creative: { id: 'creative', name: 'Creative Wellness', icon: Sparkles, preview: 'Artistic design with vibrant colors', layout: 'creative' },
-};
+// const predefinedTemplates = [
+//   // { id: 1, name: 'Classic Medical', iconName: Stethoscope, preview: 'Traditional medical prescription format', layout: 'traditional', color: '#2563eb' },
+//   // { id: 2, name: 'Modern Healthcare', iconName: Heart, preview: 'Clean, modern design with emphasis on readability', layout: 'modern', color: '#10b981' },
+//   // { id: 3, name: 'Pediatric Care', iconName: Baby, preview: 'Child-friendly design with soft colors', layout: 'pediatric', color: '#f59e0b' },
+//   // { id: 4, name: 'Specialist Clinic', iconName: Brain, preview: 'Professional template for specialist consultations', layout: 'specialist', color: '#8b5cf6' },
+//   // { id: 5, name: 'Minimalist Care', iconName: Shield, preview: 'Simple and clean design', layout: 'minimalist', color: '#6b7280' },
+//   // { id: 6, name: 'Vintage Clinic', iconName: Book, preview: 'Retro design with classic elements', layout: 'vintage', color: '#b45309' },
+//   // { id: 7, name: 'Futuristic Health', iconName: Activity, preview: 'Advanced design with a modern touch', layout: 'futuristic', color: '#3b82f6' },
+//   // { id: 8, name: 'Luxury Clinic', iconName: Crown, preview: 'Premium design with gold accents', layout: 'luxury', color: '#a16207' },
+//   // { id: 9, name: 'Creative Wellness', iconName: Sparkles, preview: 'Artistic design with vibrant colors', layout: 'creative', color: '#ec4899' }
+// ];
+
+const prescriptionTemplates = [];
 
 const TemplateModal = ({ isOpen, onClose, onSelectTemplate, selectedTemplate, selectedColor, setSelectedColor }) => {
   const [hoveredTemplate, setHoveredTemplate] = useState(null);
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
+  const [prescriptionTemplates, setPrescriptionTemplates] = useState([]);
+
+  // Process templates to ensure they have valid icons
+  const processedTemplates = useMemo(() => {
+    return prescriptionTemplates?.map(template => ({
+      ...template,
+      // If template?.iconName is a string, use the mapped icon component, otherwise use the icon as is
+      iconName: typeof template?.iconName === 'string' 
+        ? iconComponents[template?.iconName.toLowerCase()] || iconComponents.default
+        : template?.iconName || iconComponents.default
+    }));
+  }, [prescriptionTemplates]);
 
   const handleColorChange = (color) => {
     setSelectedColor(color.hex);
   };
 
+  
+
+    useEffect(() => {
+      fetchPredefinedTemplates();
+    }, []);
+  
+    const fetchPredefinedTemplates = async () => {
+      try {
+        const response = await axiosInstance.get("/predefined-templates");
+        setPrescriptionTemplates(response.data);
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+        toast.error("Failed to fetch categories!");
+      }
+    };
+
+    console.log("PROCESSED",processedTemplates)
   const getTemplateStyle = (template) => {
-    const layout = layoutStyles[template.layout] || layoutStyles.traditional;
+    if (!template) return {};
+    const layout = layoutStyles[template?.layoutName] || layoutStyles.template?.layoutName;
     return {
       headerStyle: {
         backgroundColor: selectedColor,
@@ -70,26 +139,26 @@ const TemplateModal = ({ isOpen, onClose, onSelectTemplate, selectedTemplate, se
         fontSize: '28px',
         fontFamily: 'serif',
         padding: '25px',
-        ...layout.header,
+        ...layout?.header,
       },
       doctorStyle: {
         fontSize: '24px',
         fontWeight: 'bold',
         color: selectedColor,
-        textAlign: layout.header.textAlign,
+        textAlign: layout?.header.textAlign,
         marginBottom: '10px',
       },
       addressStyle: {
         fontSize: '14px',
         color: '#666',
-        textAlign: layout.header.textAlign,
+        textAlign: layout?.header.textAlign,
         lineHeight: '1.6',
       },
       footerStyle: {
         borderTopColor: selectedColor,
         paddingTop: '20px',
-        textAlign: layout.footer.textAlign,
-        ...layout.footer,
+        textAlign: layout?.footer.textAlign,
+        ...layout?.footer,
       },
     };
   };
@@ -138,19 +207,18 @@ const TemplateModal = ({ isOpen, onClose, onSelectTemplate, selectedTemplate, se
         {/* Template Grid */}
         <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Object.values(prescriptionTemplates).map((template) => {
-              const IconComponent = template.icon;
-              const isSelected = selectedTemplate === template.id;
-              const isHovered = hoveredTemplate === template.id;
+            {processedTemplates.map((template) => {
+              const IconComponent = template?.iconName;
+              const isSelected = selectedTemplate === template?.id;
+              const isHovered = hoveredTemplate === template?.id;
               const templateStyle = getTemplateStyle(template);
-
               return (
                 <div
-                  key={template.id}
+                  key={template?.id}
                   className={`relative cursor-pointer transition-all duration-300 transform hover:scale-105 ${isSelected ? 'ring-4 ring-blue-500' : ''}`}
-                  onMouseEnter={() => setHoveredTemplate(template.id)}
+                  onMouseEnter={() => setHoveredTemplate(template?.id)}
                   onMouseLeave={() => setHoveredTemplate(null)}
-                  onClick={() => onSelectTemplate(template.id)}
+                  onClick={() => onSelectTemplate(template?.id)}
                 >
                   {/* Template Preview Card */}
                   <div className="bg-white border-2 border-gray-200 rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
@@ -166,9 +234,9 @@ const TemplateModal = ({ isOpen, onClose, onSelectTemplate, selectedTemplate, se
                     <div className="p-4">
                       <div className="flex items-center mb-3">
                         <IconComponent size={20} className="text-gray-600 mr-2" />
-                        <h3 className="text-lg font-semibold text-gray-800">{template.name}</h3>
+                        <h3 className="text-lg font-semibold text-gray-800">{template?.name}</h3>
                       </div>
-                      <p className="text-sm text-gray-600 mb-4">{template.preview}</p>
+                      <p className="text-sm text-gray-600 mb-4">{template?.preview}</p>
                       {/* Footer Preview */}
                       <div className="text-xs pt-2" style={templateStyle.footerStyle}>
                         Signature: ___________
@@ -209,4 +277,5 @@ const TemplateModal = ({ isOpen, onClose, onSelectTemplate, selectedTemplate, se
   );
 };
 
-export { TemplateModal, prescriptionTemplates, layoutStyles };
+
+export { TemplateModal, layoutStyles, prescriptionTemplates };

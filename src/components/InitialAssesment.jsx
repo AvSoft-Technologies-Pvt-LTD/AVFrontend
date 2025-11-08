@@ -42,6 +42,7 @@ import {
   getPracticeTypes,
   getSpecializationsByPracticeType,
 } from "../utils/masterService";
+import axiosInstance from "../utils/axiosInstance";
 
 const iconMapping = {
   ayurveda: Leaf,
@@ -57,13 +58,6 @@ const iconMapping = {
   default: FileText,
 };
 
-const templateTypes = [
-  { id: "past-history", name: "Past History", color: "#3B82F6" },
-  { id: "discharge-summary", name: "Discharge Summary", color: "#10B981" },
-  { id: "registration-form", name: "Registration Form", color: "#F59E0B" },
-  { id: "prescription", name: "Prescription", color: "#8B5CF6" },
-  { id: "lab-report", name: "Lab Report", color: "#EF4444" },
-];
 
 const InitialAssessment = () => {
   const [practiceTypes, setPracticeTypes] = useState([]);
@@ -88,6 +82,7 @@ const InitialAssessment = () => {
   const fileInputRef = useRef(null);
   const templateFileInputRef = useRef(null);
   const navigate = useNavigate();
+  const [templateTypes, setTemplatesTypes] = useState();
 
   const [patientInfo, setPatientInfo] = useState({
     patientId: "",
@@ -120,6 +115,23 @@ const InitialAssessment = () => {
       setInitialLoading(false);
     })();
   }, []);
+
+  
+  
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+  
+  const fetchCategories = async () => {
+    try {
+      const response = await axiosInstance.get("/template-types");
+      setTemplatesTypes(response.data);
+      // if (!response.data.success) throw new Error("Failed to fetch Categories.");
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      toast.error("Failed to fetch categories!");
+    }
+  };
 
   useEffect(() => {
     if (selectedPracticeType) {
@@ -165,7 +177,7 @@ const InitialAssessment = () => {
       setError(null);
       const response = await getSpecializationsByPracticeType(practiceTypeId);
       const data = response.data || [];
-      const processedData = data.map((item) => ({
+      const processedData = data?.map((item) => ({
         id: item.id,
         name: item.specializationName || item.name || "Unknown Specialization",
         code:
@@ -239,7 +251,7 @@ const InitialAssessment = () => {
         storedTemplates.push(templateData);
         localStorage.setItem("uploadedTemplates", JSON.stringify(storedTemplates));
 
-        toast.success(`${templateTypes.find(t => t.id === selectedTemplateType)?.name} template uploaded successfully!`);
+        toast.success(`${templateTypes?.find(t => t.id === selectedTemplateType)?.name} template uploaded successfully!`);
         await loadUploadedTemplates();
       } catch (err) {
         toast.error("Failed to upload template. Please try again.");
@@ -375,7 +387,7 @@ const InitialAssessment = () => {
 
   const generatePrintTemplate = () => {
     const currentTemplate = prescriptionTemplates[selectedTemplate];
-    const currentLayout = layoutStyles[currentTemplate.layout] || layoutStyles.traditional;
+    const currentLayout = layoutStyles[currentTemplate?.layout] || layoutStyles.traditional;
     const printContent = `
       <!DOCTYPE html>
       <html lang="en">
@@ -499,8 +511,7 @@ const InitialAssessment = () => {
             <div><strong>Referred By:</strong> ${patientInfo.referredBy || ""}</div>
           </div>
         </div>
-        ${templateFields
-          .map(
+        ${templateFields?.map(
             (field) => `
             <div class="section">
               <div class="section-header">${field.label || field.name}</div>
@@ -608,10 +619,10 @@ const InitialAssessment = () => {
             backgroundColor: "#01D48C",
             color: "white",
             textAlign: "left",
-            borderRadius: layoutStyles[prescriptionTemplates[selectedTemplate].layout]?.header.borderRadius || "12px",
-            borderLeft: layoutStyles[prescriptionTemplates[selectedTemplate].layout]?.header.borderLeft || "none",
-            border: layoutStyles[prescriptionTemplates[selectedTemplate].layout]?.header.border || "none",
-            borderBottom: layoutStyles[prescriptionTemplates[selectedTemplate].layout]?.header.borderBottom || "none",
+            borderRadius: layoutStyles[prescriptionTemplates[selectedTemplate]?.layout]?.header.borderRadius || "12px",
+            borderLeft: layoutStyles[prescriptionTemplates[selectedTemplate]?.layout]?.header.borderLeft || "none",
+            border: layoutStyles[prescriptionTemplates[selectedTemplate]?.layout]?.header.border || "none",
+            borderBottom: layoutStyles[prescriptionTemplates[selectedTemplate]?.layout]?.header.borderBottom || "none",
           }}
         >
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
@@ -666,9 +677,9 @@ const InitialAssessment = () => {
                   onChange={(e) => handlePracticeTypeChange(e.target.value)}
                 >
                   <option value="">Select Medical System</option>
-                  {practiceTypes.map((pt) => (
-                    <option key={pt.id} value={pt.id.toString()}>
-                      {pt.name || pt.practiceName}
+                  {practiceTypes?.map((pt) => (
+                    <option key={pt?.id} value={pt.id.toString()}>
+                      {pt?.name || pt?.practiceName}
                     </option>
                   ))}
                 </select>
@@ -684,7 +695,7 @@ const InitialAssessment = () => {
                   disabled={!selectedPracticeType || specializations.length === 0}
                 >
                   <option value="">Select Specialty</option>
-                  {specializations.map((spec) => (
+                  {specializations?.map((spec) => (
                     <option key={spec.id} value={spec.id.toString()}>
                       {spec.name}
                     </option>
@@ -708,7 +719,7 @@ const InitialAssessment = () => {
             )}
           </div>
           {/* Template Upload Section */}
-          {showTemplateUpload && (
+          {!showTemplateUpload && (
             <div className="bg-white rounded-xl shadow-lg p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center">
@@ -728,7 +739,7 @@ const InitialAssessment = () => {
                   Select Template Type
                 </label>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                  {templateTypes.map((type) => (
+                  {templateTypes?.filter(type => type.title !== 'Predefined')?.map((type) => (
                     <button
                       key={type.id}
                       type="button"
@@ -741,9 +752,9 @@ const InitialAssessment = () => {
                     >
                       <div
                         className="w-4 h-4 rounded-full mx-auto mb-2"
-                        style={{ backgroundColor: type.color }}
+                        style={{ backgroundColor: type.bgColor }}
                       ></div>
-                      {type.name}
+                      {type.title}
                     </button>
                   ))}
                 </div>
@@ -772,12 +783,12 @@ const InitialAssessment = () => {
                   ) : (
                     <>
                       <Upload className="w-4 h-4 mr-2" />
-                      Upload {templateTypes.find(t => t.id === selectedTemplateType)?.name} Template
+                      Upload {templateTypes?.find(t => t.id === selectedTemplateType)?.title} Template
                     </>
                   )}
                 </button>
                 <p className="text-sm text-gray-500 mt-3">
-                  Upload {templateTypes.find(t => t.id === selectedTemplateType)?.name.toLowerCase()} templates for future use
+                  Upload {templateTypes?.find(t => t.id === selectedTemplateType)?.title.toLowerCase()} templates for future use
                 </p>
               </div>
               {/* Uploaded Templates Display */}
@@ -785,17 +796,17 @@ const InitialAssessment = () => {
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <h5 className="text-lg font-semibold text-gray-900">
-                      {templateTypes.find(t => t.id === selectedTemplateType)?.name} Templates ({uploadedTemplates.length})
+                      {templateTypes?.find(t => t.id === selectedTemplateType)?.title} Templates ({uploadedTemplates.length})
                     </h5>
                     <div
                       className="px-3 py-1 rounded-full text-xs font-medium text-white"
-                      style={{ backgroundColor: templateTypes.find(t => t.id === selectedTemplateType)?.color }}
+                      style={{ backgroundColor: templateTypes?.find(t => t.id === selectedTemplateType)?.bgColor }}
                     >
                       {selectedTemplateType}
                     </div>
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {uploadedTemplates.map((template) => (
+                    {uploadedTemplates?.map((template) => (
                       <div key={template.id} className="border rounded-lg p-3 bg-gray-50 hover:shadow-md transition-shadow">
                         <div className="w-full h-32 bg-gray-200 rounded-lg mb-3 overflow-hidden">
                           <img
@@ -948,7 +959,7 @@ const InitialAssessment = () => {
           </div>
           {/* Template Fields Section */}
           {templateFields.length > 0 ? (
-            templateFields.map((field, index) => (
+            templateFields?.map((field, index) => (
               <div key={field.id} className="bg-white rounded-xl shadow-lg p-6">
                 <div className="flex items-center mb-4">
                   <div className="w-8 h-8 bg-accent-100 text-primary rounded-lg flex items-center justify-center font-semibold text-sm mr-3">
