@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import React, { useState, useEffect } from "react";
+
 import { Bed } from "lucide-react";
 import {
   Users,
@@ -10,7 +10,6 @@ import {
   Stethoscope,
   Activity,
 } from "lucide-react";
-import { getAllSymptoms } from "../../../../../utils/masterService";
 import { getAllSymptoms } from "../../../../../utils/masterService";
 
 const WARD_ICONS = {
