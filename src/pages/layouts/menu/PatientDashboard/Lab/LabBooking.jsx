@@ -59,23 +59,6 @@ const LabBooking = () => {
         </div>
       </ProfileCard>
 
-      {/* Facilities */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-700">
-          {lab.nabl && (
-            <div className="flex items-center"><CheckCircle2 className="w-4 h-4 mr-2 text-[var(--primary-color)]" /> NABL Accredited</div>
-          )}
-          {lab.digitalReports && (
-            <div className="flex items-center"><CheckCircle2 className="w-4 h-4 mr-2 text-[var(--primary-color)]" /> Digital Reports</div>
-          )}
-          {lab.homeCollection && (
-            <div className="flex items-center"><CheckCircle2 className="w-4 h-4 mr-2 text-[var(--primary-color)]" /> Home Collection</div>
-          )}
-          {lab.expertPathologists && (
-            <div className="flex items-center"><CheckCircle2 className="w-4 h-4 mr-2 text-[var(--primary-color)]" /> Expert Pathologists</div>
-          )}
-        </div>
-      </div>
 
       {/* Selected Tests */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
