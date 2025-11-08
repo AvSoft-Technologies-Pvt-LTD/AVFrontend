@@ -1,96 +1,129 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { FaCheck, FaStar, FaClock, FaMapMarkerAlt } from "react-icons/fa";
+import { MapPin, Star, Clock, CheckCircle2, ArrowLeft } from "lucide-react";
+import ProfileCard from "../../../../../components/microcomponents/ProfileCard";
 
 const LabBooking = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { lab, cart } = location.state || {};
 
-  console.log("Location state:", location.state); // Debugging
-
-  if (!lab || !cart || cart.length === 0) {
+  if (!lab || !Array.isArray(cart) || cart.length === 0) {
     return (
-      <div className="p-4 text-center text-gray-600">
-        Error: No lab or tests selected. Please go back and try again.
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 text-center max-w-md w-full">
+          <p className="text-gray-600 mb-4">No lab or tests selected.</p>
+          <button
+            onClick={() => navigate(-1)}
+            className="px-4 py-2 rounded-lg bg-[var(--primary-color)] text-white hover:opacity-90"
+          >
+            Go Back
+          </button>
+        </div>
       </div>
     );
   }
 
-  const totalPrice = cart.reduce((sum, test) => sum + test.price, 0);
+  const totalPrice = cart.reduce(
+    (sum, t) => sum + (Number(t.price) || 0) * (t.quantity || 1),
+    0
+  );
 
   const handleClick = () => {
     navigate(`/patientdashboard/book-app`, { state: { lab, cart } });
   };
 
+  const initials = (lab?.name || "")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase() || "LB";
+
+  const profileFields = [
+    { label: "Location", value: lab.location || "-" },
+    { label: "Timing", value: lab.timings || lab.reportTime || "-" },
+    { label: "Home Collection", value: lab.homeCollection ? "Available" : "Not Available" },
+  ];
+
   return (
-    <div className="p-4 sm:p-6 bg-white rounded-2xl shadow-lg space-y-6 max-w-4xl mx-auto">
-      <button
-        onClick={() => navigate(-1)}
-        className="flex items-center gap-1 text-sm sm:text-base text-[#0e1630] hover:text-[#0a1028]"
-      >
-        <span>←</span> Back to Labs List
-      </button>
+    <div className="min-h-screen bg-[#f9fafb] px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+      {/* Back */}
+    
 
-      <div className="p-4 sm:p-6 border border-gray-200 rounded-xl shadow-sm">
-        <h2 className="text-xl sm:text-2xl font-bold text-gray-800">{lab.name}</h2>
-        <p className="text-sm sm:text-base text-gray-600 mt-2 flex items-center gap-1">
-          <FaMapMarkerAlt className="text-[#0e1630]" /> {lab.location}
-        </p>
-        <p className="text-sm sm:text-base text-gray-600 mt-1 flex items-center gap-1">
-          <FaClock className="text-[#0e1630]" /> {lab.timings}
-        </p>
-        <p className="text-sm sm:text-base text-green-600 mt-1 flex items-center gap-1">
-          <FaStar className="text-[#F4C430]" /> {lab.rating}/5
-        </p>
-        <hr className="my-4 border-gray-200" />
-        <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-3">Facilities & Services</h3>
-        <ul className="space-y-2 text-sm sm:text-base text-gray-600">
-          {lab.nabl && <li className="flex items-center gap-2"><FaCheck className="text-[#0e1630]" /> NABL Accredited</li>}
-          {lab.digitalReports && <li className="flex items-center gap-2"><FaCheck className="text-[#0e1630]" /> Digital Reports</li>}
-          {lab.homeCollection && <li className="flex items-center gap-2"><FaCheck className="text-[#0e1630]" /> Home Collection Available</li>}
-          {lab.expertPathologists && <li className="flex items-center gap-2"><FaCheck className="text-[#0e1630]" /> Expert Pathologists</li>}
-        </ul>
-      </div>
+      {/* Lab Summary via ProfileCard */}
+      <ProfileCard initials={initials} name={lab.name} fields={profileFields}>
+        <div className="flex items-center gap-1 bg-white/10 rounded-full px-2 py-1 text-xs">
+          <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
+          <span>{lab.rating ?? "4.5"}</span>
+        </div>
+      </ProfileCard>
 
-      <div className="p-4 sm:p-6 border border-gray-200 rounded-xl shadow-sm">
-        <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-3">Selected Tests</h3>
-        {cart.map((test, index) => (
-          <div key={index} className="mb-4 p-3 border rounded-lg">
-            <p className="text-sm sm:text-base font-semibold text-gray-800 mb-2">{test.title}</p>
-            <div className="flex flex-wrap gap-2 mb-3">
-              <span className="px-3 py-1 bg-gray-100 text-gray-800 text-xs sm:text-sm rounded">{test.category}</span>
-              {test.code && <span className="px-3 py-1 bg-gray-100 text-gray-800 text-xs sm:text-sm rounded">Code: {test.code}</span>}
-            </div>
-            <p className="text-sm sm:text-base text-gray-600 mb-2">Report Time: {lab.reportTime}</p>
-            <p className="text-sm sm:text-base text-gray-600 mb-3">{test.fasting ? `${test.fasting} hours fasting required` : "No fasting required"}</p>
-          </div>
-        ))}
-        <div className="text-right">
-          <p className="text-xl sm:text-2xl font-bold text-[var(--primary-color)]">₹{totalPrice}</p>
-          {lab.originalPrice && (
-            <>
-              <p className="text-sm sm:text-base line-through text-gray-500">₹{lab.originalPrice}</p>
-              <p className="text-sm sm:text-base text-green-600">Save ₹{lab.originalPrice - totalPrice}</p>
-            </>
+      {/* Facilities */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-700">
+          {lab.nabl && (
+            <div className="flex items-center"><CheckCircle2 className="w-4 h-4 mr-2 text-[var(--primary-color)]" /> NABL Accredited</div>
+          )}
+          {lab.digitalReports && (
+            <div className="flex items-center"><CheckCircle2 className="w-4 h-4 mr-2 text-[var(--primary-color)]" /> Digital Reports</div>
+          )}
+          {lab.homeCollection && (
+            <div className="flex items-center"><CheckCircle2 className="w-4 h-4 mr-2 text-[var(--primary-color)]" /> Home Collection</div>
+          )}
+          {lab.expertPathologists && (
+            <div className="flex items-center"><CheckCircle2 className="w-4 h-4 mr-2 text-[var(--primary-color)]" /> Expert Pathologists</div>
           )}
         </div>
       </div>
 
-      <div className="p-4 sm:p-6 border border-gray-200 rounded-xl shadow-sm space-y-4">
-        <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">Book Your Appointment</h3>
-        <p className="text-sm sm:text-base text-gray-600 mb-4">
-          Choose between home sample collection or visiting the lab for your selected tests.
-        </p>
-        <button
-          onClick={handleClick}
-          className="w-full sm:w-auto px-4 py-2 bg-[var(--primary-color)] text-white rounded-md hover:bg-[#4338CA] focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)]"
-        >
-          Book Appointment
-        </button>
-        <div className="mt-4 pt-4 border-t border-gray-200">
-          <h4 className="text-lg font-semibold text-gray-800 mb-2">Lab Information:</h4>
-          <p className="text-sm sm:text-base text-gray-600"><strong>Lab Name:</strong> {lab.name}</p>
-          <p className="text-sm sm:text-base text-gray-600"><strong>Location:</strong> {lab.location}</p>
+      {/* Selected Tests */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-lg font-semibold text-gray-900">Selected Tests</h3>
+          <div className="text-right">
+            <p className="text-xl font-bold text-[var(--primary-color)]">₹{totalPrice}</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {cart.map((test, index) => (
+            <div key={index} className="border border-gray-200 rounded-xl p-3 bg-gray-50">
+              <div className="flex items-center gap-2 font-semibold text-gray-800">
+                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                <span>{test.title}</span>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-2 text-xs">
+                {test.category && (
+                  <span className="px-2 py-1 bg-white border border-gray-200 rounded">{test.category}</span>
+                )}
+                {test.code && (
+                  <span className="px-2 py-1 bg-white border border-gray-200 rounded">Code: {test.code}</span>
+                )}
+                {test.fasting && (
+                  <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded">Fasting required</span>
+                )}
+              </div>
+              <p className="mt-2 text-sm text-gray-600">Report: {lab.reportTime || "24 Hours"}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Book */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">Book Your Appointment</h3>
+        <p className="text-sm text-gray-600 mb-4">Choose home collection or visit the lab for your selected tests.</p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="text-sm text-gray-700">
+            <div><span className="font-semibold">Lab:</span> {lab.name}</div>
+            <div><span className="font-semibold">Location:</span> {lab.location}</div>
+          </div>
+          <button
+            onClick={handleClick}
+            className="px-5 py-2 rounded-lg bg-[var(--primary-color)] text-white font-medium hover:opacity-90"
+          >
+            Book Appointment
+          </button>
         </div>
       </div>
     </div>

@@ -73,18 +73,19 @@ const AvailabilityOverviewPage = () => {
     })}`;
   };
 
-  // Helper function to format unavailable dates
+  // Helper: format unavailable dates from API ([y,m,d] arrays)
   const getUnavailableDates = (schedule) => {
-    if (!schedule.deselectedDates || schedule.deselectedDates.length === 0) return null;
-
-    return schedule.deselectedDates
-      .map((dateStr) => {
-        const date = apiDateToJSDate(dateStr);
-        return date.toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-        });
-      })
+    const src = Array.isArray(schedule.unavailableDates)
+      ? schedule.unavailableDates
+      : [];
+    if (src.length === 0) return null;
+    return src
+      .map((apiDate) => apiDateToString(apiDate))
+      .filter(Boolean)
+      .map((dateStr) => new Date(dateStr).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      }))
       .join(", ");
   };
 
@@ -93,7 +94,7 @@ const AvailabilityOverviewPage = () => {
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 py-4 sm:py-8 px-2 sm:px-4">
         <div className="max-w-5xl mx-auto">
           <div className="flex justify-center items-center h-64">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <div className="w-10 h-10 sm:w-12 sm:h-12 border-4 border-[var(--primary-color)] border-t-transparent rounded-full animate-spin"></div>
           </div>
         </div>
       </div>
@@ -116,7 +117,7 @@ const AvailabilityOverviewPage = () => {
           </div>
           <button
             onClick={handleCreateNew}
-            className="flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-blue-600 text-white rounded-lg text-xs sm:text-sm w-full sm:w-auto whitespace-nowrap hover:bg-blue-700 transition-all"
+            className="flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-[var(--primary-color)] text-white rounded-lg text-xs sm:text-sm w-full sm:w-auto whitespace-nowrap hover:opacity-90 transition-all"
           >
             <Plus size={16} className="sm:w-[18px] sm:h-[18px]" />
             Create New Schedule
@@ -135,7 +136,7 @@ const AvailabilityOverviewPage = () => {
             </p>
             <button
               onClick={handleCreateNew}
-              className="inline-flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-blue-600 text-white rounded-lg text-xs sm:text-sm hover:bg-blue-700 transition-all"
+              className="inline-flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-[var(--primary-color)] text-white rounded-lg text-xs sm:text-sm hover:opacity-90 transition-all"
             >
               <Plus size={16} className="sm:w-[18px] sm:h-[18px]" />
               Create Schedule
@@ -154,7 +155,7 @@ const AvailabilityOverviewPage = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-3 sm:mb-4">
                     {/* Dates */}
                     <div className="flex items-start gap-2 sm:gap-3">
-                      <Calendar size={16} className="sm:w-[18px] sm:h-[18px] text-blue-600 mt-1 flex-shrink-0" />
+                      <Calendar size={16} className="sm:w-[18px] sm:h-[18px] text-[var(--primary-color)] mt-1 flex-shrink-0" />
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-semibold text-slate-500 uppercase">
                           Dates
@@ -208,7 +209,7 @@ const AvailabilityOverviewPage = () => {
                     <div className="flex gap-2 order-2 sm:order-1">
                       <button
                         onClick={() => handleEdit(schedule)}
-                        className="flex-1 sm:flex-none p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-all"
+                        className="flex-1 sm:flex-none p-2 bg-[color:rgba(14,22,48,0.08)] text-[var(--primary-color)] rounded-lg hover:bg-[color:rgba(14,22,48,0.14)] transition-all"
                         title="Edit Schedule"
                       >
                         <Edit3 size={16} className="sm:w-[18px] sm:h-[18px]" />

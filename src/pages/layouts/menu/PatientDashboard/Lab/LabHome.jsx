@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { hydrateCart, addToCart } from '../../../../../context-api/cartSlice';
+import { initializeAuth } from '../../../../../context-api/authSlice';
 import { getAllTests, getAllScans, getAllhealthpackages } from '../../../../../utils/masterService';
-import { createLabCart, getLabCart } from '../../../../../utils/CrudService';
+import { createLabCart, getLabCart, updateLabCart } from '../../../../../utils/CrudService';
 import { ShoppingCart, Search, Upload, FileText, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -30,14 +31,23 @@ const LabHome = () => {
   const { searchQuery, setSearchQuery, performSearch } = useSearch();
   const cartRef = useRef(null);
   const btnRefs = useRef({});
-  const patientId = parseInt(useSelector((state) => state.auth.patientId), 10);
+  const patientIdFromStore = useSelector(
+    (state) => state.auth?.user?.patientId ?? state.auth?.patientId ?? null
+  );
+  const patientId = patientIdFromStore == null ? null : Number(patientIdFromStore);
 
   console.log("Current patientId in LabHome:", patientId);
+
+  // Ensure auth is initialized from localStorage on mount
+  useEffect(() => {
+    dispatch(initializeAuth());
+  }, [dispatch]);
 
   // Fetch cart from backend on component mount
   useEffect(() => {
     const fetchCart = async () => {
       try {
+        if (!(Number.isInteger(patientId) && patientId > 0)) return;
         const response = await getLabCart(patientId);
         console.log("Fetched cart data in LabHome:", response.data);
         dispatch(hydrateCart(response.data));
@@ -136,23 +146,39 @@ const LabHome = () => {
 
   const handleAdd = async (item, key, pushToCart = false) => {
     if (!addedIds.has(key)) {
-      const cartItem = {
-        id: item.id,
-        title: item.title,
-        price: item.price,
-        type: activeTab,
-        quantity: 1,
-        code: item.code,
-      };
+      // Build full id arrays by merging with current cart so multi-select persists
       try {
-        const payload = { [activeTab]: [cartItem] };
-        console.log("Payload being sent to createLabCart:", payload);
-        const createResponse = await createLabCart(patientId, payload);
-        console.log("createLabCart response:", createResponse.data);
+        if (!(Number.isInteger(patientId) && patientId > 0)) {
+          console.error('Cannot add to cart: missing patientId');
+          return;
+        }
+        // Read current cart to gather existing ids
+        const currentResp = await getLabCart(patientId);
+        const current = currentResp?.data || { tests: [], scans: [], packages: [] };
+        const testIds = (current.tests || []).map((t) => t.id ?? t.testId).filter((v) => Number.isInteger(Number(v))).map(Number);
+        const scanIds = (current.scans || []).map((s) => s.id ?? s.scanId).filter((v) => Number.isInteger(Number(v))).map(Number);
+        const packageIds = (current.packages || []).map((p) => p.id ?? p.packageId).filter((v) => Number.isInteger(Number(v))).map(Number);
 
-        const fetchResponse = await getLabCart(patientId);
-        console.log("Refetched cart data:", fetchResponse.data);
-        dispatch(hydrateCart(fetchResponse.data));
+        if (activeTab === 'tests') {
+          if (!testIds.includes(item.id)) testIds.push(item.id);
+        } else if (activeTab === 'scans') {
+          if (!scanIds.includes(item.id)) scanIds.push(item.id);
+        } else if (activeTab === 'packages') {
+          if (!packageIds.includes(item.id)) packageIds.push(item.id);
+        } else {
+          return; // unknown type
+        }
+
+        const payload = { testIds, scanIds, packageIds };
+
+        // POST /lab/cart/add with full arrays, then refetch and hydrate
+        console.log('Creating lab cart with:', { patientId, ...payload });
+        const createResp = await createLabCart(patientId, payload);
+        console.log('createLabCart response:', createResp.data);
+
+        const refreshed = await getLabCart(patientId);
+        console.log('Cart after add (refetched):', refreshed.data);
+        dispatch(hydrateCart(refreshed.data));
 
         animateFly(btnRefs.current[key]);
         setAddedIds((prev) => new Set(prev).add(key));

@@ -4,23 +4,25 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { hydrateCart, removeFromCart, clearCart } from '../../../../../context-api/cartSlice';
 import { getLabCart /*, updateLabCart */ } from '../../../../../utils/CrudService';
+import { initializeAuth } from '../../../../../context-api/authSlice';
 import { ShoppingCart, Trash2 } from 'lucide-react';
 
 const CartPage = () => {
-  const dispatch = useDispatch();
+const dispatch = useDispatch();
+useEffect(() => { dispatch(initializeAuth()); }, [dispatch]);
   const navigate = useNavigate();
 
-  // assuming your auth slice stores the logged-in patient's id
-  const patientIdFromStore = useSelector((state) => state.auth?.patientId);
-
-  // ⚠️ For local testing, fall back to 1 so it hits /lab/cart/1 like your example
-  const patientId = patientIdFromStore || 1;
+const patientIdFromStore = useSelector(
+  (state) => state.auth?.user?.patientId ?? state.auth?.patientId ?? null
+);
+const patientId = patientIdFromStore == null ? null : Number(patientIdFromStore);
 
   const cart = useSelector((state) => state.cart);
 
   useEffect(() => {
     const fetchCart = async () => {
       try {
+        if (!(Number.isInteger(patientId) && patientId > 0)) return;
         const { data } = await getLabCart(patientId);
         console.log('Fetched cart data:', data);
 
@@ -35,18 +37,21 @@ const CartPage = () => {
         // Normalize items and tag a stable "kind" discriminator for UI keys/removal
         const normTests = tests.map((t) => ({
           ...t,
-          kind: 'test',                   // NEW: stable type for UI logic
+          id: t.id ?? t.testId,           // unify id for UI/removal
+          kind: 'test',                   // stable type for UI logic
           quantity: t.quantity || 1,      // fallback
         }));
 
         const normScans = scans.map((s) => ({
           ...s,
+          id: s.id ?? s.scanId,
           kind: 'scan',
           quantity: s.quantity || 1,
         }));
 
         const normPackages = packages.map((p) => ({
           ...p,
+          id: p.id ?? p.packageId,
           kind: 'package',
           // packages may not have "code" - UI should handle optional
           quantity: p.quantity || 1,

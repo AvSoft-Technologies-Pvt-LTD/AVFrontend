@@ -3,11 +3,14 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useEffect, useState, useMemo } from 'react';
 import { ShoppingCart } from 'lucide-react';
-import { addToCart } from '../../../../../context-api/cartSlice';
+import { hydrateCart } from '../../../../../context-api/cartSlice';
+import { initializeAuth } from '../../../../../context-api/authSlice';
 import {
   getLabTestById,
   getScanById,
   getPackageById,
+  createLabCart,
+  getLabCart,
 } from '../../../../../utils/CrudService';
 import {
   FaClock,
@@ -31,6 +34,15 @@ const TestDetail = () => {
   const cart = useSelector((state) => state.cart);
   const navigate = useNavigate();
   const iconColor = 'text-[var(--primary-color)]';
+
+  const patientIdFromStore = useSelector(
+    (state) => state.auth?.user?.patientId ?? state.auth?.patientId ?? null
+  );
+  const patientId = patientIdFromStore == null ? null : Number(patientIdFromStore);
+
+  useEffect(() => {
+    dispatch(initializeAuth());
+  }, [dispatch]);
 
   const isPackage = type === 'packages';
   const isScan = type === 'scans';
@@ -74,6 +86,51 @@ const TestDetail = () => {
       active = false;
     };
   }, [type, id, isTest, isScan, isPackage]);
+
+  const handleAdd = async () => {
+    try {
+      if (!(Number.isInteger(patientId) && patientId > 0)) {
+        console.error('Cannot add to cart: missing patientId');
+        return;
+      }
+
+      const currentResp = await getLabCart(patientId);
+      const current = currentResp?.data || { tests: [], scans: [], packages: [] };
+      const testIds = (current.tests || [])
+        .map((t) => t.id ?? t.testId)
+        .filter((v) => Number.isInteger(Number(v)))
+        .map(Number);
+      const scanIds = (current.scans || [])
+        .map((s) => s.id ?? s.scanId)
+        .filter((v) => Number.isInteger(Number(v)))
+        .map(Number);
+      const packageIds = (current.packages || [])
+        .map((p) => p.id ?? p.packageId)
+        .filter((v) => Number.isInteger(Number(v)))
+        .map(Number);
+
+      const itemId = Number(item?.id);
+      if (!Number.isInteger(itemId)) return;
+
+      if (isTest) {
+        if (!testIds.includes(itemId)) testIds.push(itemId);
+      } else if (isScan) {
+        if (!scanIds.includes(itemId)) scanIds.push(itemId);
+      } else if (isPackage) {
+        if (!packageIds.includes(itemId)) packageIds.push(itemId);
+      } else {
+        return;
+      }
+
+      const payload = { testIds, scanIds, packageIds };
+      await createLabCart(patientId, payload);
+
+      const refreshed = await getLabCart(patientId);
+      dispatch(hydrateCart(refreshed.data));
+    } catch (error) {
+      console.error('Error adding to cart:', error?.response?.data || error.message);
+    }
+  };
 
   if (loading) {
     return (
@@ -198,18 +255,7 @@ const TestDetail = () => {
             </div>
             <button
               className="px-3 py-1.5 sm:px-4 sm:py-2 bg-[var(--primary-color)] text-white rounded-lg text-sm sm:text-base font-medium transition-colors"
-              onClick={() =>
-                dispatch(
-                  addToCart({
-                    id: item.id,
-                    title: item.title,
-                    price: item.price,
-                    type,      // 'tests' | 'scans' | 'packages'
-                    quantity: 1,
-                    code: item.code,
-                  })
-                )
-              }
+              onClick={handleAdd}
             >
               Add to Cart
             </button>

@@ -262,7 +262,26 @@ export const getPharmacyBilling = (patientId) =>axiosInstance.get(`/medical-reco
 // ✅ Get medical info by patientId
 export const getPatientMedicalInfo = (patientId) => axiosInstance.get(`/patient/medical-info/${patientId}`);
 
+// GET /api/lab-available-tests?selectedTests=&selectedScans=&selectedPackages=
+export const getAvailableLabsBySelection = ({ selectedTests = [], selectedScans = [], selectedPackages = [] }) =>
+  axiosInstance.get("/lab-available-tests", {
+    params: { selectedTests, selectedScans, selectedPackages },
+    paramsSerializer: {
+      serialize: (params) => {
+        const usp = new URLSearchParams();
+        (params.selectedTests || []).forEach((v) => usp.append("selectedTests", String(v)));
+        (params.selectedScans || []).forEach((v) => usp.append("selectedScans", String(v)));
+        (params.selectedPackages || []).forEach((v) => usp.append("selectedPackages", String(v)));
+        return usp.toString();
+      },
+    },
+  });
 
+// GET /api/lab-available-tests/search?location=Hyderabad
+export const searchAvailableLabsByLocation = (location) =>
+  axiosInstance.get("/lab-available-tests/search", {
+    params: { location },
+  });
 
 export const getDoctorIpdVitalsByContext = (doctorId, patientId, context) =>
   axiosInstance.get(`/doctor/ipd-vitals/doctor/${doctorId}/patient/${patientId}/context/${context}`);

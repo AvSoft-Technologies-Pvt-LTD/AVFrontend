@@ -12,7 +12,7 @@ import {
 import {
   apiDateToJSDate,
   jsDateToString,
-  dateStringToAPIDate,
+  apiDateToString,
 } from "./dateUtils";
 import "./scheduler.css";
 
@@ -123,15 +123,17 @@ const AvailabilityPage = () => {
           setSelectedDurationId(schedule.appointmentDuration.id);
         }
 
-        // Load a previously saved fee if present (supports both shapes)
-        if (schedule.consultationFeeAmount != null) {
-          setFeeAmount(String(schedule.consultationFeeAmount));
-        } else if (
-          Array.isArray(schedule.consultationFees) &&
-          schedule.consultationFees.length === 1 &&
-          schedule.consultationFees[0]?.amount != null
-        ) {
-          setFeeAmount(String(schedule.consultationFees[0].amount));
+        // Load consultation fee per new API shape
+        if (schedule.consultationFees != null) {
+          setFeeAmount(String(schedule.consultationFees));
+        }
+
+        // Load unavailable dates into UI deselectedDates
+        if (Array.isArray(schedule.unavailableDates)) {
+          const deselected = schedule.unavailableDates
+            .map((d) => apiDateToString(d))
+            .filter(Boolean);
+          setDeselectedDates(deselected);
         }
       }
     } catch (error) {
@@ -255,8 +257,8 @@ const AvailabilityPage = () => {
     setLoading(true);
     try {
       const sortedDates = [...activeDates].sort();
-      const fromDateAPI = dateStringToAPIDate(sortedDates[0]);
-      const toDateAPI = dateStringToAPIDate(sortedDates[sortedDates.length - 1]);
+      const fromDateAPI = sortedDates[0];
+      const toDateAPI = sortedDates[sortedDates.length - 1];
       const daySlots = generatedSlots.map((slot) => ({
         date: slot.date,
         slots: slot.slots,
@@ -270,8 +272,9 @@ const AvailabilityPage = () => {
         endTime,
         appointmentDurationId: selectedDurationId,
         daySlots,
-        // Simple fee values (only send if provided)
-        ...(feeAmount !== "" ? { consultationFeeAmount: Number(feeAmount), currency: "INR" } : {}),
+        unavailableDates: deselectedDates,
+        // Simple fee value per new API (only send if provided)
+        ...(feeAmount !== "" ? { consultationFees: Number(feeAmount) } : {}),
       };
 
       if (isEditMode) {
@@ -389,13 +392,13 @@ const AvailabilityPage = () => {
             <div className="flex items-center gap-3 sm:gap-4">
               <div
                 className={`flex flex-col items-center gap-1 sm:gap-2 ${
-                  currentStep >= 1 ? "text-blue-600" : "text-gray-400"
+                  currentStep >= 1 ? "text-[var(--primary-color)]" : "text-gray-400"
                 }`}
               >
                 <div
                   className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center font-bold text-base sm:text-lg transition-all duration-300 ${
                     currentStep >= 1
-                      ? "bg-blue-600 text-white shadow-lg scale-110"
+                      ? "bg-[var(--primary-color)] text-white shadow-lg scale-110"
                       : "bg-gray-200 text-gray-500"
                   }`}
                 >
@@ -407,18 +410,18 @@ const AvailabilityPage = () => {
               </div>
               <div
                 className={`w-16 sm:w-24 h-1 rounded transition-all duration-500 ${
-                  currentStep >= 2 ? "bg-blue-600" : "bg-gray-200"
+                  currentStep >= 2 ? "bg-[var(--primary-color)]" : "bg-gray-200"
                 }`}
               ></div>
               <div
                 className={`flex flex-col items-center gap-1 sm:gap-2 ${
-                  currentStep >= 2 ? "text-blue-600" : "text-gray-400"
+                  currentStep >= 2 ? "text-[var(--primary-color)]" : "text-gray-400"
                 }`}
               >
                 <div
                   className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center font-bold text-base sm:text-lg transition-all duration-300 ${
                     currentStep >= 2
-                      ? "bg-blue-600 text-white shadow-lg scale-110"
+                      ? "bg-[var(--primary-color)] text-white shadow-lg scale-110"
                       : "bg-gray-200 text-gray-500"
                   }`}
                 >

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Bed } from "lucide-react";
 import {
   Users,
@@ -9,6 +9,7 @@ import {
   Stethoscope,
   Activity,
 } from "lucide-react";
+import { getAllSymptoms } from "../../../../../utils/masterService";
 
 const WARD_ICONS = {
   "General Ward": Users,
@@ -99,7 +100,13 @@ export const generateAdmissionFields = (masterData, staticData) => {
       options: staticData.surgery,
     },
     { name: "dischargeDate", label: "Discharge Date", type: "date" },
-    { name: "diagnosis", label: "Diagnosis", type: "text" },
+    { 
+      name: "diagnosis", 
+      label: "Diagnosis", 
+      type: "select", 
+      required: true,
+      options: [], // Will be populated from API
+    },
     {
       name: "reasonForAdmission",
       label: "Reason For Admission",
@@ -110,6 +117,41 @@ export const generateAdmissionFields = (masterData, staticData) => {
 };
 
 const IPDFinal = ({ data, selectedWard, selectedRoom, selectedBed, fields, onChange }) => {
+  const [symptomsList, setSymptomsList] = useState([]);
+  const [loadingSymptoms, setLoadingSymptoms] = useState(false);
+
+  // Fetch symptoms from API
+  useEffect(() => {
+    const fetchSymptoms = async () => {
+      try {
+        setLoadingSymptoms(true);
+        const symptoms = await getAllSymptoms();
+        // Assuming API returns array of symptoms with id and name
+        const formattedSymptoms = symptoms.map((symptom, index) => ({
+          key: `symptom-${index}`,
+          value: symptom.id || symptom.value || symptom._id,
+          label: symptom.name || symptom.label || symptom.symptomName
+        }));
+        setSymptomsList(formattedSymptoms);
+      } catch (error) {
+        console.error('Error fetching symptoms:', error);
+        // Set empty array if API fails - no fallback symptoms
+        setSymptomsList([]);
+      } finally {
+        setLoadingSymptoms(false);
+      }
+    };
+
+    fetchSymptoms();
+  }, []);
+
+  // Update diagnosis field options
+  useEffect(() => {
+    const diagnosisField = fields.find(field => field.name === 'diagnosis');
+    if (diagnosisField) {
+      diagnosisField.options = symptomsList;
+    }
+  }, [symptomsList, fields]);
   const renderField = (field) => (
     <div
       key={field.name}
@@ -129,13 +171,23 @@ const IPDFinal = ({ data, selectedWard, selectedRoom, selectedBed, fields, onCha
             <select
               value={data[field.name] || ""}
               onChange={(e) => onChange(field.name, e.target.value)}
-              disabled={field.disabled}
+              disabled={field.disabled || (field.name === 'diagnosis' && loadingSymptoms)}
               className={`w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#01B07A] peer pt-4 pb-1 ${
-                field.disabled ? "bg-gray-100 cursor-not-allowed" : ""
+                field.disabled || (field.name === 'diagnosis' && loadingSymptoms) ? "bg-gray-100 cursor-not-allowed" : ""
               }`}
             >
-              <option value="">Select {field.label}</option>
-              {field.options?.map((opt) => (
+              <option value="">
+                {field.name === 'diagnosis' && loadingSymptoms 
+                  ? "Loading symptoms..." 
+                  : `Select ${field.label}`
+                }
+              </option>
+              {field.name === 'diagnosis' && !loadingSymptoms && field.options?.map((opt) => (
+                <option key={opt.key || opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+              {field.name !== 'diagnosis' && field.options?.map((opt) => (
                 <option key={opt.key || opt.value} value={opt.value}>
                   {opt.label}
                 </option>
