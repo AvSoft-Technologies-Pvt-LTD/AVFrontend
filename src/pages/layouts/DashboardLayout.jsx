@@ -16,18 +16,26 @@ const DashboardLayout = () => {
   const location = useLocation();
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [previousPath, setPreviousPath] = useState(location.pathname);
 
   useEffect(() => {
     dispatch(initializeAuth());
   }, [dispatch]);
 
   useEffect(() => {
-    setLoading(true);
-    const timeout = setTimeout(() => {
-      setLoading(false);
-    }, 300);
-    return () => clearTimeout(timeout);
-  }, [location.pathname]);
+    // Only show loader for actual navigation, not for save operations
+    const currentPath = location.pathname;
+    
+    // Only show loader if the path actually changed (real navigation)
+    if (currentPath !== previousPath) {
+      setLoading(true);
+      const timeout = setTimeout(() => {
+        setLoading(false);
+        setPreviousPath(currentPath);
+      }, 300);
+      return () => clearTimeout(timeout);
+    }
+  }, [location.pathname, previousPath]);
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
@@ -75,18 +83,6 @@ const DashboardLayout = () => {
     return matchedItem ? matchedItem.label : "Dashboard";
   }, [location.pathname, userType]);
 
-  if (authLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-center">
-          <Loader />
-          <p className="text-lg mt-4 text-gray-600">
-            Loading your dashboard...
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />;

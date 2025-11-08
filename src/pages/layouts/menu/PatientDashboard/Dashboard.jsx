@@ -655,7 +655,7 @@ function Dashboard() {
   };
 
   return (
-    <div className="p-2 sm:p-6 max-w-7xl mx-auto">
+    <div className="p-2 sm:p-6 max-w-full mx-auto">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
         <h1 className="text-l sm:text-2xl lg:text-2xl font-bold text-gray-900 m-0">Patient Information</h1>

@@ -1,5 +1,18 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Camera, Eye, EyeOff, Edit2, Check, Save, X, User, Lock, ShieldCheck, MailCheck, PhoneCall } from "lucide-react";
+import {
+  Camera,
+  Eye,
+  EyeOff,
+  Edit2,
+  Check,
+  Save,
+  X,
+  User,
+  Lock,
+  ShieldCheck,
+  MailCheck,
+  PhoneCall,
+} from "lucide-react";
 import { useSelector, useDispatch } from "react-redux";
 import { updatePatient } from "../../../../context-api/authSlice";
 import { useNavigate } from "react-router-dom";
@@ -29,7 +42,6 @@ const formFields = {
 };
 
 const Settings = () => {
-  // --- All hooks called here ---
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
   const patientId = user?.patientId || user?.id;
@@ -42,18 +54,14 @@ const Settings = () => {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("personal");
   const [isVerified, setIsVerified] = useState(false);
   const [isPhoneVerified, setIsPhoneVerified] = useState(false);
 
-  // --- Load patient data ---
   useEffect(() => {
     const loadPatientData = async () => {
       if (!patientId) return;
       try {
-        setIsLoading(true);
         const response = await getPatientById(patientId);
         const patient = response.data;
         if (patient.photo) {
@@ -69,7 +77,9 @@ const Settings = () => {
         const formattedDob = Array.isArray(patient.dob)
           ? new Date(patient.dob[0], patient.dob[1] - 1, patient.dob[2]).toISOString().split("T")[0]
           : "";
-        const permanentAddress = `${patient.pinCode || ""}, ${patient.city || ""}, ${patient.district || ""}, ${patient.state || ""}`.trim();
+        const permanentAddress = `${patient.pinCode || ""}, ${patient.city || ""}, ${
+            patient.district || ""
+          }, ${patient.state || ""}`.trim();
         setFormData({
           ...patient,
           dob: formattedDob,
@@ -79,15 +89,12 @@ const Settings = () => {
           confirmPassword: "",
         });
       } catch (err) {
-        setError("Failed to load patient profile.");
-      } finally {
-        setIsLoading(false);
+        console.error("Failed to load patient profile:", err);
       }
     };
     loadPatientData();
   }, [patientId]);
 
-  // --- Handlers ---
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -103,45 +110,69 @@ const Settings = () => {
     setHasUnsavedChanges(true);
   };
 
-  
- const handleSaveChanges = async (e) => {
-  e.preventDefault();
-  try {
-    setIsSaving(true);
-    const updatedFormData = new FormData();
-    updatedFormData.append("firstName", formData.firstName || "");
-    updatedFormData.append("middleName", formData.middleName || "");
-    updatedFormData.append("lastName", formData.lastName || "");
-    updatedFormData.append("phone", formData.phone || "");
-    updatedFormData.append("email", formData.email || "");
-    updatedFormData.append("genderId", formData.genderId || "");
-    // Append currentPassword, newPassword, and confirmPassword
-    updatedFormData.append("currentPassword", formData.currentPassword || "");
-    updatedFormData.append("Password", formData.newPassword || "");
-    updatedFormData.append("confirmPassword", formData.confirmPassword || "");
-    updatedFormData.append("aadhaar", formData.aadhaar || "");
-    updatedFormData.append("dob", formData.dob || "");
-    updatedFormData.append("occupation", formData.occupation || "");
-    updatedFormData.append("pinCode", formData.pinCode || "");
-    updatedFormData.append("city", formData.city || "");
-    updatedFormData.append("district", formData.district || "");
-    updatedFormData.append("state", formData.state || "");
-    if (fileInputRef.current?.files?.[0]) {
-      updatedFormData.append("photo", fileInputRef.current.files[0]);
+  const handleSaveChanges = async (e) => {
+    e.preventDefault();
+    try {
+      setIsSaving(true);
+      const updatedFormData = new FormData();
+      updatedFormData.append("firstName", formData.firstName || "");
+      updatedFormData.append("middleName", formData.middleName || "");
+      updatedFormData.append("lastName", formData.lastName || "");
+      updatedFormData.append("phone", formData.phone || "");
+      updatedFormData.append("email", formData.email || "");
+      updatedFormData.append("genderId", formData.genderId || "");
+      updatedFormData.append("currentPassword", formData.currentPassword || "");
+      updatedFormData.append("Password", formData.newPassword || "");
+      updatedFormData.append("confirmPassword", formData.confirmPassword || "");
+      updatedFormData.append("aadhaar", formData.aadhaar || "");
+      updatedFormData.append("dob", formData.dob || "");
+      updatedFormData.append("occupation", formData.occupation || "");
+      updatedFormData.append("pinCode", formData.pinCode || "");
+      updatedFormData.append("city", formData.city || "");
+      updatedFormData.append("district", formData.district || "");
+      updatedFormData.append("state", formData.state || "");
+      if (fileInputRef.current?.files?.[0]) {
+        updatedFormData.append("photo", fileInputRef.current.files[0]);
+      }
+      await dispatch(updatePatient({ id: patientId, formData: updatedFormData })).unwrap();
+      toast.success("Patient updated successfully!");
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2500);
+      setIsEditMode(false);
+      setHasUnsavedChanges(false);
+      const response = await getPatientById(patientId);
+      const patient = response.data;
+      if (patient.photo) {
+        try {
+          const photoRes = await getPatientPhoto(patient.photo);
+          const blob = photoRes.data;
+          const imageUrl = URL.createObjectURL(blob);
+          setProfileImage(imageUrl);
+        } catch (e) {
+          console.warn("Failed to load patient photo");
+        }
+      }
+      const formattedDob = Array.isArray(patient.dob)
+        ? new Date(patient.dob[0], patient.dob[1] - 1, patient.dob[2]).toISOString().split("T")[0]
+        : "";
+      const permanentAddress = `${patient.pinCode || ""}, ${patient.city || ""}, ${
+        patient.district || ""
+      }, ${patient.state || ""}`.trim();
+      setFormData({
+        ...patient,
+        dob: formattedDob,
+        permanentAddress,
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+    } catch (error) {
+      console.error("Failed to save patient:", error);
+      toast.error(error.message || "Failed to save changes. Please try again.");
+    } finally {
+      setIsSaving(false);
     }
-    await dispatch(updatePatient({ id: patientId, formData: updatedFormData })).unwrap();
-    toast.success("Patient updated successfully!");
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 2500);
-    setIsEditMode(false);
-    setHasUnsavedChanges(false);
-  } catch (error) {
-    console.error("Failed to save patient:", error);
-    toast.error(error.message || "Failed to save changes. Please try again.");
-  } finally {
-    setIsSaving(false);
-  }
-};
+  };
 
   const handleCancelEdit = () => {
     setIsEditMode(false);
@@ -152,7 +183,6 @@ const Settings = () => {
     navigate("/healthcard-otp");
   };
 
-  // --- Render Field (No hooks called here) ---
   const renderField = ({ id, label, type, readOnly, options, toggleVisibility, verify, verified }) => {
     const value = formData[id] || "";
     const baseInputClasses = `
@@ -161,9 +191,8 @@ const Settings = () => {
       transition-all duration-200 ease-in-out
       focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50
       disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60
-      ${readOnly || !isEditMode ? 'bg-gray-50 cursor-not-allowed' : 'hover:border-gray-300'}
+      ${readOnly || !isEditMode ? "bg-gray-50 cursor-not-allowed" : "hover:border-gray-300"}
     `;
-
     return (
       <div key={id} className="w-full space-y-2">
         <label className="block text-sm font-semibold text-gray-700">{label}</label>
@@ -175,7 +204,7 @@ const Settings = () => {
             className={`${baseInputClasses} min-h-[100px] resize-none`}
             rows={4}
             readOnly={readOnly || !isEditMode}
-            placeholder={isEditMode ? `Enter your ${label.toLowerCase()}` : ''}
+            placeholder={isEditMode ? `Enter your ${label.toLowerCase()}` : ""}
           />
         ) : type === "select" ? (
           <select
@@ -187,7 +216,9 @@ const Settings = () => {
           >
             <option value="">Select {label}</option>
             {(options || []).map((opt) => (
-              <option key={opt} value={opt}>{opt}</option>
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
             ))}
           </select>
         ) : type === "password" ? (
@@ -222,7 +253,7 @@ const Settings = () => {
               onChange={handleInputChange}
               className={baseInputClasses}
               readOnly={readOnly || !isEditMode}
-              placeholder={isEditMode ? `Enter your ${label.toLowerCase()}` : ''}
+              placeholder={isEditMode ? `Enter your ${label.toLowerCase()}` : ""}
             />
             {verify && isEditMode && (
               <button
@@ -250,7 +281,6 @@ const Settings = () => {
     );
   };
 
-  // --- Tab Icon Helper ---
   const getTabIcon = (tab) => {
     switch (tab) {
       case "personal":
@@ -262,74 +292,37 @@ const Settings = () => {
     }
   };
 
-  // --- Early returns (after all hooks) ---
-  // if (isLoading) return (
-  //   <div className="min-h-screen flex items-center justify-center bg-gray-50">
-  //     <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full mx-4">
-  //       <div className="animate-pulse">
-  //         <div className="w-24 h-24 bg-gray-200 rounded-full mx-auto mb-6"></div>
-  //         <div className="h-6 bg-gray-200 rounded mb-4"></div>
-  //         <div className="h-4 bg-gray-200 rounded mb-6"></div>
-  //         <div className="space-y-4">
-  //           <div className="h-12 bg-gray-200 rounded-lg"></div>
-  //           <div className="h-12 bg-gray-200 rounded-lg"></div>
-  //         </div>
-  //       </div>
-  //     </div>
-  //   </div>
-  // );
-
-  // if (error) return (
-  //   <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-  //     <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full text-center">
-  //       <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-  //         <X size={32} className="text-red-600" />
-  //       </div>
-  //       <h3 className="text-xl font-bold text-gray-900 mb-2">Oops! Something went wrong</h3>
-  //       <p className="text-gray-600 mb-6">{error}</p>
-  //       <button
-  //         onClick={() => window.location.reload()}
-  //         className="w-full bg-[var(--accent-color)] hover:bg-[var(--accent-color)] text-white font-semibold py-3 px-6 rounded-xl transition-colors duration-200"
-  //       >
-  //         Reload Page
-  //       </button>
-  //     </div>
-  //   </div>
-  // );
-
-  // --- Main Render ---
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-6xl mx-auto">
-        {/* Header Section */}
+    <div className="bg-gray-50">
+      <div className="p-2 sm:p-6 max-w-full mx-auto">
         <div className="relative bg-gradient-to-br from-[var(--primary-color)] to-[var(--accent-color)] border-b rounded-xl text-white">
           <div className="px-4 sm:px-6 lg:px-8 pt-8 pb-8">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div className="w-full sm:w-auto text-center sm:text-left">
                 <h1 className="text-xl sm:text-3xl font-bold">Profile Settings</h1>
-                <p className="text-slate-300 mt-1">Manage your account information and preferences</p>
+                <p className="text-slate-300 m-2">Manage your account information and preferences</p>
               </div>
-              {!isEditMode ? (
-                <button
-                  onClick={() => setIsEditMode(true)}
-                  className="inline-flex items-center gap-2 bg-[var(--primary-color)] text-white font-semibold px-6 py-3 rounded-xl transition-all duration-200 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-emerald-500/30 w-full sm:w-auto justify-center"
-                >
-                  <Edit2 size={18} />
-                  <span>Edit Profile</span>
-                </button>
-              ) : (
-                <div className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-sm border border-white/20 px-4 py-2 rounded-xl w-full sm:w-auto justify-center">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
-                    <span className="text-sm font-medium">Edit Mode</span>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
+          {/* Top Right Corner Edit Button */}
+          <div className="absolute top-4 right-4 z-10">
+            {!isEditMode ? (
+              <button
+                onClick={() => setIsEditMode(true)}
+                className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white font-semibold px-4 py-2 rounded-lg transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-white/30"
+              >
+                <Edit2 size={16} />
+                <span className="hidden sm:inline">Edit</span>
+                <span className="sm:hidden">Edit</span>
+              </button>
+            ) : (
+              <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 px-3 py-2 rounded-lg">
+                <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+                <span className="text-sm font-medium">Edit Mode</span>
+              </div>
+            )}
+          </div>
         </div>
-
-        {/* Profile Image Section */}
         <div className="relative -mt-16 px-4 sm:px-6 lg:px-8">
           <div className="flex justify-center">
             <div className="relative">
@@ -369,8 +362,6 @@ const Settings = () => {
             </div>
           </div>
         </div>
-
-        {/* Navigation Tabs */}
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-center">
             <div className="inline-flex bg-white rounded-2xl p-1 shadow-lg">
@@ -395,8 +386,6 @@ const Settings = () => {
             </div>
           </div>
         </div>
-
-        {/* Form Content */}
         <div className="px-4 sm:px-6 lg:px-8 pb-8">
           <form onSubmit={handleSaveChanges}>
             {["personal", "password"].map((tab) => (
@@ -428,79 +417,32 @@ const Settings = () => {
                 </div>
               </div>
             ))}
-            {/* Action Buttons */}
             {isEditMode && (
-              <>
-                {/* Mobile Fixed Bottom Bar */}
-                <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-2xl lg:hidden">
-                  <div className="flex gap-3">
-                    <button
-                      type="button"
-                      onClick={handleCancelEdit}
-                      className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-colors duration-200"
-                    >
-                      <X size={18} />
-                      <span>Cancel</span>
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={!hasUnsavedChanges || isSaving}
-                      className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-[var(--accent-color)] hover:bg-[var(--accent-color)] disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors duration-200"
-                    >
-                      {isSaving ? (
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <Save size={18} />
-                      )}
-                      <span>{isSaving ? "Saving..." : "Save Changes"}</span>
-                    </button>
-                  </div>
+              <div className="px-4 sm:px-6 lg:px-8 pb-8">
+                <div className="flex justify-center gap-4">
+                  <button
+                    type="button"
+                    onClick={handleCancelEdit}
+                    className="flex items-center delete-btn mt-4 gap-1justify-center"
+                  >
+                    <X size={18} />
+                    <span>Cancel</span>
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!hasUnsavedChanges || isSaving}
+                    className="flex item-center justify-center view-btn gap-1 mt-4"
+                  >
+                    <Save size={18} />
+                    <span>{isSaving ? "Saving..." : "Save Changes"}</span>
+                  </button>
                 </div>
-                {/* Desktop Inline Buttons */}
-                <div className="hidden lg:block px-4 sm:px-6 lg:px-8 pb-8">
-                  <div className="flex justify-end gap-4">
-                    <button
-                      type="button"
-                      onClick={handleCancelEdit}
-                      className="flex items-center gap-2 px-8 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-colors duration-200"
-                    >
-                      <X size={18} />
-                      <span>Cancel</span>
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={!hasUnsavedChanges || isSaving}
-                      className="flex items-center gap-2 px-8 py-3 bg-[var(--accent-color)] hover:bg-[var(--accent-color)] disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors duration-200"
-                    >
-                      {isSaving ? (
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <Save size={18} />
-                      )}
-                      <span>{isSaving ? "Saving..." : "Save Changes"}</span>
-                    </button>
-                  </div>
-                </div>
-              </>
+              </div>
             )}
           </form>
         </div>
-
-        {/* Success Toast */}
-        {saveSuccess && (
-          <div className="fixed top-6 right-6 bg-[var(--accent-color)] text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-fade-in z-50 max-w-sm">
-            <div className="flex-shrink-0 w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center">
-              <Check size={16} />
-            </div>
-            <div>
-              <p className="font-semibold">Success!</p>
-              <p className="text-sm text-emerald-100">Your changes have been saved</p>
-            </div>
-          </div>
-        )}
-      </div>
-      {/* Mobile spacing for fixed buttons */}
-      {isEditMode && <div className="h-20 lg:hidden"></div>}
+        </div>
+      {isEditMode && <div className="h-24 lg:hidden"></div>}
     </div>
   );
 };

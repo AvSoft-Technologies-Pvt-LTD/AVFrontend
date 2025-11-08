@@ -314,7 +314,7 @@ const DashboardOverview = () => {
 
   return (
     <div className="bg-[var(--color-surface)] text-[var(--primary-color)]">
-      <div className="max-w-7xl mx-auto custom-scrollbar">
+      <div className="max-w-full mx-auto custom-scrollbar">
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Appointments */}
           <div className="flex-1 overflow-x-auto rounded-2xl slide-in-up sm:p-4">

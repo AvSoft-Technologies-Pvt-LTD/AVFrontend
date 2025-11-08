@@ -226,7 +226,7 @@ const TeleConsultFlow = ({ phone, patientName, context = "virtual", patientEmail
         onClick={() => setOpen(true)}
         className="text-[var(--accent-color)] hover:text-[var(--primary-color)] transition"
       >
-        <FaPhone className="rotate-[100deg] text-sm" />
+      <FaPhone size={20} className="rotate-[100deg]" />
       </button>
       <Modal
         show={open}

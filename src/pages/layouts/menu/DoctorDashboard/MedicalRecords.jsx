@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { FaNotesMedical, FaUpload } from "react-icons/fa";
+import { FaNotesMedical } from "react-icons/fa";
 import TeleConsultFlow from "../../../../components/microcomponents/Call";
 import { usePatientContext } from "../../../../context-api/PatientContext";
 import {
@@ -11,7 +11,7 @@ import {
 import DynamicTable from "../../../../components/microcomponents/DynamicTable";
 import ReusableModal from "../../../../components/microcomponents/Modal";
 import ProfileCard from "../../../../components/microcomponents/ProfileCard";
-import { ArrowLeft, Search, Plus, CheckCircle, Share2 } from "lucide-react";
+import { Search, Plus, CheckCircle, Share2 } from "lucide-react";
 import {
   getHospitalDropdown,
   getAllMedicalConditions,
@@ -155,7 +155,7 @@ const DrMedicalRecords = () => {
 
   const handleViewDetails = (row) => {
     // Navigate to a detailed view of the record, passing the record data as state
-    navigate(`/doctordashboard/medical-record/details`, { state: { record: row } });
+    navigate(`/doctordashboard/medical-record-details`, { state: { record: row } });
   };
   const fetchMasterData = async () => {
     try {
@@ -394,13 +394,6 @@ const DrMedicalRecords = () => {
 
   return (
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
-      {/* <button
-        className="mb-4 inline-flex items-center text-sm sm:text-base"
-        onClick={() => navigate("/doctordashboard/patients")}
-      >
-        <ArrowLeft size={18} className="sm:h-5 sm:w-5" />
-        <span className="ms-2 font-medium">Back to Patient List</span>
-      </button> */}
       {selectedPatient && (
         <ProfileCard
           initials={getInitials(selectedPatient.patientName || selectedPatient.name || "")}
@@ -414,27 +407,26 @@ const DrMedicalRecords = () => {
           ]}
          context={selectedPatient.context || "OPD"}
         >
-          <div className="absolute top-3 right-4 bg-gray-100 p-2 rounded-md flex items-center gap-3">
-            <button
+          <div className="absolute top-3 right-4 flex items-center gap-3">
+            <button className="bg-white p-2 rounded-full text-blue-600 hover:bg-blue-200 hover:text-blue-700 transition-colors"
               onClick={() => handleformAddRecord(selectedPatient)}
-              className="text-[var(--primary-color)] hover:text-[var(--accent-color)]"
-              title="Add Medical Record"
-            >
-              <FaNotesMedical size={18} />
+              title="Add Medical Record" ><FaNotesMedical size={20} />
             </button>
 
-            <TeleConsultFlow
-              phone={selectedPatient.patientPhone}
-              patientName={
-                selectedPatient.patientName ||
-                `${selectedPatient.firstName || ""} ${selectedPatient.middleName || ""} ${selectedPatient.lastName || ""}`
-                  .replace(/\s+/g, " ")
-                  .trim()
-              }
-              context={selectedPatient.context || "OPD"}// use prop dynamically
-              patientEmail={selectedPatient.patientEmail}
-              hospitalName={selectedPatient.hospitalName || "AV Hospital"}
-            />
+            <div className="bg-white px-2 py-1 rounded-full">
+              <TeleConsultFlow
+                phone={selectedPatient.patientPhone}
+                patientName={
+                  selectedPatient.patientName ||
+                  `${selectedPatient.firstName || ""} ${selectedPatient.middleName || ""} ${selectedPatient.lastName || ""}`
+                    .replace(/\s+/g, " ")
+                    .trim()
+                }
+                context={selectedPatient.context || "OPD"}// use prop dynamically
+                patientEmail={selectedPatient.patientEmail}
+                hospitalName={selectedPatient.hospitalName || ""}
+              />
+            </div>
           </div>
         </ProfileCard>
       )}
@@ -448,29 +440,6 @@ const DrMedicalRecords = () => {
             Medical Records History
           </h2>
         </div>
-        {/* 
-  <div className="flex items-center gap-3 bg-gray-100 p-1 rounded-md">
-    <button
-      onClick={() => handleformAddRecord(selectedPatient)}
-      className="text-base p-1 text-[var(--primary-color)] hover:text-[var(--accent-color)]"
-      title="Add Medical Record"
-    >
-      <FaNotesMedical size={18} />
-    </button>
-
-    <TeleConsultFlow
-      phone={selectedPatient.patientPhone}
-      patientName={
-        selectedPatient.patientName ||
-        `${selectedPatient.firstName || ""} ${selectedPatient.middleName || ""} ${selectedPatient.lastName || ""}`
-          .replace(/\s+/g, " ")
-          .trim()
-      }
-      context="OPD"
-      patientEmail={selectedPatient.patientEmail}
-      hospitalName={selectedPatient.hospitalName || "AV Hospital"}
-    />
-  </div> */}
       </div>
 
       <div className="overflow-x-auto">
@@ -484,27 +453,6 @@ const DrMedicalRecords = () => {
           onTabChange={handleTabChange}
         />
       </div>
-      {loading && (
-        <div className="text-center py-6 sm:py-8">
-          <p className="text-sm sm:text-base">Loading medical records...</p>
-        </div>
-      )}
-      {fetchError && (
-        <div className="text-center text-red-600 py-6 sm:py-8">
-          <p className="text-sm sm:text-base">{fetchError}</p>
-        </div>
-      )}
-      {getCurrentTabData().length === 0 && !loading && !fetchError && (
-        <div className="text-center py-6 sm:py-8 text-gray-600">
-          <div className="flex flex-col items-center gap-3 sm:gap-4">
-            <CheckCircle size={36} className="text-gray-400 sm:h-10 sm:w-10" />
-            <div>
-              <h3 className="text-base sm:text-lg font-semibold mb-1 sm:mb-2">No Accessible Medical Records</h3>
-              <p className="text-xs sm:text-sm">No medical records found for this patient in the selected category.</p>
-            </div>
-          </div>
-        </div>
-      )}
       <ReusableModal
         isOpen={state.showAddModal}
         onClose={() => setState({ showAddModal: false })}

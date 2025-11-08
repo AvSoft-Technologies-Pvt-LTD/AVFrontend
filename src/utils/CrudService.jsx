@@ -42,6 +42,47 @@ export const updateFamily = (id, data) =>
 export const deleteFamily = (id) => 
   axiosInstance.delete(`/patient-dashboard/family-members/${id}`);
 
+
+/* -----------------------------
+   HEALTHCARD GENERATION (CRUD)
+------------------------------ */
+
+// Generate a new health card for a patient
+export const generateHealthCard = (patientId, data) => {
+  return axiosInstance.post(`/health-cards/generate/${patientId}`, data);
+};
+
+// Get an existing health card by patientId
+export const getHealthCardByPatientId = (patientId) => {
+  return axiosInstance.get(`/health-cards/patient/${patientId}`);
+};
+
+/* -----------------------------
+   HEALTHCARD PLAN SELECTION (CRUD)
+------------------------------ */
+
+// Get patient subscription
+export const getPatientSubscription = (patientId) => {
+  return axiosInstance.get(`/patients/${patientId}/subscription`);
+};
+
+// Create subscription for a patient
+export const createPatientSubscription = (patientId, data) => {
+  return axiosInstance.post(`/patients/${patientId}/subscription`, data);
+};
+
+// Update subscription for a patient
+export const updatePatientSubscription = (patientId, data) => {
+  return axiosInstance.put(`/patients/${patientId}/subscription`, data);
+};
+
+// Get QR image as blob
+export const getQRImage = (filename) => {
+  return axiosInstance.get(`/uploads/qrcodes/${filename}`, {
+    responseType: 'blob'
+  });
+};
+
 /* -----------------------------
    ADDITIONAL DETAILS (CRUD)
 ------------------------------ */
