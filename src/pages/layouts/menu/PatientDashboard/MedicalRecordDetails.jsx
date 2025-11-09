@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { createPortal } from "react-dom";
 import DynamicTable from "../../../../components/microcomponents/DynamicTable";
 import DocsReader from "../../../../components/DocsReader";
 import ProfileCard from "../../../../components/microcomponents/ProfileCard";
@@ -19,10 +20,11 @@ import {
   Printer,
   Stethoscope,
   Video,
+  X,
   Receipt,
   Pencil,
 } from "lucide-react";
-import { createPortal } from "react-dom";
+
 import {
   getPatientVitalById,
   createPatientVital,
@@ -34,9 +36,14 @@ import {
   getLabBilling,
   getPharmacyBilling,
   getPatientMedicalInfo,
+  getDoctorIpdVitalsByContext
 } from "../../../../utils/masterService";
 import { useMedicalRecords } from "../../../../context-api/MedicalRecordsContext";
-
+  import medicalRecordImage from '../../../../assets/geminiIN1.png';
+  import prescriptionImage from '../../../../assets/prescriptionq.jpg';
+  import labReportImage from '../../../../assets/lab1.jpg';
+  import billingImage from '../../../../assets/PB4.jpeg';
+  import videoImage from '../../../../assets/videocalling.avif';
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -147,10 +154,46 @@ const VideoPlaybackModal = ({ show, onClose, videoBlob, metadata }) =>
       )
     : null;
 
+const ImageViewModal = ({ isOpen, onClose, imageUrl, title }) => {
+  if (!isOpen) return null;
+  
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+      <div className="relative bg-white rounded-xl w-auto max-w-2xl max-h-[90vh] overflow-hidden">
+        <div className="flex justify-between items-center p-4 border-b">
+          <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            <X size={24} />
+          </button>
+        </div>
+        <div className="p-4">
+          <img
+            src={imageUrl}
+            alt={title}
+            className="w-auto me-5 max-w-full h-auto max-h-[70vh] object-contain"
+            style={{ width: 'auto', minWidth: '600px' }}
+          />
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
+
+
 const PatientMedicalRecordDetails = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const user = useSelector((state) => state.auth.user);
+  const [imageModal, setImageModal] = useState({
+    isOpen: false,
+    imageUrl: "",
+    title: ""
+  });
   const { clickedRecord: selectedRecord, activeTab } = useMedicalRecords();
   const [hospitalBillingData, setHospitalBillingData] = useState([]);
   const [labBillingData, setLabBillingData] = useState([]);
@@ -184,6 +227,57 @@ const PatientMedicalRecordDetails = () => {
     return `${age} years`;
   };
 
+  // Small wrapper that shows a subtle '...' indicator when its content overflows
+  const ScrollHintBox = ({ children, className = "" }) => {
+    const ref = useRef(null);
+    const [isOverflowing, setIsOverflowing] = useState(false);
+
+    useEffect(() => {
+      const el = ref.current;
+      if (!el) return;
+      const check = () => {
+        // consider vertical overflow
+        setIsOverflowing(el.scrollHeight > el.clientHeight + 1);
+      };
+      check();
+      // watch for size/content changes
+      const ro = new ResizeObserver(check);
+      ro.observe(el);
+      window.addEventListener("resize", check);
+      return () => {
+        ro.disconnect();
+        window.removeEventListener("resize", check);
+      };
+    }, [children]);
+
+    return (
+      <div ref={ref} className={`${className} relative`}>
+        {children}
+        {isOverflowing && (
+          <div className="pointer-events-none absolute bottom-1 right-2 text-gray-500 text-sm select-none">…</div>
+        )}
+        {isOverflowing && (
+          <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white/90 to-transparent"></div>
+        )}
+      </div>
+    );
+  };
+
+  const renderMedicalGrid = (fields = []) => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 md:gap-6 ml-6 mr-6">
+      {fields.map((item, index) => (
+        <div key={index} className="bg-white p-3 sm:p-4 md:p-6 rounded-lg sm:rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
+          <div className="font-semibold text-xs sm:text-sm md:text-base text-gray-600 mb-1 sm:mb-1.5 md:mb-2">{item.label}</div>
+          {["Chief Complaint", "Past History", "Advice", "Plan"].includes(item.label) ? (
+            <div className="overflow-auto cc-scrollbar max-h-20 text-gray-800 text-xs sm:text-sm md:text-base pr-2">{item.value}</div>
+          ) : (
+            <div className="text-gray-500 text-xs sm:text-sm md:text-sm">{item.value}</div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+
   const displayAge = useMemo(() => calculateAge(dob, visitDate), [dob, visitDate]);
   const displayDob = dob || "N/A";
   const displayEmail = email || "N/A";
@@ -208,7 +302,6 @@ const PatientMedicalRecordDetails = () => {
   const [prescriptionData, setPrescriptionData] = useState([]);
   const [labTestsData] = useState([]);
   const [vitalsData, setVitalsData] = useState(null);
-  const [doctorIpdVitals, setDoctorIpdVitals] = useState(null);
   const [loading, setLoading] = useState(false);
   const [, setError] = useState(null);
   const [medicalError, setMedicalError] = useState(null);
@@ -338,23 +431,7 @@ const PatientMedicalRecordDetails = () => {
     }
   };
 
-  // Fetch doctor IPD vitals if uploaded by doctor
-const fetchDoctorIpdVitals = async () => {
-
-
-  try {
-    const response = await getDoctorIpdVitalsByContext(
-      1,
-      2,
-     "OPD"
-    );
-    setDoctorIpdVitals(response?.data ?? null);
-  } catch (err) {
-    setDoctorIpdVitals(null);
-  } finally {
-    setLoading(false);
-  }
-};
+  
 
   const fetchClinicalNotes = async () => {
     if (!selectedRecord?.patientId) {
@@ -378,6 +455,41 @@ const fetchDoctorIpdVitals = async () => {
       console.error("Failed to fetch clinical notes:", err);
       setClinicalError(err.response?.data?.message || "Failed to fetch clinical notes.");
       setClinicalNotes(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch IPD vitals provided by doctor in doctor-uploaded records / doctor context
+  const fetchDoctorIpdVitals = async () => {
+    // choose a doctor id: prefer logged-in user if available, otherwise fall back to record's doctorId
+    const docId = user?.id || (selectedRecord?.doctorId && String(selectedRecord.doctorId));
+    if (!selectedRecord?.patientId || !docId) {
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await getDoctorIpdVitalsByContext(docId, selectedRecord.patientId, ContextTab || activeTab);
+      console.log("Fetched doctor IPD vitals:", response.data);
+      const payload = response.data?.data ?? response.data;
+      // payload might be an array (multiple records) or an object; pick latest if array
+      const vitalsPayload = Array.isArray(payload) ? payload[0] || null : payload;
+      if (vitalsPayload) {
+        // Map fields conservatively — use existing vitalsData shape where possible
+        setVitalsData((prev) => ({
+          bloodPressure: vitalsPayload.bloodPressure || vitalsPayload.blood_pressure || prev?.bloodPressure || "--",
+          heartRate: vitalsPayload.heartRate || vitalsPayload.heart_rate || vitalsPayload.hr || prev?.heartRate || "--",
+          temperature: vitalsPayload.temperature || vitalsPayload.temp || prev?.temperature || "--",
+          spO2: vitalsPayload.spo2 || vitalsPayload.spO2 || prev?.spO2 || "--",
+          respiratoryRate: vitalsPayload.respiratoryRate || vitalsPayload.respiratory_rate || prev?.respiratoryRate || "--",
+          height: vitalsPayload.height || prev?.height || "--",
+          weight: vitalsPayload.weight || prev?.weight || "--",
+          id: vitalsPayload.id || prev?.id,
+        }));
+        setVitalsExist(true);
+      }
+    } catch (err) {
+      console.error("Failed to fetch doctor IPD vitals:", err);
     } finally {
       setLoading(false);
     }
@@ -622,6 +734,7 @@ const fetchDoctorIpdVitals = async () => {
         fetchMedicalInfo();
         fetchVitalsData();
       } else if (isExactDoctor) {
+        // For doctor-uploaded records, fetch clinical notes and doctor-provided IPD vitals
         fetchClinicalNotes();
         fetchDoctorIpdVitals();
       } else {
@@ -689,6 +802,56 @@ const fetchDoctorIpdVitals = async () => {
     }
   }, [state.detailsActiveTab, selectedRecord?.patientId]);
 
+  // Import images from assets
+
+
+  // Attach a delegated click handler to catch clicks on any "View Original" button
+  // This avoids having to add onClick to every button instance across many conditional branches.
+  useEffect(() => {
+    const handleViewOriginalClick = (e) => {
+      try {
+        const btn = e.target.closest && e.target.closest('button');
+        if (!btn) return;
+        if (btn.innerText && btn.innerText.trim() === 'View Original') {
+          e.preventDefault();
+          // Decide image based on active tab
+          const tab = state.detailsActiveTab;
+          let imageUrl = medicalRecordImage; // default image
+          let title = 'Original Document';
+          switch (tab) {
+            case 'medical-records':
+              imageUrl = medicalRecordImage;
+              title = 'Original Medical Record';
+              break;
+            case 'prescriptions':
+              imageUrl = prescriptionImage;
+              title = 'Original Prescription';
+              break;
+            case 'lab-tests':
+              imageUrl = labReportImage;
+              title = 'Original Lab Report';
+              break;
+            case 'billing':
+              imageUrl = billingImage;
+              title = 'Original Bill';
+              break;
+            case 'video':
+              imageUrl = videoImage;
+              title = 'Original Video Snapshot';
+              break;
+            default:
+              break;
+          }
+          setImageModal({ isOpen: true, imageUrl, title });
+        }
+      } catch (err) {
+        console.error('View Original click handler error:', err);
+      }
+    };
+    document.addEventListener('click', handleViewOriginalClick);
+    return () => document.removeEventListener('click', handleViewOriginalClick);
+  }, [state.detailsActiveTab]);
+
   const renderTabContent = () => {
   const uploadedByUpper = String(uploadedBy || "").toUpperCase();
   const isExactPatient = uploadedByUpper === "PATIENT";
@@ -710,19 +873,12 @@ const fetchDoctorIpdVitals = async () => {
               {medicalError ? (
                 <div className="text-center text-gray-600 py-6 md:py-8 text-sm md:text-base">{medicalError}</div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
-                  {[
-                    { label: "Chief Complaint", value: medicalInfo.chiefComplaint || "N/A" },
-                    { label: "Past History", value: medicalInfo.pastHistory || "N/A" },
-                    { label: "Advice", value: medicalInfo.advice || "N/A" },
-                    { label: "Plan", value: medicalInfo.plan || "N/A" },
-                  ].map((item, index) => (
-                    <div key={index} className="bg-white p-3 sm:p-4 md:p-6 rounded-lg sm:rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
-                      <div className="font-semibold text-xs sm:text-sm md:text-base text-gray-600 mb-1 sm:mb-1.5 md:mb-2">{item.label}</div>
-                      <div className="text-gray-800 text-xs sm:text-sm md:text-base">{item.value}</div>
-                    </div>
-                  ))}
-                </div>
+                renderMedicalGrid([
+                  { label: "Chief Complaint", value: medicalInfo.chiefComplaint || "N/A" },
+                  { label: "Past History", value: medicalInfo.pastHistory || "N/A" },
+                  { label: "Advice", value: medicalInfo.advice || "N/A" },
+                  { label: "Plan", value: medicalInfo.plan || "N/A" },
+                ])
               )}
             </div>
           ) : (
@@ -744,19 +900,12 @@ const fetchDoctorIpdVitals = async () => {
               {clinicalError ? (
                 <div className="text-center text-gray-600 py-6 md:py-8 text-sm md:text-base">{clinicalError}</div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
-                  {[
-                    { label: "Chief Complaint", value: clinicalNotes.chiefComplaint || clinicalNotes.chiefcomplaint || "N/A" },
-                    { label: "Past History", value: clinicalNotes.pastHistory || clinicalNotes.history || "N/A" },
-                    { label: "Advice", value: clinicalNotes.treatmentAdvice || clinicalNotes.advice || "N/A" },
-                    { label: "Plan", value: clinicalNotes.plan || "N/A" },
-                  ].map((item, index) => (
-                    <div key={index} className="bg-white p-3 sm:p-4 md:p-6 rounded-lg sm:rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
-                      <div className="font-semibold text-xs sm:text-sm md:text-base text-gray-600 mb-1 sm:mb-1.5 md:mb-2">{item.label}</div>
-                      <div className="text-gray-800 text-xs sm:text-sm md:text-base">{item.value}</div>
-                    </div>
-                  ))}
-                </div>
+                renderMedicalGrid([
+                  { label: "Chief Complaint", value: clinicalNotes.chiefComplaint || clinicalNotes.chiefcomplaint || "N/A" },
+                  { label: "Past History", value: clinicalNotes.pastHistory || clinicalNotes.history || "N/A" },
+                  { label: "Advice", value: clinicalNotes.treatmentAdvice || clinicalNotes.advice || "N/A" },
+                  { label: "Plan", value: clinicalNotes.plan || "N/A" },
+                ])
               )}
               {selectedRecord?.type === "IPD" && (
                 <div className="mt-4 sm:mt-5 md:mt-6">
@@ -784,24 +933,26 @@ const fetchDoctorIpdVitals = async () => {
                 <FileText size={18} className="sm:size-[20px] md:size-[24px] text-[var(--primary-color)]" />
                 <h3 className="text-base sm:text-lg md:text-xl font-semibold">Medical Information</h3>
               </div>
-              <button className="px-2 sm:px-3 py-1 sm:py-1.5 bg-[var(--primary-color)] text-white rounded-md sm:rounded-lg hover:opacity-90 transition-opacity text-xs sm:text-sm self-start md:self-auto">View Original</button>
+              <button 
+                onClick={() => setImageModal({
+                  isOpen: true,
+                  imageUrl: "https://placehold.co/800x1000/png?text=Medical+Record+Sample",
+                  title: "Original Medical Record"
+                })}
+                className="px-2 sm:px-3 py-1 sm:py-1.5 bg-[var(--primary-color)] text-white rounded-md sm:rounded-lg hover:opacity-90 transition-opacity text-xs sm:text-sm self-start md:self-auto"
+              >
+                View Original
+              </button>
             </div>
             {medicalError ? (
               <div className="text-center text-gray-600 py-6 md:py-8 text-sm md:text-base">{medicalError}</div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
-                {[
-                  { label: "Chief Complaint", value: medicalInfo.chiefComplaint || "N/A" },
-                  { label: "Past History", value: medicalInfo.pastHistory || "N/A" },
-                  { label: "Advice", value: medicalInfo.advice || "N/A" },
-                  { label: "Plan", value: medicalInfo.plan || "N/A" },
-                ].map((item, index) => (
-                  <div key={index} className="bg-white p-3 sm:p-4 md:p-6 rounded-lg sm:rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
-                    <div className="font-semibold text-xs sm:text-sm md:text-base text-gray-600 mb-1 sm:mb-1.5 md:mb-2">{item.label}</div>
-                    <div className="text-gray-800 text-xs sm:text-sm md:text-base">{item.value}</div>
-                  </div>
-                ))}
-              </div>
+              renderMedicalGrid([
+                { label: "Chief Complaint", value: medicalInfo.chiefComplaint || "N/A" },
+                { label: "Past History", value: medicalInfo.pastHistory || "N/A" },
+                { label: "Advice", value: medicalInfo.advice || "N/A" },
+                { label: "Plan", value: medicalInfo.plan || "N/A" },
+              ])
             )}
           </div>
         ) : clinicalNotes ? (
@@ -816,19 +967,12 @@ const fetchDoctorIpdVitals = async () => {
             {clinicalError ? (
               <div className="text-center text-gray-600 py-6 md:py-8 text-sm md:text-base">{clinicalError}</div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
-                {[
-                  { label: "Chief Complaint", value: clinicalNotes.chiefComplaint || clinicalNotes.chiefcomplaint || "N/A" },
-                  { label: "Past History", value: clinicalNotes.pastHistory || clinicalNotes.history || "N/A" },
-                  { label: "Advice", value: clinicalNotes.treatmentAdvice || clinicalNotes.advice || "N/A" },
-                  { label: "Plan", value: clinicalNotes.plan || "N/A" },
-                ].map((item, index) => (
-                  <div key={index} className="bg-white p-3 sm:p-4 md:p-6 rounded-lg sm:rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
-                    <div className="font-semibold text-xs sm:text-sm md:text-base text-gray-600 mb-1 sm:mb-1.5 md:mb-2">{item.label}</div>
-                    <div className="text-gray-800 text-xs sm:text-sm md:text-base">{item.value}</div>
-                  </div>
-                ))}
-              </div>
+              renderMedicalGrid([
+                { label: "Chief Complaint", value: clinicalNotes.chiefComplaint || clinicalNotes.chiefcomplaint || "N/A" },
+                { label: "Past History", value: clinicalNotes.pastHistory || clinicalNotes.history || "N/A" },
+                { label: "Advice", value: clinicalNotes.treatmentAdvice || clinicalNotes.advice || "N/A" },
+                { label: "Plan", value: clinicalNotes.plan || "N/A" },
+              ])
             )}
             {selectedRecord?.type === "IPD" && (
               <div className="mt-4 sm:mt-5 md:mt-6">
@@ -852,9 +996,12 @@ const fetchDoctorIpdVitals = async () => {
           <div className="text-center text-gray-600 py-6 md:py-8 text-sm md:text-base">{prescriptionError}</div>
         ) : prescriptionData.length > 0 ? (
           <div className="ml-6 mr-6 space-y-4 md:space-y-6">
-            <div className="flex items-center gap-2 md:gap-3 mb-4 md:mb-6">
-              <Pill size={16} className="md:size-[20px] text-purple-600" />
-              <h4 className="text-lg md:text-xl font-semibold">Prescribed Medications</h4>
+            <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-3 sm:mb-4 md:mb-6 gap-2 sm:gap-3">
+              <div className="flex items-center gap-2 md:gap-3">
+                <Pill size={16} className="md:size-[20px] text-purple-600" />
+                <h4 className="text-lg md:text-xl font-semibold">Prescribed Medications</h4>
+              </div>
+              <button className="px-2 sm:px-3 py-1 sm:py-1.5 bg-[var(--primary-color)] text-white rounded-md sm:rounded-lg hover:opacity-90 transition-opacity text-xs sm:text-sm self-start md:self-auto">View Original</button>
             </div>
             {loading ? (
               <div className="text-center py-6 md:py-8 text-sm md:text-base">Loading prescriptions...</div>
@@ -885,9 +1032,12 @@ const fetchDoctorIpdVitals = async () => {
           <div className="text-center text-gray-600 py-6 md:py-8 text-sm md:text-base">{prescriptionError}</div>
         ) : prescriptionData.length > 0 ? (
           <div className="ml-6 mr-6 space-y-4 md:space-y-6">
-            <div className="flex items-center gap-2 md:gap-3 mb-4 md:mb-6">
-              <Pill size={16} className="md:size-[20px] text-purple-600" />
-              <h4 className="text-lg md:text-xl font-semibold">Prescribed Medications</h4>
+            <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-3 sm:mb-4 md:mb-6 gap-2 sm:gap-3">
+              <div className="flex items-center gap-2 md:gap-3">
+                <Pill size={16} className="md:size-[20px] text-purple-600" />
+                <h4 className="text-lg md:text-xl font-semibold">Prescribed Medications</h4>
+              </div>
+              <button className="px-2 sm:px-3 py-1 sm:py-1.5 bg-[var(--primary-color)] text-white rounded-md sm:rounded-lg hover:opacity-90 transition-opacity text-xs sm:text-sm self-start md:self-auto">View Original</button>
             </div>
             {loading ? (
               <div className="text-center py-6 md:py-8 text-sm md:text-base">Loading prescriptions...</div>
@@ -919,9 +1069,23 @@ const fetchDoctorIpdVitals = async () => {
       "lab-tests": isExactPatient ? (
         labScansData.length > 0 ? (
           <div className="ml-6 mr-6 space-y-4 md:space-y-6">
-            <div className="flex items-center gap-2 md:gap-3 mb-4 md:mb-6">
-              <TestTube size={16} className="md:size-[20px] text-blue-600" />
-              <h4 className="text-lg md:text-xl font-semibold">Lab/Scan Reports</h4>
+            <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-3 sm:mb-4 md:mb-6 gap-2 sm:gap-3">
+              <div className="flex items-center gap-2 md:gap-3">
+                <TestTube size={16} className="md:size-[20px] text-blue-600" />
+                <h4 className="text-lg md:text-xl font-semibold">Lab/Scan Reports</h4>
+              </div>
+              {labScansData.length > 0 && (
+                <button 
+                  onClick={() => setImageModal({
+                    isOpen: true,
+                    imageUrl: "https://placehold.co/800x1000/png?text=Lab+Report+Sample",
+                    title: "Original Lab Report"
+                  })}
+                  className="px-2 sm:px-3 py-1 sm:py-1.5 bg-[var(--primary-color)] text-white rounded-md sm:rounded-lg hover:opacity-90 transition-opacity text-xs sm:text-sm self-start md:self-auto"
+                >
+                  View Original
+                </button>
+              )}
             </div>
             {loading ? (
               <div className="text-center py-6 md:py-8 text-sm md:text-base">Loading lab scans...</div>
@@ -1012,6 +1176,24 @@ const fetchDoctorIpdVitals = async () => {
         labBillingData.length > 0 ||
         pharmacyBillingData.length > 0 ? (
           <div className="space-y-4 md:space-y-8">
+            <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-3 sm:mb-4 md:mb-6 gap-2 sm:gap-3 mx-6">
+              <div className="flex items-center gap-2 md:gap-3">
+                <CreditCard size={16} className="md:size-[20px] text-gray-600" />
+                <h4 className="text-lg md:text-xl font-semibold">Billing Information</h4>
+              </div>
+              {(hospitalBillingData.length > 0 || labBillingData.length > 0 || pharmacyBillingData.length > 0) && (
+                <button 
+                  onClick={() => setImageModal({
+                    isOpen: true,
+                    imageUrl: "https://placehold.co/800x1000/png?text=Billing+Sample",
+                    title: "Original Bill"
+                  })}
+                  className="px-2 sm:px-3 py-1 sm:py-1.5 bg-[var(--primary-color)] text-white rounded-md sm:rounded-lg hover:opacity-90 transition-opacity text-xs sm:text-sm self-start md:self-auto"
+                >
+                  View Original
+                </button>
+              )}
+            </div>
             <div className="overflow-x-auto mx-6 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
               <DynamicTable
                 columns={(() => {
@@ -1084,7 +1266,11 @@ const fetchDoctorIpdVitals = async () => {
             </div>
           </div>
         ) : (
-          <DocsReader />
+         <DocsReader
+  askBillingTypeOnUpload={state.detailsActiveTab === "billing"}
+  activeTab={state.detailsActiveTab}
+/>
+
         )
         ) : isExactDoctor ? (
         <div className="text-center text-gray-600 py-6 md:py-8 text-sm md:text-base">
@@ -1094,9 +1280,12 @@ const fetchDoctorIpdVitals = async () => {
       "video": (
         <div className="space-y-4 md:space-y-6">
           <div className="ml-6 mr-6 space-y-4 md:space-y-6">
-            <div className="flex items-center gap-2 md:gap-3 mb-4 md:mb-6">
-              <Video size={16} className="md:size-[20px] text-red-600" />
-              <h4 className="text-lg md:text-xl font-semibold">Consultation Recordings</h4>
+            <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-3 sm:mb-4 md:mb-6 gap-2 sm:gap-3">
+              <div className="flex items-center gap-2 md:gap-3">
+                <Video size={16} className="md:size-[20px] text-red-600" />
+                <h4 className="text-lg md:text-xl font-semibold">Consultation Recordings</h4>
+              </div>
+              <button className="px-2 sm:px-3 py-1 sm:py-1.5 bg-[var(--primary-color)] text-white rounded-md sm:rounded-lg hover:opacity-90 transition-opacity text-xs sm:text-sm self-start md:self-auto">View Original</button>
             </div>
             {videoRecordings.length > 0 ? (
               <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
@@ -1157,6 +1346,34 @@ const fetchDoctorIpdVitals = async () => {
   ];
 
   const updateState = (updates) => setState((prev) => ({ ...prev, ...updates }));
+
+  // Determine whether the currently active details tab has real data (not the DocsReader fallback)
+  const hasDataForActiveTab = () => {
+    const tab = state.detailsActiveTab;
+    if (!selectedRecord?.patientId) return false;
+    switch (tab) {
+      case "medical-records":
+        // For medical-records, data exists if we have patient medicalInfo or clinicalNotes depending on uploader
+        if (isExactPatient) return !!medicalInfo;
+        if (isExactDoctor) return !!clinicalNotes;
+        // unknown uploader: show if either exists
+        return !!medicalInfo || !!clinicalNotes;
+      case "prescriptions":
+        return Array.isArray(prescriptionData) && prescriptionData.length > 0;
+      case "lab-tests":
+        return Array.isArray(labScansData) && labScansData.length > 0;
+      case "billing":
+        return (
+          (Array.isArray(hospitalBillingData) && hospitalBillingData.length > 0) ||
+          (Array.isArray(labBillingData) && labBillingData.length > 0) ||
+          (Array.isArray(pharmacyBillingData) && pharmacyBillingData.length > 0)
+        );
+      case "video":
+        return Array.isArray(videoRecordings) && videoRecordings.length > 0;
+      default:
+        return false;
+    }
+  };
 
   const vitalsFields = [
     {
@@ -1225,13 +1442,7 @@ const fetchDoctorIpdVitals = async () => {
   return (
     <ErrorBoundary>
       <div className="p-3 md:p-6 space-y-4 md:space-y-6">
-        <button
-          onClick={handleBack}
-          className="flex items-center gap-1.5 md:gap-2 hover:text-[var(--accent-color)] transition-colors text-gray-600 text-xs md:text-sm"
-        >
-          <ArrowLeft size={16} className="md:size-[20px]" />
-          <span className="font-medium">Back to Medical Records</span>
-        </button>
+       
         <ProfileCard
           initials={getInitials(displayPatientName)}
           name={displayPatientName}
@@ -1263,23 +1474,7 @@ const fetchDoctorIpdVitals = async () => {
                 {vitalsExist ? "Update Vitals" : "Add Vitals"}
               </button>
             )}
-            {/* Show IPD vitals if uploaded by doctor */}
-            {isExactDoctor && doctorIpdVitals && (
-              <div className="w-full mt-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Heart size={18} className="text-blue-600" />
-                  <span className="font-semibold text-base text-blue-700">Doctor IPD Vitals</span>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                  {["bloodPressure", "heartRate", "temperature", "spO2", "respiratoryRate", "height", "weight"].map((key) => (
-                    <div key={key} className="bg-blue-50 border-l-4 border-blue-500 p-3 rounded-lg shadow-sm">
-                      <div className="font-semibold text-xs text-blue-700 mb-1">{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}</div>
-                      <div className="text-blue-800 text-sm font-semibold">{doctorIpdVitals[key] ?? "--"}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-3 p-2">
             {[
@@ -1328,52 +1523,61 @@ const fetchDoctorIpdVitals = async () => {
         </div>
         <div className="w-full border-b border-gray-200">
           <div
-            className="
-              flex
-              overflow-x-auto
-              sm:overflow-visible
-              scrollbar-thin
-              scrollbar-thumb-gray-300
-              scrollbar-track-gray-100
-              gap-2 sm:gap-4
-              px-2 sm:px-0
-            "
+            className="flex items-center justify-between overflow-x-auto custom-scrollbar px-2 sm:px-0"
           >
-            {detailsTabs.map((tab) => {
-              const IconComponent = tab.icon;
-              const isActive = state.detailsActiveTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => updateState({ detailsActiveTab: tab.id })}
-                  className={`
-                    flex items-center gap-2
-                    px-3 py-2 rounded-md
-                    text-sm sm:text-base font-medium
-                    transition-all duration-300
-                    whitespace-nowrap
-                    ${isActive
-                      ? "bg-[var(--primary-color)] text-white shadow-sm"
-                      : "text-gray-600 hover:text-[var(--primary-color)] hover:bg-gray-100"
-                    }
-                  `}
-                >
-                  <IconComponent size={16} />
-                  <span>{tab.label}</span>
-                </button>
+            <div className="flex gap-2 sm:gap-4">
+              {detailsTabs.map((tab) => {
+                const IconComponent = tab.icon;
+                const isActive = state.detailsActiveTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => updateState({ detailsActiveTab: tab.id })}
+                    className={`
+                      flex items-center gap-2
+                      px-3 py-2 rounded-md
+                      text-sm sm:text-base font-medium
+                      transition-all duration-300
+                      whitespace-nowrap
+                      ${isActive
+                        ? "bg-[var(--primary-color)] text-white shadow-sm"
+                        : "text-gray-600 hover:text-[var(--primary-color)] hover:bg-gray-100"
+                      }
+                    `}
+                  >
+                    <IconComponent size={16} />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {/* Only show Second Opinion if uploader is not patient, or if patient and any tab has data */}
+            {(() => {
+              const uploadedByUpper = String(selectedRecord?.uploadedBy || "").toUpperCase();
+              const isExactPatient = uploadedByUpper === "PATIENT";
+              // Check if any tab has data for patient uploader
+              const hasAnyData = (
+                (Array.isArray(pharmacyBillingData) && pharmacyBillingData.length > 0) ||
+                (Array.isArray(labBillingData) && labBillingData.length > 0) ||
+                (Array.isArray(hospitalBillingData) && hospitalBillingData.length > 0) ||
+                (Array.isArray(labScansData) && labScansData.length > 0) ||
+                (Array.isArray(prescriptionData) && prescriptionData.length > 0) ||
+                (medicalInfo != null)
               );
-            })}
-            {selectedRecord?.type && !selectedRecord?.isNewlyAdded && (
-              <div className="flex-1 mb-3 flex justify-end">
-                <button
-                  onClick={handleSecondOpinion}
-                  className="btn btn-primary text-white px-2 sm:px-4 py-1 sm:py-2 text-xs flex items-center gap-1 hover:opacity-90 transition-opacity"
-                >
-                  <Stethoscope size={14} />
-                  <span className="text-xs sm:text-sm xs:text-xs">Second Opinion</span>
-                </button>
-              </div>
-            )}
+              if (!isExactPatient || hasAnyData) {
+                return (
+                  <button
+                    onClick={handleSecondOpinion}
+                    className="px-4 py-2 bg-[var(--primary-color)] text-white rounded-full flex items-center gap-2 shadow-sm hover:bg-[var(--primary-color)] transition-all text-sm font-semibold"
+                    style={{ minWidth: 'fit-content' }}
+                  >
+                    <Stethoscope size={16} />
+                    <span>Second Opinion</span>
+                  </button>
+                );
+              }
+              return null;
+            })()}
           </div>
         </div>
       </div>
@@ -1385,6 +1589,12 @@ const fetchDoctorIpdVitals = async () => {
         onClose={() => setShowVideoModal(false)}
         videoBlob={selectedVideoBlob}
         metadata={selectedVideoMetadata}
+      />
+      <ImageViewModal
+        isOpen={imageModal.isOpen}
+        onClose={() => setImageModal({ ...imageModal, isOpen: false })}
+        imageUrl={imageModal.imageUrl}
+        title={imageModal.title}
       />
       <ReusableModal
         isOpen={showUpdateModal}
@@ -1411,3 +1621,19 @@ const fetchDoctorIpdVitals = async () => {
 };
 
 export default PatientMedicalRecordDetails;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

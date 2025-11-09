@@ -285,3 +285,11 @@ export const searchAvailableLabsByLocation = (location) =>
 
 export const getDoctorIpdVitalsByContext = (doctorId, patientId, context) =>
   axiosInstance.get(`/doctor/ipd-vitals/doctor/${doctorId}/patient/${patientId}/context/${context}`);
+export const getConsultationModes = () =>
+  axiosInstance.get("/master/consultation-modes");
+export const getPatientPrescriptions = (patientId) =>
+  axiosInstance.get(`/patient/prescriptions/${patientId}`);
+export const getUrgencyLevels = () => axiosInstance.get("/master/urgency-levels");
+
+export const getPharmaciesByCity = (city) =>
+  axiosInstance.get("/pharmacies", { params: { city } });

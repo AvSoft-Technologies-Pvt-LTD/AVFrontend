@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from "react";
 import Tesseract from "tesseract.js";
 import * as pdfjsLib from "pdfjs-dist";
@@ -7,10 +8,10 @@ import { Printer, FileDown, FileText, Save } from "lucide-react";
 import { FaFilePdf, FaFileUpload } from "react-icons/fa";
 import { MdPictureAsPdf, MdOutlinePreview } from "react-icons/md";
 import axios from "axios";
-
+import { MdClose } from "react-icons/md";
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
-const OCRPrescriptionReader = () => {
+const OCRPrescriptionReader = ({ askBillingTypeOnUpload = false, activeTab = "" }) => {
   const printRef = useRef();
   const [parsed, setParsed] = useState({ medications: [] });
   const [file, setFile] = useState(null);
@@ -19,10 +20,57 @@ const OCRPrescriptionReader = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const [billingType, setBillingType] = useState("");
+  const [uploadedBillingType, setUploadedBillingType] = useState("");
+  const [showBillingModal, setShowBillingModal] = useState(false);
+  const [selectedBillingType, setSelectedBillingType] = useState("");
+
+  const fileInputRef = useRef(null);
+
+  /*******************************
+   ✅ FIXED — ALWAYS SHOW POPUP
+  ********************************/
+  const handleUploadClick = () => {
+    if (askBillingTypeOnUpload && activeTab === "billing") {
+      if (!showBillingModal) {  // Only show modal if it's not already visible
+        setShowBillingModal(true);
+      }
+      return;   // ⬅️ Do NOT open file input now
+    }
+
+    fileInputRef.current?.click();
+  };
+
+  const chooseBillingAndOpen = (type) => {
+    setBillingType(type);
+    setSelectedBillingType(type);
+    setShowBillingModal(false);
+    fileInputRef.current?.click();
+  };
+
+  const handleBillingCancel = () => {
+    setShowBillingModal(false);
+    setSelectedBillingType("");
+  };
+
+  /*************/
+  /* OCR LOGIC */
+  /*************/
+
   const handleFileUpload = (e) => {
     const uploaded = e.target.files[0];
     if (!uploaded) return;
+
     setFile(URL.createObjectURL(uploaded));
+
+    if (billingType) {
+      setUploadedBillingType(billingType);
+      setBillingType("");
+      setSelectedBillingType(""); // Reset selected billing type after upload
+    }
+
+    e.target.value = ''; // Reset file input to allow same file selection
+
     uploaded.type === "application/pdf"
       ? extractTextFromPDF(uploaded)
       : extractTextFromImage(uploaded);
@@ -31,7 +79,9 @@ const OCRPrescriptionReader = () => {
   const extractTextFromImage = async (file) => {
     setLoading(true);
     try {
-      const { data: { text } } = await Tesseract.recognize(file, lang);
+      const {
+        data: { text },
+      } = await Tesseract.recognize(file, lang);
       setRawText(text);
       parseText(text);
     } catch (err) {
@@ -46,12 +96,14 @@ const OCRPrescriptionReader = () => {
     reader.onload = async () => {
       const typedarray = new Uint8Array(reader.result);
       const pdf = await pdfjsLib.getDocument({ data: typedarray }).promise;
+
       let fullText = "";
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
-        fullText += content.items.map(item => item.str).join(" ") + "\n";
+        fullText += content.items.map((item) => item.str).join(" ") + "\n";
       }
+
       setRawText(fullText);
       parseText(fullText);
       setLoading(false);
@@ -60,7 +112,11 @@ const OCRPrescriptionReader = () => {
   };
 
   const parseText = (text) => {
-    const lines = text.split("\n").map(l => l.trim()).filter(l => l && !/^(page \d+|thank you|signature)/i.test(l));
+    const lines = text
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l && !/^(page \d+|thank you|signature)/i.test(l));
+
     const data = {
       hospitalName: lines[0] || "",
       hospitalAddress: lines.slice(1, 3).join(", "),
@@ -89,34 +145,48 @@ const OCRPrescriptionReader = () => {
       medications: ["tab", "tablet", "inj", "cap", "syrup", "rx", "ointment"],
     };
 
-    const normalize = (str) => str.toLowerCase().replace(/[^a-z0-9\s]/gi, "").replace(/\s+/g, " ").trim();
-    const matchAliases = (line, aliases) => aliases.some(alias => normalize(line).includes(normalize(alias)));
+    const normalize = (str) =>
+      str
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/gi, "")
+        .replace(/\s+/g, " ")
+        .trim();
 
-    lines.forEach(line => {
+    const matchAliases = (line, aliases) =>
+      aliases.some((alias) => normalize(line).includes(normalize(alias)));
+
+    lines.forEach((line) => {
       if (!data.patientName && matchAliases(line, keywords.patientName))
         data.patientName = line.replace(/.*?(name|mr|mrs|ms|shri|smt)[\s:\-]*/i, "").trim();
       if (!data.age && matchAliases(line, keywords.age))
         data.age = line.match(/(\d{1,3})\s*(yrs|years|yo)?/i)?.[1] || "";
       if (!data.sex && matchAliases(line, keywords.sex))
-        data.sex = line.match(/male|female|m|f/i)?.[0].toLowerCase().startsWith("m") ? "Male" : "Female";
+        data.sex = line.match(/male|female|m|f/i)?.[0]
+          .toLowerCase()
+          .startsWith("m")
+          ? "Male"
+          : "Female";
       if (!data.bedNo && matchAliases(line, keywords.bedNo))
         data.bedNo = line.match(/bed\s*(no)?\s*[:\-]?\s*(\w+)/i)?.[2] || "";
       if (!data.admissionDate && matchAliases(line, keywords.admissionDate))
-        data.admissionDate = line.match(/\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}/)?.[0] || "";
+        data.admissionDate =
+          line.match(/\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}/)?.[0] || "";
       if (!data.dischargeDate && matchAliases(line, keywords.dischargeDate))
-        data.dischargeDate = line.match(/\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}/)?.[0] || "";
+        data.dischargeDate =
+          line.match(/\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}/)?.[0] || "";
       if (!data.consultant && matchAliases(line, keywords.consultant))
         data.consultant = line.split(/[:\-]/)[1]?.trim() || line;
       if (!data.complaints && matchAliases(line, keywords.complaints))
         data.complaints = line.split(/[:\-]/)[1]?.trim() || line;
       if (!data.diagnosis && matchAliases(line, keywords.diagnosis))
         data.diagnosis = line.split(/[:\-]/)[1]?.trim() || line;
-      if (matchAliases(line, keywords.medications))
-        data.medications.push(line.trim());
+      if (matchAliases(line, keywords.medications)) data.medications.push(line.trim());
     });
 
     setParsed(data);
   };
+
+  /******************************/
 
   const handleExportPDF = () => {
     const doc = new jsPDF();
@@ -124,6 +194,7 @@ const OCRPrescriptionReader = () => {
     doc.text(parsed.hospitalName || "Hospital Name", 10, 10);
     doc.setFontSize(10);
     doc.text(parsed.hospitalAddress || "Hospital Address", 10, 16);
+
     autoTable(doc, {
       head: [["Label", "Value"]],
       body: [
@@ -139,17 +210,18 @@ const OCRPrescriptionReader = () => {
       ],
       startY: 24,
     });
+
     const finalY = doc.lastAutoTable.finalY + 10;
     if (parsed.medications.length) {
       doc.setFontSize(12);
       doc.text("Medications:", 10, finalY);
-      parsed.medications.forEach((med, i) =>
-        doc.text(`- ${med}`, 12, finalY + 6 + i * 6)
-      );
+      parsed.medications.forEach((med, i) => doc.text(`- ${med}`, 12, finalY + 6 + i * 6));
     }
+
     doc.setFontSize(10);
     doc.text("Signature: ___________________", 140, 280);
     doc.text("Hospital Address: " + (parsed.hospitalAddress || ""), 10, 285);
+
     doc.save("prescription.pdf");
   };
 
@@ -157,6 +229,7 @@ const OCRPrescriptionReader = () => {
     const content = printRef.current?.innerHTML;
     const win = window.open("", "", "width=800,height=600");
     if (!win) return;
+
     win.document.write(`
       <html><head><title>Print</title>
       <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
@@ -164,19 +237,25 @@ const OCRPrescriptionReader = () => {
       <body>${content}</body></html>`);
     win.document.close();
     win.focus();
+
     setTimeout(() => {
       win.print();
       win.close();
     }, 500);
   };
 
-  // 🧠 New Save Function
   const handleSave = async () => {
     try {
       setSaving(true);
-      // 🔹 Replace with your actual API endpoint:
       const API_URL = "https://679d0edec2c861de0c6d9b7c.mockapi.io/ocrPrescriptions";
-      await axios.post(API_URL, parsed);
+
+      const payload = {
+        ...parsed,
+        billingType: uploadedBillingType || billingType || null,
+      };
+
+      await axios.post(API_URL, payload);
+
       alert("✅ Prescription data saved successfully!");
     } catch (err) {
       console.error("Save error:", err);
@@ -188,6 +267,7 @@ const OCRPrescriptionReader = () => {
 
   return (
     <div className="min-h-screen p-6 bg-gradient-to-tr from-blue-50 to-white">
+      {/* ---------- LOADER ---------- */}
       {loading && (
         <div className="fixed inset-0 flex items-center justify-center bg-white/60 z-50">
           <div className="w-12 h-12 border-4 border-blue-500 border-dashed rounded-full animate-spin" />
@@ -195,13 +275,29 @@ const OCRPrescriptionReader = () => {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-6">
-        {/* Upload Section */}
+        {/*======================
+            FILE UPLOAD SECTION
+        ======================*/}
         <div className="bg-white rounded-xl shadow p-4">
           <h3 className="text-lg font-semibold mb-4 border-b pb-2 flex items-center gap-2">
             <FaFileUpload /> Upload Document
           </h3>
-          <label className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg h-40 text-gray-500 hover:border-blue-500 cursor-pointer transition mb-4">
-            <input type="file" accept="image/*,application/pdf" onChange={handleFileUpload} hidden />
+
+          <div
+            onClick={handleUploadClick}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && handleUploadClick()}
+            className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg h-40 text-gray-500 hover:border-blue-500 cursor-pointer transition mb-4"
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,application/pdf"
+              onChange={handleFileUpload}
+              hidden
+            />
+
             <div className="flex flex-col items-center">
               <MdOutlinePreview size={36} />
               <p className="text-sm">Drag & drop a prescription file here</p>
@@ -209,11 +305,67 @@ const OCRPrescriptionReader = () => {
                 Supports: images (JPG, PNG, TIFF) and PDF
               </small>
             </div>
-          </label>
+          </div>
+
+          {/* ---------- BILLING TYPE POPUP ---------- */}
+          {showBillingModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fadeIn">
+              <div className="bg-white backdrop-blur-md rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-gray-200 animate-scaleIn">
+                  <button
+      onClick={handleBillingCancel}
+      className="absolute top-3 right-3 text-gray-500 hover:text-gray-800 transition"
+    >
+      <MdClose size={22} />
+    </button>
+                <h3 className="text-xl font-bold mb-2 text-gray-800">Select billing type</h3>
+                <p className="text-sm text-gray-600 mb-5">Choose the billing category for this upload:</p>
+
+                <div className="grid grid-cols-1 gap-3">
+                  <button
+                    onClick={() => chooseBillingAndOpen("pharmacy")}
+                    className={`px-4 py-2 rounded-lg border font-medium shadow hover:shadow-md hover:scale-[1.02] transition-all text-white ${
+                      selectedBillingType === "pharmacy"
+                        ? "opacity-90"
+                        : ""
+                    } bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md`}
+                  >
+                    Pharmacy Bill
+                  </button>
+
+                  <button
+                    onClick={() => chooseBillingAndOpen("hospital")}
+                    className={`px-4 py-2 rounded-lg border font-medium shadow hover:shadow-md hover:scale-[1.02] transition-all text-white ${
+                      selectedBillingType === "hospital"
+                        ? "opacity-90"
+                        : ""
+                    } bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md]`}
+                  >
+                    Hospital Billing
+                  </button>
+
+                  <button
+                    onClick={() => chooseBillingAndOpen("lab")}
+                    className={`px-4 py-2 rounded-lg border font-medium shadow hover:shadow-md hover:scale-[1.02] transition-all text-white ${
+                      selectedBillingType === "lab"
+                        ? "opacity-90"
+                        : ""
+                    }bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md`}
+                  >
+                    Lab Billing
+                  </button>
+                </div>
+
+                <div className="mt-5 text-right">
+                
+                </div>
+              </div>
+            </div>
+          )}
 
           {file && (
             <div className="space-y-2">
               <p className="text-sm">{file.split("/").pop()}</p>
+
               <div className="flex gap-3 text-sm">
                 <a
                   href={file}
@@ -223,6 +375,7 @@ const OCRPrescriptionReader = () => {
                 >
                   <MdOutlinePreview /> View
                 </a>
+
                 <a
                   href={file}
                   download
@@ -231,6 +384,7 @@ const OCRPrescriptionReader = () => {
                   <FaFilePdf /> Download
                 </a>
               </div>
+
               {file.endsWith(".pdf") ? (
                 <div className="text-xs italic text-gray-600 flex items-center gap-1">
                   <MdPictureAsPdf /> PDF file uploaded
@@ -242,7 +396,9 @@ const OCRPrescriptionReader = () => {
           )}
         </div>
 
-        {/* Extracted Data Display */}
+        {/*========================
+            EXTRACTED OUTPUT AREA
+        ========================*/}
         <div className="bg-white rounded-xl shadow p-6 min-h-[300px] flex flex-col justify-center">
           {!rawText ? (
             <div className="flex flex-col justify-center items-center text-center text-gray-500 h-full">
@@ -254,9 +410,8 @@ const OCRPrescriptionReader = () => {
           ) : (
             <>
               <div className="flex justify-between items-center p-4 mb-4">
-                <h3 className="text-xl font-semibold text-blue-700">
-                  Extracted Information
-                </h3>
+                <h3 className="text-xl font-semibold text-blue-700">Extracted Information</h3>
+
                 <div className="flex gap-3">
                   <button
                     onClick={handlePrint}
@@ -264,12 +419,14 @@ const OCRPrescriptionReader = () => {
                   >
                     <Printer className="w-4 h-4" /> Print
                   </button>
+
                   <button
                     onClick={handleExportPDF}
                     className="px-4 py-2 text-sm font-medium bg-red-50 text-red-700 border border-red-300 rounded-lg hover:bg-red-100 transition flex items-center gap-2"
                   >
                     <FileDown className="w-4 h-4" /> Export PDF
                   </button>
+
                   <button
                     onClick={handleSave}
                     disabled={saving}
@@ -286,43 +443,34 @@ const OCRPrescriptionReader = () => {
                   <h1 className="text-xl font-bold text-gray-900">
                     {parsed.hospitalName || "Medical Center"}
                   </h1>
-                  <p className="text-gray-600 text-sm">
-                    {parsed.hospitalAddress || "Hospital Address"}
-                  </p>
+                  <p className="text-gray-600 text-sm">{parsed.hospitalAddress || "Hospital Address"}</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-12">
                   <div>
-                    <h2 className="text-base font-semibold text-gray-700 mb-2">
-                      Patient Details
-                    </h2>
+                    <h2 className="text-base font-semibold text-gray-700 mb-2">Patient Details</h2>
                     <p><strong>Name:</strong> {parsed.patientName || "—"}</p>
                     <p><strong>Age:</strong> {parsed.age || "—"}</p>
                     <p><strong>Sex:</strong> {parsed.sex || "—"}</p>
                     <p><strong>Bed No:</strong> {parsed.bedNo || "—"}</p>
                   </div>
+
                   <div>
-                    <h2 className="text-base font-semibold text-gray-700 mb-2">
-                      Admission Info
-                    </h2>
+                    <h2 className="text-base font-semibold text-gray-700 mb-2">Admission Info</h2>
                     <p><strong>Admission Date:</strong> {parsed.admissionDate || "—"}</p>
                     <p><strong>Discharge Date:</strong> {parsed.dischargeDate || "—"}</p>
                   </div>
                 </div>
 
                 <div>
-                  <h2 className="text-base font-semibold text-gray-700 mb-2">
-                    Clinical Information
-                  </h2>
+                  <h2 className="text-base font-semibold text-gray-700 mb-2">Clinical Information</h2>
                   <p><strong>Consultant:</strong> {parsed.consultant || "—"}</p>
                   <p><strong>Chief Complaint:</strong> {parsed.complaints || "—"}</p>
                   <p><strong>Diagnosis:</strong> {parsed.diagnosis || "—"}</p>
                 </div>
 
                 <div>
-                  <h2 className="text-base font-semibold text-gray-700 mb-2">
-                    Medications
-                  </h2>
+                  <h2 className="text-base font-semibold text-gray-700 mb-2">Medications</h2>
                   {parsed.medications.length ? (
                     <ul className="list-disc pl-5 space-y-1">
                       {parsed.medications.map((m, i) => (

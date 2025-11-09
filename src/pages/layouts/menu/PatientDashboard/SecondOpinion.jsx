@@ -1,7 +1,10 @@
+
+
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
 import axios from "axios";
+
 import html2pdf from "html2pdf.js";
 import emailjs from "emailjs-com";
 import DynamicTable from "../../../../components/microcomponents/DynamicTable";
@@ -9,9 +12,8 @@ import { ArrowLeft, User, Stethoscope, ChevronDown, X, Printer, CheckCircle, Fil
 import { useSelector } from "react-redux";
 import ProfileCard from "../../../../components/microcomponents/ProfileCard";
 import { useMedicalRecords } from "../../../../context-api/MedicalRecordsContext";
-import { getDoctorPatientPrescriptions, getClinicalNotes } from "../../../../utils/masterService"; // Adjust the path as needed
-
-const PrintContent = ({ requestData, selectedRecord, formData, user }) => (
+import { getDoctorPatientPrescriptions, getClinicalNotes, getDoctorIpdVitalsByContext, getPatientById, getUrgencyLevels, getConsultationModes, getAllDoctors, getPatientPrescriptions, getPatientMedicalInfo, getLabScanByPatient } from "../../../../utils/masterService";
+const PrintContent = ({ requestData, selectedRecord, formData, user }) => (                                                                                                                                                   
   <div style={{ fontFamily: "Arial, sans-serif", maxWidth: "800px", margin: "0 auto", padding: "20px" }}>
     <div className="header" style={{ textAlign: "center", borderBottom: "2px solid #333", paddingBottom: "20px", marginBottom: "30px" }}>
       <h1 className="h4-heading">SECOND OPINION REQUEST</h1>
@@ -42,7 +44,7 @@ const PrintContent = ({ requestData, selectedRecord, formData, user }) => (
         </div>
       </div>
     </div>
-    <div className="request-details" style={{ marginBottom: "30px" }}>
+  <div className="request-details" style={{ marginBottom: "30px" }}>
       <h3 style={{ fontSize: "18px", fontWeight: "bold", marginBottom: "15px", color: "#333", borderBottom: "1px solid #ddd", paddingBottom: "5px" }}>Consultation Request Details</h3>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "0 30px", rowGap: "10px" }}>
         {Object.entries(formData).filter(([key]) => !["contactEmail", "contactPhone"].includes(key)).map(([key, value]) => (
@@ -54,41 +56,55 @@ const PrintContent = ({ requestData, selectedRecord, formData, user }) => (
       </div>
     </div>
     <div style={{ pageBreakBefore: 'always', breakBefore: 'page', marginTop: "40px", fontFamily: "Arial, sans-serif", maxWidth: "900px", marginLeft: "auto", marginRight: "auto" }}>
-      <div style={{ padding: "24px", background: "linear-gradient(90deg, #01B07A 0%, #1A223F 100%)", color: "#fff", borderRadius: "18px 18px 0 0" }}>
+        <div style={{ padding: "24px", background: "linear-gradient(90deg, #01B07A 0%, #1A223F 100%)", color: "#fff", borderRadius: "18px 18px 0 0" }}>
         <h2 style={{ fontSize: "28px", fontWeight: "bold", marginBottom: "8px" }}>Medical Records Preview</h2>
         <p style={{ fontSize: "16px", color: "#e0e0e0", marginBottom: 0 }}>Complete patient medical information</p>
       </div>
       <div style={{ background: "#fff", borderRadius: "0 0 18px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.04)", padding: "32px" }}>
         <div style={{ marginBottom: "24px" }}>
-          <h3 style={{ fontSize: "22px", fontWeight: "bold", color: "#1A223F", marginBottom: "12px" }}>{user?.firstName || 'N/A'} {user?.lastName || ''}</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px", fontSize: "15px", color: "#333" }}>
-            <div>Age: {selectedRecord.age}</div>
-            <div>Gender: {selectedRecord.sex}</div>
-            <div>Hospital: {selectedRecord.hospitalName}</div>
-            <div>Diagnosis: {selectedRecord.diagnosis}</div>
-            <div>K/C/O: {selectedRecord["K/C/O"] ?? "--"}</div>
-          </div>
+          <h3 style={{ fontSize: "22px", fontWeight: "bold", color: "#1A223F", marginBottom: "12px" }}>{selectedRecord?.patientName || user?.firstName || 'N/A'}</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px", fontSize: "15px", color: "#333" }}>
+              <div>Age: { (selectedRecord.age !== null && selectedRecord.age !== undefined && selectedRecord.age !== "") ? selectedRecord.age : "--" }</div>
+              <div>Gender: { (selectedRecord.sex && selectedRecord.sex !== "--") ? selectedRecord.sex : "--" }</div>
+              <div>Hospital: {selectedRecord.hospitalName}</div>
+              <div>Diagnosis: {selectedRecord.diagnosis}</div>
+              <div>K/C/O: {selectedRecord["K/C/O"] ?? "--"}</div>
+            </div>
         </div>
         <div style={{ marginBottom: "24px" }}>
           <h4 style={{ fontSize: "18px", fontWeight: "bold", color: "#0E1630", marginBottom: "10px" }}>Vitals Summary</h4>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "10px" }}>
-            {Object.entries(selectedRecord.vitals || {}).map(([key, value]) => (
-              <div key={key} style={{ background: "#f8fafc", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "10px" }}>
-                <div style={{ fontSize: "12px", color: "#666", marginBottom: "2px" }}>{key.replace(/([A-Z])/g, " $1").replace(/^./, str => str.toUpperCase())}</div>
-                <div style={{ fontSize: "15px", fontWeight: 600, color: "#222" }}>{value}</div>
+              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                {Object.entries(selectedRecord.vitals || {}).map(([key, value], idx) => {
+                  const colors = ["#FEE2E2", "#DBEAFE", "#FFF7ED", "#DCFCE7", "#ECFEFF", "#F5F3FF", "#FFF7E6"];
+                  const borderColor = colors[idx % colors.length];
+                  return (
+                    <div key={key} style={{ minWidth: 120, padding: "10px 12px", borderRadius: 12, borderLeft: `4px solid ${borderColor}`, background: "#fff", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", display: "flex", flexDirection: "column" }}>
+                      <div style={{ fontSize: 12, color: "#666", marginBottom: 6 }}>{key.replace(/([A-Z])/g, " $1").replace(/^./, str => str.toUpperCase())}</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: "#0E1630" }}>{value ?? "--"}</div>
+                    </div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
         </div>
         <div style={{ marginBottom: "24px" }}>
           <h4 style={{ fontSize: "18px", fontWeight: "bold", color: "#0E1630", marginBottom: "10px" }}>Medical Information</h4>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "12px" }}>
-            {Object.entries(selectedRecord?.medicalDetails || {}).map(([label, value]) => (
-              <div key={label} style={{ background: "#fff", border: "1px solid #f3f4f6", borderRadius: "10px", padding: "16px" }}>
-                <div style={{ fontWeight: "bold", fontSize: "13px", color: "#666", marginBottom: "4px" }}>{label.replace(/([A-Z])/g, " $1")}</div>
-                <div style={{ color: "#222", fontSize: "14px" }}>{value || "N/A"}</div>
-              </div>
-            ))}
+            {Object.entries(selectedRecord?.medicalDetails || {})
+              .filter(([key]) => !["id", "doctorId", "context", "patientId", "createdAt", "updatedAt", "createdBy", "updatedBy"].includes(key))
+              .map(([label, value]) => {
+                const keyName = String(label).replace(/\s+/g, "").toLowerCase();
+                const isPreviewField = ["chiefcomplaint", "pasthistory", "history", "advice", "plan", "clinicalnotes"].includes(keyName);
+                return (
+                  <div key={label} style={{ background: "#fff", border: "1px solid #f3f4f6", borderRadius: "10px", padding: "16px" }}>
+                    <div style={{ fontWeight: "bold", fontSize: "13px", color: "#666", marginBottom: "4px" }}>{label.replace(/([A-Z])/g, " $1")}</div>
+                    {isPreviewField ? (
+                      <div className="cc-scrollbar" style={{ color: "#222", fontSize: "14px" }}>{value || "N/A"}</div>
+                    ) : (
+                      <div style={{ color: "#222", fontSize: "14px" }}>{value || "N/A"}</div>
+                    )}
+                  </div>
+                );
+              })}
           </div>
         </div>
         <div style={{ marginBottom: "24px" }}>
@@ -113,17 +129,6 @@ const PrintContent = ({ requestData, selectedRecord, formData, user }) => (
               ))}
             </tbody>
           </table>
-        </div>
-        <div style={{ marginBottom: "24px" }}>
-          <h4 style={{ fontSize: "18px", fontWeight: "bold", color: "#0E1630", marginBottom: "10px" }}>Clinical Notes</h4>
-          <div style={{ background: "#fff", border: "1px solid #f3f4f6", borderRadius: "10px", padding: "16px" }}>
-            {(selectedRecord.clinicalNotes || []).map((note, idx) => (
-              <div key={idx} style={{ marginBottom: "12px", padding: "8px", borderBottom: "1px solid #eee" }}>
-                <div style={{ fontWeight: "bold", color: "#333" }}>{note.date} - {note.doctorName}</div>
-                <div style={{ color: "#666" }}>{note.notes}</div>
-              </div>
-            ))}
-          </div>
         </div>
         <div>
           <h4 style={{ fontSize: "18px", fontWeight: "bold", color: "#0E1630", marginBottom: "10px" }}>Lab Tests</h4>
@@ -156,10 +161,12 @@ const PrintContent = ({ requestData, selectedRecord, formData, user }) => (
     </div>
   </div>
 );
-
 const MedicalRecordsDetailsPreview = ({ selectedRecord, onClose, user }) => {
   if (!selectedRecord) return null;
   const [detailsActiveTab, setDetailsActiveTab] = useState("medical-records");
+  // Local display-friendly values to avoid referencing outer-scope variables
+  const displayAge = (selectedRecord.age !== null && selectedRecord.age !== undefined && selectedRecord.age !== "") ? String(selectedRecord.age) : "--";
+  const displayGender = (selectedRecord.sex && selectedRecord.sex !== "--") ? selectedRecord.sex : "--";
   const renderTabContent = () => {
     const tabContentMap = {
       "medical-records": (
@@ -174,23 +181,22 @@ const MedicalRecordsDetailsPreview = ({ selectedRecord, onClose, user }) => {
           <section className="mb-6">
             <h4 className="text-xl font-semibold text-gray-800 mb-4">Medical Information</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {Object.entries(selectedRecord?.medicalDetails || {}).map(([label, value]) => (
-                <div key={label} className="bg-white p-6 rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
-                  <div className="font-bold text-sm text-gray-600 mb-2">{label.replace(/([A-Z])/g, " $1")}</div>
-                  <div className="text-gray-800 text-sm">{value || "N/A"}</div>
-                </div>
-              ))}
-            </div>
-          </section>
-          <section className="mb-6">
-            <h4 className="text-xl font-semibold text-gray-800 mb-4">Clinical Notes</h4>
-            <div className="bg-white p-6 rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
-              {(selectedRecord.clinicalNotes || []).map((note, idx) => (
-                <div key={idx} className="mb-4 pb-2 border-b last:border-0">
-                  <div className="font-bold text-sm text-gray-600">{note.date} - {note.doctorName}</div>
-                  <div className="text-gray-800 text-sm mt-1">{note.notes}</div>
-                </div>
-              ))}
+              {Object.entries(selectedRecord?.medicalDetails || {})
+                .filter(([key]) => !["id", "doctorId", "context", "patientId", "createdAt", "updatedAt", "createdBy", "updatedBy"].includes(key))
+                .map(([label, value]) => {
+                  const keyName = String(label).replace(/\s+/g, "").toLowerCase();
+                  const isPreviewField = ["chiefcomplaint", "pasthistory", "history", "advice", "plan", "clinicalnotes"].includes(keyName);
+                  return (
+                    <div key={label} className="bg-white p-6 rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
+                      <div className="font-bold text-sm text-gray-600 mb-2">{label.replace(/([A-Z])/g, " $1")}</div>
+                      {isPreviewField ? (
+                        <div className="cc-scrollbar text-gray-800 text-sm">{value || "N/A"}</div>
+                      ) : (
+                        <div className="text-gray-800 text-sm">{value || "N/A"}</div>
+                      )}
+                    </div>
+                  );
+                })}
             </div>
           </section>
         </div>
@@ -248,96 +254,457 @@ const MedicalRecordsDetailsPreview = ({ selectedRecord, onClose, user }) => {
               Close
             </button>
           </div>
-           <ProfileCard
-            initials={user?.firstName?.charAt(0) || "N"}
-            name={`${user?.firstName || "N/A"} ${user?.lastName || ""}`}
+            <ProfileCard
+            initials={(selectedRecord?.patientName && selectedRecord.patientName.charAt(0)) || user?.firstName?.charAt(0) || "N"}
+            name={selectedRecord?.patientName || `${user?.firstName || "N/A"} ${user?.lastName || ""}`}
             fields={[
-              { label: "Age", value: selectedRecord.age },
-              { label: "Gender", value: selectedRecord.sex },
+              { label: "Age", value: displayAge },
+              { label: "Gender", value: displayGender },
               { label: "Hospital", value: selectedRecord.hospitalName },
               { label: "Diagnosis", value: selectedRecord.diagnosis },
               { label: "Visit Date", value: selectedRecord.dateOfVisit || selectedRecord.dateOfAdmission || selectedRecord.dateOfConsultation },
               { label: "K/C/O", value: selectedRecord["K/C/O"] ?? "--" },
             ]}
           />
+         <section className="mb-6">
+  <h4 className="text-xl font-semibold text-gray-800 mb-4">Vitals Summary</h4>
+  <div className="flex flex-wrap gap-3">
+    {Object.entries(selectedRecord.vitals || {}).map(([key, value], idx) => {
+      const colors = {
+        "Blood Pressure": "#fee2e2",
+        "Heart Rate": "#dbeafe",
+        "Temperature": "#fff7ed",
+        "SpO2": "#dcfce7",
+        "Respiratory Rate": "#ecfeff",
+        "Height": "#fef3c7",
+        "Weight": "#f3e8ff"
+      };
+      const border = colors[key] || "#f5f3ff";
+      
+      // Add units to the values based on the vital type
+      const getFormattedValue = (key, value) => {
+        if (!value) return "--";
+        switch(key) {
+          case "Blood Pressure": return value + " mmHg";
+          case "Heart Rate": return value + " bpm";
+          case "Temperature": return value + " °F";
+          case "SpO2": return value + " %";
+          case "Respiratory Rate": return value + " /min";
+          case "Height": return value + " cm";
+          case "Weight": return value + " kg";
+          default: return value;
+        }
+      };
+      return (
+        <div
+          key={key}
+          className="rounded-lg p-3"
+          style={{
+            minWidth: 160,
+            borderLeft: `4px solid ${border}`,
+            background: "#fff",
+            boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+          }}
+        >
+          <div className="text-xs font-medium text-gray-600 mb-1">
+            {key}
+          </div>
+          <div className="text-sm font-semibold text-gray-800">
+            {getFormattedValue(key, value)}
+          </div>
+        </div>
+      );
+    })}
+  </div>
+</section>
           <section className="mb-6">
-            <h4 className="text-xl font-semibold text-gray-800 mb-4">Vitals Summary</h4>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
-              {Object.entries(selectedRecord.vitals || {}).map(([key, value]) => (
-                <div key={key} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                  <div className="text-xs font-medium text-gray-600 mb-1">{key.replace(/([A-Z])/g, " $1").replace(/^./, (str) => str.toUpperCase())}</div>
-                  <div className="text-sm font-semibold text-gray-800">{value}</div>
-                </div>
-              ))}
+            <h4 className="text-xl font-semibold text-gray-800 mb-4">Medical Information</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {Object.entries(selectedRecord?.medicalDetails || {})
+                .filter(([key]) => !["id", "doctorId", "context", "patientId", "createdAt", "updatedAt", "createdBy", "updatedBy"].includes(key))
+                .map(([label, value]) => {
+                  const keyName = String(label).replace(/\s+/g, "").toLowerCase();
+                  const isPreviewField = ["chiefcomplaint", "pasthistory", "history", "advice", "plan", "clinicalnotes"].includes(keyName);
+                  return (
+                    <div key={label} className="bg-white p-6 rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
+                      <div className="font-bold text-sm text-gray-600 mb-2">{label.replace(/([A-Z])/g, " $1")}</div>
+                      {isPreviewField ? (
+                        <div className="cc-scrollbar text-gray-800 text-sm">{value || "N/A"}</div>
+                      ) : (
+                        <div className="text-gray-800 text-sm">{value || "N/A"}</div>
+                      )}
+                    </div>
+                  );
+                })}
             </div>
           </section>
-          <div className="flex gap-4 mb-6">
-            {detailsTabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setDetailsActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
-                  detailsActiveTab === tab.id
-                    ? "bg-blue-600 text-white border-blue-600"
-                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                }`}
-              >
-                <tab.icon size={18} />
-                <span>{tab.label}</span>
-              </button>
-            ))}
-          </div>
-          {renderTabContent()}
+          <section className="mb-6">
+            <h4 className="text-xl font-semibold text-gray-800 mb-4">Prescriptions</h4>
+            <DynamicTable
+              columns={[
+                { header: "Date", accessor: "date" },
+                { header: "Doctor Name", accessor: "doctorName" },
+                { header: "Medicines", accessor: "medicines" },
+                { header: "Instructions", accessor: "instructions" },
+              ]}
+              data={selectedRecord.prescriptionsData || []}
+            />
+          </section>
+          <section className="mb-6">
+            <h4 className="text-xl font-semibold text-gray-800 mb-4">Lab Tests</h4>
+            <DynamicTable
+              columns={[
+                { header: "Date", accessor: "date" },
+                { header: "Test Name", accessor: "testName" },
+                { header: "Result", accessor: "result" },
+                { header: "Normal Range", accessor: "normalRange" },
+                {
+                  header: "Status",
+                  accessor: "status",
+                  cell: (row) => (
+                    <span className={`text-sm font-semibold px-2 py-1 rounded-full ${row.status === "Normal" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                      {row.status}
+                    </span>
+                  ),
+                },
+              ]}
+              data={selectedRecord.labTestsData || []}
+            />
+          </section>
         </div>
       </div>
     </div>
   );
 };
-
 const SecondOpinion = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const user = useSelector((state) => state.auth.user);
   const { clickedRecord, activeTab } = useMedicalRecords();
   const printContentRef = useRef();
-  const [prescriptions, setPrescriptions] = useState([]);
-  const [clinicalNotes, setClinicalNotes] = useState([]);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!clickedRecord) return;
-
-      try {
-        const doctorId = clickedRecord.doctorId || "default-doctor-id";
-        const patientId = clickedRecord.id || "default-patient-id";
-        const context = activeTab || "OPD";
-
-        const [prescriptionsRes, clinicalNotesRes] = await Promise.all([
-          getDoctorPatientPrescriptions(doctorId, patientId, context),
-          getClinicalNotes(patientId, doctorId, context),
-        ]);
-
-        setPrescriptions(prescriptionsRes.data || []);
-        setClinicalNotes(clinicalNotesRes.data || []);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-        toast.error("Failed to fetch additional patient data.");
-      }
-    };
-
-    fetchData();
-  }, [clickedRecord, activeTab]);
-
-  const selectedRecord = {
-    ...clickedRecord,
-    prescriptionsData: prescriptions.length ? prescriptions : clickedRecord?.prescriptionsData || [],
-    clinicalNotes: clinicalNotes.length ? clinicalNotes : clickedRecord?.clinicalNotes || [],
-  } || {
+  const selectedRecordBase = location.state?.selectedRecord || {
     patientName: "John Doe", age: "45", sex: "Male", id: "P001", hospitalName: "General Hospital", diagnosis: "Chest Pain", dateOfVisit: "2024-01-15", "K/C/O": "Hypertension", vitals: { bp: "140/90", pulse: "80", temp: "98.6" }, medicalDetails: {
       chiefComplaint: "Chest pain since 2 days", pastHistory: "Hypertension for 5 years", examination: "Tenderness over chest",
-    }, prescriptionsData: [], labTestsData: [{ date: "2024-01-15", testName: "ECG", result: "Normal", normalRange: "Normal", status: "Normal", }],
+    }, prescriptionsData: [{ date: "2024-01-15", doctorName: "Dr. Smith", medicines: "Aspirin 75mg", instructions: "Once daily", }], labTestsData: [{ date: "2024-01-15", testName: "ECG", result: "Normal", normalRange: "Normal", status: "Normal", }],
+  };
+  const [fetchedPatient, setFetchedPatient] = useState(null);
+  // Helper: compute age (years) from DOB string or Date
+  const computeAgeFromDob = (dob) => {
+    if (!dob) return null;
+    try {
+      // Normalize common formats: DD/MM/YYYY, DD-MM-YYYY, YYYY-MM-DD
+      let d;
+      if (typeof dob === "number") {
+        d = new Date(dob);
+      } else if (/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/.test(dob)) {
+        // dd/mm/yyyy or dd-mm-yyyy
+        const parts = dob.split(/[-\/]/);
+        d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`); // yyyy-mm-dd
+      } else if (/^\d{4}[\-]\d{2}[\-]\d{2}$/.test(dob)) {
+        d = new Date(dob);
+      } else {
+        d = new Date(dob);
+      }
+      if (isNaN(d.getTime())) return null;
+      const now = new Date();
+      let age = now.getFullYear() - d.getFullYear();
+      const m = now.getMonth() - d.getMonth();
+      if (m < 0 || (m === 0 && now.getDate() < d.getDate())) {
+        age--;
+      }
+      return age;
+    } catch (e) {
+      return null;
+    }
+  };
+  // Helper: format various date representations into a readable string
+  const formatDateValue = (val) => {
+    if (!val && val !== 0) return "--";
+    try {
+      // If it's already a Date
+      if (val instanceof Date && !isNaN(val.getTime())) {
+        return val.toLocaleString();
+      }
+      // If it's an array: [YYYY, MM, DD, hh, mm, ss, fraction]
+      if (Array.isArray(val) && val.length >= 3) {
+        const year = Number(val[0]);
+        const month = Number(val[1]) - 1; // JS months 0-indexed
+        const day = Number(val[2]);
+        const hour = Number(val[3] || 0);
+        const minute = Number(val[4] || 0);
+        const second = Number(val[5] || 0);
+        let milli = 0;
+        if (val[6] !== undefined && val[6] !== null) {
+          const f = Number(val[6]);
+          // if very large, it's likely nanoseconds -> convert to ms
+          if (f > 1e6) milli = Math.round(f / 1e6);
+          else if (f > 1e3) milli = Math.round(f / 1e3); // microseconds
+          else milli = Math.round(f);
+        }
+        const d = new Date(year, month, day, hour, minute, second, milli);
+        if (!isNaN(d.getTime())) return d.toLocaleString();
+      }
+      // If it's a number (timestamp ms)
+      if (typeof val === 'number') {
+        const d = new Date(val);
+        if (!isNaN(d.getTime())) return d.toLocaleString();
+      }
+      // If it's an ISO string or parseable
+      const parsed = new Date(val);
+      if (!isNaN(parsed.getTime())) return parsed.toLocaleString();
+      // Fallback to string
+      return String(val);
+    } catch (e) {
+      return String(val);
+    }
   };
 
+  // Map raw medical info object from API into display-friendly key/value pairs
+  // Only extract the four fields requested by the user: Chief Complaint, Past History,
+  // Medical Advice and Treatment Plan. This keeps the UI focused and avoids showing
+  // other patient-uploaded fields.
+  const mapMedicalDataToDetails = (medicalData = {}) => {
+    if (!medicalData || typeof medicalData !== 'object') return {};
+    const mappings = {
+      chiefComplaint: 'Chief Complaint',
+      'chief_complaint': 'Chief Complaint',
+      pastHistory: 'Past History',
+      'past_history': 'Past History',
+      advice: 'Medical Advice',
+      treatmentPlan: 'Treatment Plan',
+      plan: 'Treatment Plan',
+      planOfTreatment: 'Treatment Plan'
+    };
+
+    const result = {};
+    Object.entries(mappings).forEach(([key, label]) => {
+      const val = medicalData?.[key];
+      if (val !== undefined && val !== null && String(val).trim() !== '') {
+        result[label] = val;
+      }
+    });
+    return result;
+  };
+  // Determine best DOB source: check record -> fetched patient -> logged-in user's dob
+  const dobSource = selectedRecordBase?.dob || selectedRecordBase?.dateOfBirth || fetchedPatient?.dob || fetchedPatient?.dateOfBirth || user?.dob;
+  const computedAgeFromDob = computeAgeFromDob(dobSource);
+  // Fallback gender resolution: record.sex -> record.gender -> fetchedPatient -> user
+  const resolvedGender = selectedRecordBase?.sex || selectedRecordBase?.gender || fetchedPatient?.gender || fetchedPatient?.sex || user?.gender || user?.sex || "--";
+  const [prescriptions, setPrescriptions] = useState([]);
+  const [clinicalNotes, setClinicalNotes] = useState([]);
+  const [ipdVitals, setIpdVitals] = useState(null);
+  const [patientMedicalInfo, setPatientMedicalInfo] = useState(null);
+  // Processed, display-ready medical details (mapped labels) from patient-uploaded data
+  const [patientMedicalDetails, setPatientMedicalDetails] = useState({});
+  const [labScanData, setLabScanData] = useState([]);
+  // Fetch patient details by id to supplement missing DOB/gender in selectedRecordBase
+  useEffect(() => {
+    const pid = selectedRecordBase?.patientId || selectedRecordBase?.id || user?.patientId || user?.id;
+    if (!pid) return;
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await getPatientById(pid);
+        if (mounted) setFetchedPatient(res?.data || null);
+      } catch (err) {
+        console.debug('SecondOpinion: getPatientById failed for', pid, err?.message || err);
+        if (mounted) setFetchedPatient(null);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [selectedRecordBase, user]);
+  // Merge fetched doctor-specific data into selectedRecord for UI (no UI changes)
+  const computedVitals = (() => {
+    // Priority: ipdVitals (doctor-entered) -> patientMedicalInfo.vitals -> selectedRecordBase.vitals
+    if (ipdVitals) {
+      const vitalsSource = Array.isArray(ipdVitals) && ipdVitals.length ? ipdVitals[0] : ipdVitals;
+      if (typeof vitalsSource === "object" && vitalsSource !== null) {
+        console.log("Raw vitals source (ipd):", vitalsSource);
+        const filteredVitals = {
+          "Blood Pressure": vitalsSource.bloodPressure,
+          "Heart Rate": vitalsSource.heartRate,
+          "Temperature": vitalsSource.temperature,
+          "SpO2": vitalsSource.spo2,
+          "Respiratory Rate": vitalsSource.respiratoryRate,
+          "Height": vitalsSource.height,
+          "Weight": vitalsSource.weight
+        };
+        return Object.fromEntries(Object.entries(filteredVitals).filter(([_, value]) => value !== undefined && value !== null));
+      }
+    }
+
+    if (patientMedicalInfo && patientMedicalInfo.vitals && typeof patientMedicalInfo.vitals === 'object') {
+      console.log("Raw vitals source (patient):", patientMedicalInfo.vitals);
+      const filteredVitals = Object.entries(patientMedicalInfo.vitals).reduce((acc, [k, v]) => {
+        if (v === undefined || v === null) return acc;
+        const formattedKey = k.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase()).trim();
+        acc[formattedKey] = v;
+        return acc;
+      }, {});
+      return filteredVitals;
+    }
+
+    return selectedRecordBase.vitals || {};
+  })();
+  // Normalize prescriptions: ensure `date` is a friendly string (handle array timestamps like [YYYY,MM,DD,hh,mm,ss,ns])
+  const rawPrescriptions = prescriptions.length ? prescriptions : selectedRecordBase?.prescriptionsData || [];
+  const normalizedPrescriptions = (Array.isArray(rawPrescriptions) ? rawPrescriptions : []).map((p) => {
+    // common fields: date, prescribedAt, prescribed_at
+    const src = p.date ?? p.prescribedAt ?? p.prescribed_at ?? p.prescribedAtDate ?? p.prescribedAtTimestamp;
+    const formatted = formatDateValue(src);
+    return { ...p, date: formatted };
+  });
+  const selectedRecord = {
+    ...selectedRecordBase,
+    // Prefer computed age from DOB when available, otherwise fall back to provided age
+    age: (computedAgeFromDob !== null && computedAgeFromDob !== undefined) ? computedAgeFromDob : selectedRecordBase.age,
+    // Resolved gender (record or user)
+    sex: resolvedGender,
+    prescriptionsData: normalizedPrescriptions,
+    clinicalNotes: clinicalNotes.length ? clinicalNotes : selectedRecordBase?.clinicalNotes || [],
+    vitals: computedVitals,
+    // Merge any processed medical details from patient-uploaded data so UI shows them
+    medicalDetails: {
+      ...(selectedRecordBase.medicalDetails || {}),
+      ...(patientMedicalDetails || {})
+    },
+    // Lab tests: prefer formatted lab scans fetched for the patient, otherwise fall back to record's labTestsData
+    labTestsData: (Array.isArray(labScanData) && labScanData.length) ? labScanData : (selectedRecordBase.labTestsData || []),
+  };
+  // Display-friendly values (fallbacks when data missing)
+  const displayAge = (selectedRecord.age !== null && selectedRecord.age !== undefined && selectedRecord.age !== "") ? String(selectedRecord.age) : "--";
+  const displayGender = (selectedRecord.sex && selectedRecord.sex !== "--") ? selectedRecord.sex : "--";
+  useEffect(() => {
+    const fetchMedicalData = async () => {
+      const record = clickedRecord || selectedRecordBase;
+      if (!record) return;
+      
+      const patientId = record.patientId || record.id || "";
+      if (!patientId) {
+        console.warn("Missing patientId — skipping fetch");
+        return;
+      }
+
+      const uploadedBy = String(record.uploadedBy || "").toLowerCase();
+      const isDoctorUploaded = uploadedBy.includes("doctor");
+      
+      try {
+        let prescriptionsData = [];
+        let notesData = [];
+        let vitalsData = null;
+
+        if (isDoctorUploaded) {
+          // Fetch doctor-uploaded data
+          const doctorId = record.doctorId || record?.doctor?.id || "";
+          const context = activeTab || "OPD";
+          
+          console.log("Fetching doctor-uploaded data", { patientId, doctorId, context });
+          const [presRes, notesRes, vitalsRes] = await Promise.all([
+            getDoctorPatientPrescriptions(doctorId, patientId, context),
+            getClinicalNotes(patientId, doctorId, context),
+            getDoctorIpdVitalsByContext(doctorId, patientId, context)
+          ]);
+          
+          prescriptionsData = presRes?.data || [];
+          notesData = notesRes?.data || [];
+          vitalsData = vitalsRes?.data || null;
+        }
+
+        // Always fetch patient-uploaded data
+        try {
+          console.log("Fetching patient-uploaded data", { patientId });
+          const [patientPresRes, medicalInfoRes, labScanRes] = await Promise.all([
+            getPatientPrescriptions(patientId),
+            getPatientMedicalInfo(patientId),
+            getLabScanByPatient(patientId)
+          ]);
+          
+          // Detailed logging of medical info data
+          console.log("Patient Data Responses:::::::::::::::::::::::::::::", {
+           
+            medicalInfo: medicalInfoRes?.data,
+            labScans: labScanRes?.data
+          });
+          
+          // Log specific medical info fields
+          if (medicalInfoRes?.data) {
+            console.log("Medical Info Fields Available:", Object.keys(medicalInfoRes.data));
+            console.log("Medical Info Full Data:", medicalInfoRes.data);
+            if (medicalInfoRes.data.vitals) {
+              console.log("Vitals Fields Available:", Object.keys(medicalInfoRes.data.vitals));
+            }
+          }
+          
+          // Handle prescriptions
+          if (patientPresRes?.data && Array.isArray(patientPresRes.data)) {
+            const allPrescriptions = [...prescriptionsData];
+            patientPresRes.data.forEach(patientPres => {
+              const exists = allPrescriptions.some(p => p.id === patientPres.id);
+              if (!exists) {
+                allPrescriptions.push({
+                  ...patientPres,
+                  uploadedBy: 'patient'
+                });
+              }
+            });
+            prescriptionsData = allPrescriptions;
+          }
+
+          // Handle medical info (patient-uploaded). Process into display-friendly details state.
+          if (medicalInfoRes?.data) {
+            const medicalData = medicalInfoRes.data;
+            // keep raw data for debugging/other uses
+            setPatientMedicalInfo(medicalData);
+            // create processed key/value pairs for display and merge into UI via state
+            try {
+              const processed = mapMedicalDataToDetails(medicalData);
+              setPatientMedicalDetails(processed);
+            } catch (e) {
+              console.debug('Failed to process medical info:', e);
+              setPatientMedicalDetails({});
+            }
+            console.log("Patient medical info set:", medicalData);
+          }
+
+          // Handle lab scans (patient-uploaded) -> normalize and store in state
+          if (labScanRes?.data && Array.isArray(labScanRes.data)) {
+            const formattedLabScans = labScanRes.data.map(scan => ({
+              date: formatDateValue(scan.date || scan.createdAt),
+              testName: scan.testName || scan.name,
+              result: scan.result || scan.value,
+              normalRange: scan.normalRange || scan.range,
+              status: scan.status || 'Completed',
+              uploadedBy: 'patient'
+            }));
+            setLabScanData(formattedLabScans);
+          }
+
+        } catch (patientDataError) {
+          console.warn("Error fetching patient data:", patientDataError);
+        }
+
+        console.log("Combined Data:", {
+          prescriptions: prescriptionsData,
+          notes: notesData,
+          vitals: vitalsData,
+          patientMedicalInfo,
+          labScans: labScanData
+        });
+        
+        setPrescriptions(prescriptionsData);
+        setClinicalNotes(notesData);
+        setIpdVitals(vitalsData);
+        
+        // Log the processed vitals
+        console.log("Processed vitals:", computedVitals);
+      } catch (error) {
+        console.error("Error fetching medical data:", error);
+        toast.error("Failed to fetch medical data: " + error.message);
+      }
+    };
+    
+    fetchMedicalData();
+  }, [clickedRecord, activeTab, selectedRecordBase]);
   const [formData, setFormData] = useState({
     selectedDoctor: "",
     urgencyLevel: "",
@@ -350,9 +717,108 @@ const SecondOpinion = () => {
   const [showPrintPreview, setShowPrintPreview] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isSending, setIsSending] = useState({ whatsapp: false, email: false });
-  const doctors = ["Dr. Rajesh Kumar (Cardiologist)", "Dr. Priya Sharma (Physician)", "Dr. Amit Patel (Neurologist)", "Dr. Sunita Reddy (Gastroenterologist)"];
-  const urgencyLevels = [{ label: "Normal (3-5 days)", value: "normal" }, { label: "Urgent (1-2 days)", value: "urgent" }, { label: "Critical (Same day)", value: "critical" }];
-  const consultationModes = [{ label: "In-person Visit", value: "in-person" }, { label: "Teleconsultation", value: "teleconsultation" }, { label: "Email Report", value: "email" }, { label: "Phone Consultation", value: "phone" }];
+  // doctors list (fetched from API). fallback to a small static list while loading/failure
+  const [doctors, setDoctors] = useState(["Dr. Rajesh Kumar (Cardiologist)", "Dr. Priya Sharma (Physician)", "Dr. Amit Patel (Neurologist)", "Dr. Sunita Reddy (Gastroenterologist)"]);
+  const [doctorsLoading, setDoctorsLoading] = useState(false);
+  // fetch doctors from API and map to display strings
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setDoctorsLoading(true);
+      try {
+        const res = await getAllDoctors();
+        console.debug('getAllDoctors response:', res?.data);
+        if (!mounted) return;
+        const list = Array.isArray(res?.data) ? res.data.map(d => {
+          const nameParts = [d.firstName, d.middleName, d.lastName].filter(Boolean).join(' ');
+          const spec = d.specialization || d.specializationName || '';
+          const label = `Dr. ${nameParts}${spec ? ` (${spec})` : ''}`;
+          return label;
+        }) : [];
+        if (list.length) setDoctors(list);
+      } catch (err) {
+        console.debug('Failed to fetch doctors:', err?.message || err);
+      } finally {
+        if (mounted) setDoctorsLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+  // fetched options (fall back to sensible defaults)
+  const [urgencyLevels, setUrgencyLevels] = useState([
+    { label: "Normal (3-5 days)", value: "normal" },
+    { label: "Urgent (1-2 days)", value: "urgent" },
+    { label: "Critical (Same day)", value: "critical" },
+  ]);
+  const [consultationModes, setConsultationModes] = useState([
+    { label: "In-person Visit", value: "in-person" },
+    { label: "Teleconsultation", value: "teleconsultation" },
+    { label: "Email Report", value: "email" },
+    { label: "Phone Consultation", value: "phone" },
+  ]);
+  const [urgencyLoading, setUrgencyLoading] = useState(false);
+  const [consultLoading, setConsultLoading] = useState(false);
+  // Load urgency levels and consultation modes from API (if available)
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setUrgencyLoading(true);
+      setConsultLoading(true);
+      try {
+        const [uRes, cRes] = await Promise.all([
+          getUrgencyLevels().catch(() => ({ data: [] })),
+          getConsultationModes().catch(() => ({ data: [] })),
+        ]);
+        if (!mounted) return;
+        // Debug responses to help diagnose why defaults might show
+        console.debug('getUrgencyLevels response:', uRes?.data);
+        console.debug('getConsultationModes response:', cRes?.data);
+  const mapToOptions = (arr, labelKeys = ["label", "name", "modeName", "urgencyLevelName", "consultationModeName", "urgencyTiming", "displayName", "title"], valueKeys = ["value", "id", "code"]) => {
+          if (!Array.isArray(arr)) return [];
+          return arr.map((item) => {
+            // simple primitives
+            if (typeof item === 'string' || typeof item === 'number') return { label: String(item), value: item };
+            // try common label fields that are strings
+            let label = null;
+            for (const k of labelKeys) {
+              const v = item?.[k];
+              if (typeof v === 'string' || typeof v === 'number') { label = v; break; }
+            }
+            // fallback: pick the first string/number property on the object
+            if (!label) {
+              for (const k of Object.keys(item || {})) {
+                const v = item[k];
+                if (typeof v === 'string' || typeof v === 'number') { label = v; break; }
+              }
+            }
+            // last resort: serialize the object (avoid [object Object])
+            if (!label) {
+              try { label = JSON.stringify(item); } catch (e) { label = String(item); }
+            }
+            // determine value field
+            let value = null;
+            for (const k of valueKeys) {
+              if (item?.[k] !== undefined) { value = item[k]; break; }
+            }
+            if (value === null || value === undefined) value = label;
+            return { label: String(label), value };
+          });
+        };
+        const uOptions = mapToOptions(uRes.data || []);
+        const cOptions = mapToOptions(cRes.data || []);
+        if (uOptions.length) setUrgencyLevels(uOptions);
+        if (cOptions.length) setConsultationModes(cOptions);
+      } catch (err) {
+        console.debug('Failed to load urgency/consultation options', err?.message || err);
+      } finally {
+        if (mounted) {
+          setUrgencyLoading(false);
+          setConsultLoading(false);
+        }
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
   const handleInputChange = (field, value) => setFormData((prev) => ({ ...prev, [field]: value }));
   const handleDoctorSelect = (doctor) => { setFormData((prev) => ({ ...prev, selectedDoctor: doctor })); setIsDropdownOpen(false); };
   const handleBack = () => navigate(-1);
@@ -370,7 +836,7 @@ const SecondOpinion = () => {
     id: `SO-${Date.now()}`,
     requestDate: new Date().toLocaleDateString("en-GB"),
     patientInfo: {
-      Name: user?.firstName || 'N/A',
+      Name: selectedRecord?.patientName || user?.firstName || 'N/A',
       Age: selectedRecord.age,
       Sex: selectedRecord.sex,
       patientId: selectedRecord.id,
@@ -395,10 +861,10 @@ const SecondOpinion = () => {
         </div>
         <div style="background: #fff; border-radius: 0 0 18px 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); padding: 32px;">
           <div style="margin-bottom: 24px;">
-            <h3 style="font-size: 22px; font-weight: bold; color: #1A223F; margin-bottom: 12px;">${user?.firstName || 'N/A'} ${user?.lastName || ''}</h3>
+            <h3 style="font-size: 22px; font-weight: bold; color: #1A223F; margin-bottom: 12px;">${selectedRecord?.patientName || user?.firstName || 'N/A'}</h3>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; font-size: 15px; color: #333;">
-              <div>Age: ${selectedRecord.age}</div>
-              <div>Gender: ${selectedRecord.sex}</div>
+              <div>Age: ${ (selectedRecord.age !== null && selectedRecord.age !== undefined && selectedRecord.age !== "") ? selectedRecord.age : "--" }</div>
+              <div>Gender: ${ (selectedRecord.sex && selectedRecord.sex !== "--") ? selectedRecord.sex : "--" }</div>
               <div>Hospital: ${selectedRecord.hospitalName}</div>
               <div>Diagnosis: ${selectedRecord.diagnosis}</div>
               <div>K/C/O: ${selectedRecord["K/C/O"] ?? "--"}</div>
@@ -406,24 +872,46 @@ const SecondOpinion = () => {
           </div>
           <div style="margin-bottom: 24px;">
             <h4 style="font-size: 18px; font-weight: bold; color: #0E1630; margin-bottom: 10px;">Vitals Summary</h4>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px;">
-              ${Object.entries(selectedRecord.vitals || {}).map(([key, value]) => `
-                <div style='background:#f8fafc; border:1px solid #e5e7eb; border-radius:8px; padding:10px;'>
-                  <div style='font-size:12px; color:#666; margin-bottom:2px;'>${key.replace(/([A-Z])/g, " $1").replace(/^./, str => str.toUpperCase())}</div>
-                  <div style='font-size:15px; font-weight:600; color:#222;'>${value}</div>
-                </div>
-              `).join("")}
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px;">
+              ${Object.entries(selectedRecord.vitals || {}).map(([key, value]) => {
+                const getFormattedValue = (key, value) => {
+                  if (!value) return "--";
+                  switch(key) {
+                    case "Blood Pressure": return value + " mmHg";
+                    case "Heart Rate": return value + " bpm";
+                    case "Temperature": return value + " °F";
+                    case "SpO2": return value + " %";
+                    case "Respiratory Rate": return value + " /min";
+                    default: return value;
+                  }
+                };
+                const colors = {
+                  "Blood Pressure": "#fee2e2",
+                  "Heart Rate": "#dbeafe",
+                  "Temperature": "#fff7ed",
+                  "SpO2": "#dcfce7",
+                  "Respiratory Rate": "#ecfeff"
+                };
+                return `
+                  <div style='background:#fff; border-radius:8px; padding:12px; border-left:4px solid ${colors[key] || "#f5f3ff"}; box-shadow:0 1px 2px rgba(0,0,0,0.04);'>
+                    <div style='font-size:12px; color:#666; margin-bottom:4px;'>${key}</div>
+                    <div style='font-size:15px; font-weight:600; color:#222;'>${getFormattedValue(key, value)}</div>
+                  </div>
+                `;
+              }).join("")}
             </div>
           </div>
-          <div style="margin-bottom: 24px;">
+            <div style="margin-bottom: 24px;">
             <h4 style="font-size: 18px; font-weight: bold; color: #0E1630; margin-bottom: 10px;">Medical Information</h4>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
-              ${Object.entries(selectedRecord?.medicalDetails || {}).map(([label, value]) => `
-                <div style='background:#fff; border:1px solid #f3f4f6; border-radius:10px; padding:16px;'>
-                  <div style='font-weight:bold; font-size:13px; color:#666; margin-bottom:4px;'>${label.replace(/([A-Z])/g, " $1")}</div>
-                  <div style='color:#222; font-size:14px;'>${value || "N/A"}</div>
-                </div>
-              `).join("")}
+              ${Object.entries(selectedRecord?.medicalDetails || {})
+                .filter(([key]) => !["id", "doctorId", "context", "patientId", "createdAt", "updatedAt", "createdBy", "updatedBy"].includes(key))
+                .map(([label, value]) => `
+                  <div style='background:#fff; border:1px solid #f3f4f6; border-radius:10px; padding:16px;'>
+                    <div style='font-weight:bold; font-size:13px; color:#666; margin-bottom:4px;'>${label.replace(/([A-Z])/g, " $1")}</div>
+                    <div style='color:#222; font-size:14px;'>${value || "N/A"}</div>
+                  </div>
+                `).join("")}
             </div>
           </div>
           <div style="margin-bottom: 24px;">
@@ -448,17 +936,6 @@ const SecondOpinion = () => {
                 `).join("")}
               </tbody>
             </table>
-          </div>
-          <div style="margin-bottom: 24px;">
-            <h4 style="font-size: 18px; font-weight: bold; color: #0E1630; margin-bottom: 10px;">Clinical Notes</h4>
-            <div style='background:#fff; border:1px solid #f3f4f6; border-radius:10px; padding:16px;'>
-              ${(selectedRecord.clinicalNotes || []).map(note => `
-                <div style='margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #eee;'>
-                  <div style='font-weight:bold; font-size:13px; color:#666; margin-bottom:4px;'>${note.date} - ${note.doctorName}</div>
-                  <div style='color:#222; font-size:14px;'>${note.notes}</div>
-                </div>
-              `).join("")}
-            </div>
           </div>
           <div>
             <h4 style="font-size: 18px; font-weight: bold; color: #0E1630; margin-bottom: 10px;">Lab Tests</h4>
@@ -708,10 +1185,7 @@ const SecondOpinion = () => {
   }
   return (
     <div className="p-4 sm:p-6 space-y-6">
-      <button onClick={handleBack} className="flex items-center gap-2 hover:text-blue-600 transition-colors text-gray-600">
-        <ArrowLeft size={20} />
-        <span className="font-medium">Back to Medical Record Details</span>
-      </button>
+    
       <div className="text-left mb-8">
         <div className="inline-flex items-center gap-3">
           <Stethoscope size={32} className="primary-color" />
@@ -730,9 +1204,9 @@ const SecondOpinion = () => {
           <button onClick={() => setShowMedicalRecords(true)} className="mt-4 sm:mt-0 view-btn px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Preview Medical Records</button>
         </div>
       </div>
-       <ProfileCard
-            initials={user?.firstName?.charAt(0) || "N"}
-            name={`${user?.firstName || "N/A"} ${user?.lastName || ""}`}
+         <ProfileCard
+            initials={(selectedRecord?.patientName && selectedRecord.patientName.charAt(0)) || user?.firstName?.charAt(0) || "N"}
+            name={selectedRecord?.patientName || `${user?.firstName || "N/A"} ${user?.lastName || ""}`}
             fields={[
               { label: "Age", value: selectedRecord.age },
               { label: "Gender", value: selectedRecord.sex },
@@ -753,9 +1227,13 @@ const SecondOpinion = () => {
               </button>
               {isDropdownOpen && (
                 <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
-                  {doctors.map((doctor) => (
-                    <button key={doctor} type="button" onClick={() => handleDoctorSelect(doctor)} className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors">{doctor}</button>
-                  ))}
+                  {doctorsLoading ? (
+                    <div className="px-4 py-3 text-sm text-gray-500">Loading doctors...</div>
+                  ) : (
+                    doctors.map((doctor) => (
+                      <button key={doctor} type="button" onClick={() => handleDoctorSelect(doctor)} className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors">{doctor}</button>
+                    ))
+                  )}
                 </div>
               )}
             </div>
@@ -767,10 +1245,16 @@ const SecondOpinion = () => {
               onChange={(e) => handleInputChange("urgencyLevel", e.target.value)}
               className="w-full p-3 border border-gray-300 rounded-lg"
             >
-              <option value="">Select urgency level</option>
-              {urgencyLevels.map((level) => (
-                <option key={level.value} value={level.value}>{level.label}</option>
-              ))}
+              {urgencyLoading ? (
+                <option value="">Loading...</option>
+              ) : (
+                <>
+                  <option value="">Select urgency level</option>
+                  {urgencyLevels.map((level) => (
+                    <option key={level.value} value={level.value}>{level.label}</option>
+                  ))}
+                </>
+              )}
             </select>
           </div>
         </div>
@@ -782,10 +1266,16 @@ const SecondOpinion = () => {
               onChange={(e) => handleInputChange("preferredMode", e.target.value)}
               className="w-full p-3 border border-gray-300 rounded-lg"
             >
-              <option value="">Select consultation mode</option>
-              {consultationModes.map((mode) => (
-                <option key={mode.value} value={mode.value}>{mode.label}</option>
-              ))}
+              {consultLoading ? (
+                <option value="">Loading...</option>
+              ) : (
+                <>
+                  <option value="">Select consultation mode</option>
+                  {consultationModes.map((mode) => (
+                    <option key={mode.value} value={mode.value}>{mode.label}</option>
+                  ))}
+                </>
+              )}
             </select>
           </div>
           <div>
@@ -870,5 +1360,4 @@ const SecondOpinion = () => {
     </div>
   );
 };
-
-export default SecondOpinion;
+export default SecondOpinion; 
