@@ -517,13 +517,7 @@ const DischargeModal = () => {
       <div className="container mx-auto px-4 py-6 max-w-5xl">
         {/* Header */}
         <div className="flex items-center justify-between mb-6 bg-white rounded-xl shadow-sm p-4">
-          <button
-            onClick={handleBack}
-            className="flex items-center gap-2 px-3 py-2 text-[var(--primary-color)] hover:bg-gray-100 rounded-lg transition-colors font-medium"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back
-          </button>
+        
           <h1 className="text-xl font-bold text-[var(--primary-color)]">
             Patient Discharge Summary
           </h1>

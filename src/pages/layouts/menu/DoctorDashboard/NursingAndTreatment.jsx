@@ -380,12 +380,7 @@ const NursingAndTreatment = () => {
       <header>
         <div className="max-w-7xl mx-auto px-6 py-4">
   <div className="flex items-center gap-4 -ml-4">
-  <button
-    onClick={handleBack}
-    className="flex items-center gap-2 px-4 text-[var(--primary-color)] rounded-lg transition-colors"
-  >
-    <ChevronLeft className="w-5 h-5" /> Back to Patient Form
-  </button>
+ 
 </div>
 
 

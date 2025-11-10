@@ -277,6 +277,10 @@ export const getAvailableLabsBySelection = ({ selectedTests = [], selectedScans 
     },
   });
 
+  // LAB AVAILABLE TESTS (custom API)
+export const getAllLabAvailableTests = () =>
+  axiosInstance.get("/lab-available-tests/getall");
+
 // GET /api/lab-available-tests/search?location=Hyderabad
 export const searchAvailableLabsByLocation = (location) =>
   axiosInstance.get("/lab-available-tests/search", {

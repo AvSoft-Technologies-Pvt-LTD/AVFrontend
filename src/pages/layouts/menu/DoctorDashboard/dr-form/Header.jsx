@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
+import { usePatientContext } from "../../../../../context-api/PatientContext";
 import {
-  Heart, FileText, FlaskRound as Flask, Pill, Stethoscope, Eye, StickyNote, Printer, ChevronDown, ChevronUp, MoreHorizontal,
+  Heart, FileText, FlaskRound as Flask, Pill, Stethoscope, Eye, StickyNote, Printer, ChevronDown, ChevronUp, ChevronRight,
 } from "lucide-react";
 import QuickLinksPanel from "../QuickLinksPanel";
+import { Tooltip } from "react-tooltip";
 
 const formTypes = {
   all: { id: "all", name: "All", icon: null },
@@ -28,11 +30,15 @@ const Header = ({
   setShowPatientDetails = () => {},
   headerMeasureRef = null,
 }) => {
+  const { activeTab } = usePatientContext();
   const [showMoreForms, setShowMoreForms] = useState(false);
-  const [localIsIPD, setLocalIsIPD] = useState(isIPDPatient);
+  const [localIsIPD, setLocalIsIPD] = useState(isIPDPatient || (String(activeTab).toUpperCase() === "IPD"));
   const [quickLinksOpen, setQuickLinksOpen] = useState(false);
 
-  useEffect(() => setLocalIsIPD(isIPDPatient), [isIPDPatient]);
+  useEffect(() => {
+    const fromContext = String(activeTab).toUpperCase() === "IPD";
+    setLocalIsIPD(Boolean(isIPDPatient || fromContext));
+  }, [isIPDPatient, activeTab]);
 
   const handleFormTypeClick = (formId) => {
     setActiveForm(formId === "template" ? "template" : formId);
@@ -80,22 +86,33 @@ const Header = ({
           usePortal={true}
           nudgeUpPx={28}
         />
+        <Tooltip
+          id="quicklinks-tooltip"
+          place="bottom"
+          className="tooltip-gradient text-on-gradient"
+          offset={40}
+          style={{ zIndex: 9999 }}
+        />
         <div className="overflow-hidden bg-gradient-to-r from-[#01B07A] to-[#1A223F] rounded-b-xl shadow-md w-full mt-0 z-40 relative">
           {/* Mobile */}
           <div className="md:hidden flex flex-col items-center gap-2 p-2 xs:p-4 w-full text-white">
             <div className="relative flex flex-nowrap xs:flex-wrap items-center xs:items-start gap-4 p-4 w-full">
               {localIsIPD && (
-                <div className="absolute top-4 right-2 z-10">
-                  <button
-                    type="button"
-                    onClick={() => setQuickLinksOpen(true)}
-                    className="flex items-center gap-2 px-3 py-2 bg-white text-[#01B07A] rounded-lg hover:bg-gray-100 transition-all text-sm"
-                    aria-expanded={quickLinksOpen}
-                  >
-                    <MoreHorizontal className="w-4 h-4 text-[#01B07A]" />
-                    <span className="hidden sm:inline text-xs text-[#01B07A]">Quick Links</span>
-                  </button>
-                </div>
+              <div className="absolute top-4 right-2 z-10">
+  <button
+    type="button"
+    onClick={() => setQuickLinksOpen(true)}
+    className="flex items-center gap-2 px-3 py-2 bg-white text-[#01B07A] rounded-lg hover:bg-gray-100 transition-all text-sm"
+    aria-expanded={quickLinksOpen}
+    data-tooltip-id="quicklinks-tooltip"
+    data-tooltip-content="Quick Links"
+    data-tooltip-place="bottom"
+  >
+    <ChevronRight className="w-4 h-4 text-[#01B07A]" />
+    <span className="hidden sm:inline text-xs text-[#01B07A]">Quick Links</span>
+  </button>
+</div>
+
               )}
               <div className="w-14 h-14 flex items-center justify-center rounded-full bg-white text-[#01B07A] font-bold uppercase shadow">
                 {initials(getPatientName())}
@@ -142,15 +159,21 @@ const Header = ({
             <div className="relative flex flex-wrap items-start gap-6 p-4 w-full">
               {localIsIPD && (
                 <div className="absolute top-4 right-4 z-10">
-                  <button
-                    type="button"
-                    onClick={() => setQuickLinksOpen(true)}
-                    className="flex items-center gap-2 px-3 py-2 bg-white text-[#01B07A] rounded-lg hover:bg-gray-100 transition-all text-sm"
-                    aria-expanded={quickLinksOpen}
-                  >
-                    <MoreHorizontal className="w-4 h-4 text-[#01B07A]" />
-                    <span className="hidden sm:inline text-xs text-[#01B07A]">Quick Links</span>
-                  </button>
+                <div className="absolute top-4 right-4 z-10">
+  <button
+    type="button"
+    onClick={() => setQuickLinksOpen(true)}
+    className="flex items-center gap-2 px-3 py-2 bg-white text-[#01B07A] rounded-lg hover:bg-gray-100 transition-all text-sm"
+    aria-expanded={quickLinksOpen}
+    data-tooltip-id="quicklinks-tooltip"
+    data-tooltip-content="Quick Links"
+    data-tooltip-place="bottom"
+  >
+    <ChevronRight className="w-4 h-4 text-[#01B07A]" />
+    <span className="hidden sm:inline text-xs text-[#01B07A]">Quick Links</span>
+  </button>
+</div>
+
                 </div>
               )}
               <div className="w-20 h-20 flex items-center justify-center rounded-full bg-white text-[#01B07A] text-xl font-bold uppercase shadow">
@@ -254,17 +277,19 @@ const Header = ({
                         </div>
                       </div>
                       {localIsIPD && (
-                        <div className="w-full md:w-auto md:ml-auto mt-2 md:mt-0">
-                          <button
-                            type="button"
-                            onClick={() => setQuickLinksOpen(true)}
-                            className="flex items-center gap-2 px-3 py-2 bg-white text-[#01B07A] rounded-lg hover:bg-gray-100 transition-all text-sm"
-                            aria-expanded={quickLinksOpen}
-                          >
-                            <MoreHorizontal className="w-4 h-4 text-[#01B07A]" />
-                            <span className="hidden sm:inline text-xs text-[#01B07A]">Quick Links</span>
-                          </button>
-                        </div>
+                   <div className="w-full md:w-auto md:ml-auto mt-2 md:mt-0">
+  <button
+    type="button"
+    onClick={() => setQuickLinksOpen(true)}
+    className="flex items-center gap-2 px-3 py-2 bg-white text-[#01B07A] rounded-lg hover:bg-gray-100 transition-all text-sm"
+    aria-expanded={quickLinksOpen}
+    
+  >
+    <ChevronRight className="w-4 h-4 text-[#01B07A]" />
+    <span className="hidden sm:inline text-xs text-[#01B07A]">Quick Links</span>
+  </button>
+</div>
+
                       )}
                     </div>
                   </div>

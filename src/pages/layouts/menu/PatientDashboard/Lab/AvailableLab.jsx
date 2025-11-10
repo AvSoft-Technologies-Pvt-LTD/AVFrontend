@@ -6,7 +6,7 @@ import { hydrateCart } from "../../../../../context-api/cartSlice";
 import { initializeAuth } from "../../../../../context-api/authSlice";
 import { getLabCart } from "../../../../../utils/CrudService";
 import TableHeader from "../../../../../components/microcomponents/TableComponents/TableHeader";
-import { getAvailableLabsBySelection, searchAvailableLabsByLocation } from "../../../../../utils/masterService";
+import { getAvailableLabsBySelection, getAllLabAvailableTests } from "../../../../../utils/masterService";
 
 const AvailableLab = () => {
   const dispatch = useDispatch();
@@ -131,29 +131,87 @@ const AvailableLab = () => {
         setLabsError("");
         setLabsLoading(true);
 
-        // If user typed a location, use the search endpoint
+        // If user typed anything, load ALL availabilities, then filter client-side
         const q = (search || "").trim();
-        if (q.length >= 2) {
-          const { data } = await searchAvailableLabsByLocation(q);
+        if (q.length > 0) {
+          const { data } = await getAllLabAvailableTests();
           if (cancelled) return;
           const rows = Array.isArray(data) ? data : (data?.availableLabs || []);
-          const normalized = rows.map((row) => ({
-            id: row.labId ?? row.id,
-            name: row.labName ?? row.name ?? "Lab",
-            location: row.location ?? "",
-            rating: Number(row.rating) || 0,
-            price: Number(row.totalPrice) || 0,
-            reportTime: row.reportTime ? String(row.reportTime) : "",
-            homeCollection: Boolean(row.homeCollection),
-          }));
+          const grouped = new Map();
+          for (const row of rows) {
+            const key = row.labAvailableId ?? row.labId ?? row.id ?? row.labName;
+            const current = grouped.get(key);
+            const price = Number(row.price) || Number(row.totalPrice) || 0;
+            const rating = Number(row.rating) || 0;
+            const reportTimeStr = row.reportTime ? String(row.reportTime) : "";
+            const reportTimeDate = reportTimeStr ? new Date(reportTimeStr) : null;
+
+            if (!current) {
+              grouped.set(key, {
+                id: row.labAvailableId ?? row.labId ?? row.id ?? key,
+                labAvailableId: row.labAvailableId ?? null,
+                name: row.labName ?? row.name ?? "Lab",
+                location: row.location ?? "",
+                rating,
+                price,
+                reportTime: reportTimeStr,
+                _reportTimeDate: reportTimeDate,
+                homeCollection: Boolean(row.homeCollection),
+              });
+            } else {
+              if (price > 0 && (current.price === 0 || price < current.price)) current.price = price;
+              if (rating > current.rating) current.rating = rating;
+              if (reportTimeDate && (!current._reportTimeDate || reportTimeDate < current._reportTimeDate)) {
+                current._reportTimeDate = reportTimeDate;
+                current.reportTime = reportTimeStr;
+              }
+              current.homeCollection = current.homeCollection || Boolean(row.homeCollection);
+            }
+          }
+          const normalized = Array.from(grouped.values()).map(({ _reportTimeDate, ...rest }) => rest);
           setLabs(normalized);
           return;
         }
 
         // Otherwise pull availability based on selected tests/scans
-        // Guard: avoid calling when nothing selected
+        // If nothing is selected and no search, fall back to get-all API
         if ((selectedTestNames?.length || 0) === 0 && (selectedScanNames?.length || 0) === 0 && (selectedPackageNames?.length || 0) === 0) {
-          setLabs([]);
+          const { data } = await getAllLabAvailableTests();
+          if (cancelled) return;
+          const rows = Array.isArray(data) ? data : (data?.availableLabs || []);
+          const grouped = new Map();
+          for (const row of rows) {
+            const key = row.labAvailableId ?? row.labId ?? row.id ?? row.labName;
+            const current = grouped.get(key);
+            const price = Number(row.price) || Number(row.totalPrice) || 0;
+            const rating = Number(row.rating) || 0;
+            const reportTimeStr = row.reportTime ? String(row.reportTime) : "";
+            const reportTimeDate = reportTimeStr ? new Date(reportTimeStr) : null;
+
+            if (!current) {
+              grouped.set(key, {
+                id: row.labAvailableId ?? row.labId ?? row.id ?? key,
+                labAvailableId: row.labAvailableId ?? null,
+                name: row.labName ?? row.name ?? "Lab",
+                location: row.location ?? "",
+                rating,
+                price,
+                reportTime: reportTimeStr,
+                _reportTimeDate: reportTimeDate,
+                homeCollection: Boolean(row.homeCollection),
+              });
+            } else {
+              if (price > 0 && (current.price === 0 || price < current.price)) current.price = price;
+              if (rating > current.rating) current.rating = rating;
+              if (reportTimeDate && (!current._reportTimeDate || reportTimeDate < current._reportTimeDate)) {
+                current._reportTimeDate = reportTimeDate;
+                current.reportTime = reportTimeStr;
+              }
+              current.homeCollection = current.homeCollection || Boolean(row.homeCollection);
+            }
+          }
+          const normalized = Array.from(grouped.values()).map(({ _reportTimeDate, ...rest }) => rest);
+          setLabs(normalized);
           return;
         }
         const { data } = await getAvailableLabsBySelection({
@@ -163,15 +221,38 @@ const AvailableLab = () => {
         });
         if (cancelled) return;
         const rows = Array.isArray(data) ? data : (data?.availableLabs || []);
-        const normalized = rows.map((row) => ({
-          id: row.labId ?? row.id,
-          name: row.labName ?? row.name ?? "Lab",
-          location: row.location ?? "",
-          rating: Number(row.rating) || 0,
-          price: Number(row.totalPrice) || 0,
-          reportTime: row.reportTime ? String(row.reportTime) : "",
-          homeCollection: Boolean(row.homeCollection),
-        }));
+        const grouped = new Map();
+        for (const row of rows) {
+          const key = row.labAvailableId ?? row.labId ?? row.id ?? row.labName;
+          const current = grouped.get(key);
+          const price = Number(row.totalPrice) || Number(row.price) || 0;
+          const rating = Number(row.rating) || 0;
+          const reportTimeStr = row.reportTime ? String(row.reportTime) : "";
+          const reportTimeDate = reportTimeStr ? new Date(reportTimeStr) : null;
+
+          if (!current) {
+            grouped.set(key, {
+              id: row.labAvailableId ?? row.labId ?? row.id ?? key,
+              labAvailableId: row.labAvailableId ?? null,
+              name: row.labName ?? row.name ?? "Lab",
+              location: row.location ?? "",
+              rating,
+              price,
+              reportTime: reportTimeStr,
+              _reportTimeDate: reportTimeDate,
+              homeCollection: Boolean(row.homeCollection),
+            });
+          } else {
+            if (price > 0 && (current.price === 0 || price < current.price)) current.price = price;
+            if (rating > current.rating) current.rating = rating;
+            if (reportTimeDate && (!current._reportTimeDate || reportTimeDate < current._reportTimeDate)) {
+              current._reportTimeDate = reportTimeDate;
+              current.reportTime = reportTimeStr;
+            }
+            current.homeCollection = current.homeCollection || Boolean(row.homeCollection);
+          }
+        }
+        const normalized = Array.from(grouped.values()).map(({ _reportTimeDate, ...rest }) => rest);
         setLabs(normalized);
       } catch (e) {
         setLabsError(e?.message || "Failed to load labs");
@@ -571,9 +652,9 @@ const AvailableLab = () => {
         )}
 
         {!labsLoading && !labsError && filteredLabs.length > 0 && (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
             {filteredLabs.map((lab) => (
-              <div key={lab.id ?? lab.name} className="border border-gray-200 rounded-xl p-4 hover:shadow-sm transition">
+              <div key={lab.id ?? lab.name} className="border border-gray-200 rounded-xl p-4 hover:shadow-sm transition flex flex-col h-full">
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="font-semibold text-gray-900">{lab.name}</p>
@@ -600,7 +681,7 @@ const AvailableLab = () => {
                 </div>
                 <button
                   onClick={() => handleSelectLab(lab)}
-                  className="mt-4 w-full py-2 rounded-lg bg-[var(--primary-color)] text-white hover:opacity-90"
+                  className="mt-auto w-full py-2 rounded-lg bg-[var(--primary-color)] text-white hover:opacity-90"
                 >
                   Select Lab
                 </button>

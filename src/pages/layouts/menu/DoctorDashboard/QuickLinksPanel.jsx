@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { ChevronRight, X, Grid3X3 } from "lucide-react";
 import { BadgeCheck, Stethoscope, LogOut } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { usePatientContext } from "../../../../context-api/PatientContext";
 
 /**
  * QuickLinksPanel
@@ -44,6 +45,7 @@ zIndexBackdrop = 9999,
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { activeTab } = usePatientContext();
 
   const patient =
     location.state?.patient ||
@@ -57,7 +59,9 @@ zIndexBackdrop = 9999,
       type: "IPD",
     };
 
-  const isIPDPatient = (patient?.type || "").toLowerCase() === "ipd";
+  const activeIsIPD = String(activeTab || "").toUpperCase() === "IPD";
+  const patientType = String(patient?.type || patient?.context || "").toLowerCase();
+  const isIPDPatient = activeIsIPD || patientType === "ipd";
 
   // controlled/uncontrolled
   const [internalOpen, setInternalOpen] = useState(false);
