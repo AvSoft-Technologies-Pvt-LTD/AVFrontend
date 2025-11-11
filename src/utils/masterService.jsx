@@ -282,10 +282,14 @@ export const getAllLabAvailableTests = () =>
   axiosInstance.get("/lab-available-tests/getall");
 
 // GET /api/lab-available-tests/search?location=Hyderabad
-export const searchAvailableLabsByLocation = (location) =>
-  axiosInstance.get("/lab-available-tests/search", {
-    params: { location },
-  });
+// export const searchAvailableLabsByLocation = (location) =>
+//   axiosInstance.get("/lab-available-tests/search", {
+//     params: { location },
+//   });
+
+  export const getAllAvailableLabs = () =>
+  axiosInstance.get("/lab-available-tests/getall");
+
 
 export const getDoctorIpdVitalsByContext = (doctorId, patientId, context) =>
   axiosInstance.get(`/doctor/ipd-vitals/doctor/${doctorId}/patient/${patientId}/context/${context}`);

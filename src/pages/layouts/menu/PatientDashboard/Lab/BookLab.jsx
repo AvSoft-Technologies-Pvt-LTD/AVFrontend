@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Clock, MapPin, Home, TestTube, User, DollarSign, FileText, CheckCircle, Circle } from "lucide-react";
+import { createAppointment } from "../../../../../utils/CrudService";
 
 const BookLab = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { lab: labFromState, cart: cartFromState } = location.state || {};
   const [form, setForm] = useState({
     location: "Home Collection",
     address: "",
@@ -13,27 +16,12 @@ const BookLab = () => {
     phone: "",
     email: "",
   });
-
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
-
-  const lab = {
-    name: "SRL Labs",
-    location: "Mumbai, Maharashtra",
-  };
-
-  const cart = [
-    { title: "Vitamin D Test" },
-    { title: "Cholesterol Test" },
-    { title: "Thyroid Profile" },
-    { title: "HbA1c (Diabetes Test)" },
-    { title: "CT Scan Head" },
-    { title: "MRI Brain" },
-    { title: "X-Ray Chest" },
-    { title: "Comprehensive Health Checkup" },
-  ];
-
-  const totalPrice = 7299;
+  const lab = labFromState || { labName: "-", location: "-" };
+  const labAvailableId = lab?.labAvailableId ?? null; // strictly require actual labAvailableId
+  const cart = Array.isArray(cartFromState) ? cartFromState : [];
+  const totalPrice = cart.reduce((sum, t) => sum + (Number(t.price) || 0) * (t.quantity || 1), 0);
 
   const getStepStatus = (stepIndex) => {
     switch (stepIndex) {
@@ -91,20 +79,44 @@ const BookLab = () => {
       form.location === "Home Collection" && form.address
         ? form.address
         : lab.location;
-
-    navigate("/patientdashboard/payment1", {
-      state: {
-        name: form.fullName,
+    try {
+      setLoading(true);
+      if (!labAvailableId) {
+        console.error('Missing labAvailableId on selected lab');
+        setErrors((prev) => ({ ...prev, lab: 'Unable to proceed: Missing lab identifier.' }));
+        return;
+      }
+      const payload = {
+        patientName: form.fullName,
+        phone: form.phone,
         email: form.email,
-        date: form.date,
-        time: form.time,
-        location: visitLocation,
-        amount: totalPrice,
-        testTitle: cart.map((test) => test.title).join(", "),
-        labName: lab.name,
-        labLocation: lab.location,
-      },
-    });
+        labAvailableId: String(labAvailableId),
+        appointmentDate: form.date,
+        appointmentTime: form.time,
+        homeCollection: form.location === "Home Collection",
+        address: form.location === "Home Collection" ? form.address : "",
+      };
+      // Use the correct function from CrudService
+      const { data } = await createAppointment(payload);
+      navigate("/patientdashboard/payment1", {
+        state: {
+          name: form.fullName,
+          email: form.email,
+          date: form.date,
+          time: form.time,
+          location: visitLocation,
+          amount: totalPrice,
+          testTitle: cart.map((test) => test.title).join(", "),
+          labName: lab.labName,
+          labLocation: lab.location,
+          appointment: data,
+        },
+      });
+    } catch (e) {
+      console.error(e?.response?.data || e.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const steps = [
@@ -114,7 +126,7 @@ const BookLab = () => {
       status: getStepStatus(0),
       content: (
         <div className="space-y-1">
-          <p className="font-semibold text-gray-900">{lab.name}</p>
+          <p className="font-semibold text-gray-900">{lab.labName}</p>
           <p className="text-sm text-gray-600 leading-relaxed">
             {cart.map((test) => test.title).join(", ")}
           </p>
@@ -203,7 +215,6 @@ const BookLab = () => {
         <h1 className="text-3xl font-bold text-[var(--primary-color)] text-center mb-8">
           Book Your Lab Appointment
         </h1>
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm p-6 sm:p-8 space-y-6">
             <div className="flex gap-3">
@@ -221,7 +232,6 @@ const BookLab = () => {
                 </button>
               ))}
             </div>
-
             {form.location === "Home Collection" && (
               <div>
                 <label className="block text-sm font-medium text-[var(--primary-color)]/80 mb-2">
@@ -242,7 +252,6 @@ const BookLab = () => {
                 )}
               </div>
             )}
-
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-[var(--primary-color)]/80 mb-2">
@@ -261,7 +270,6 @@ const BookLab = () => {
                   <p className="text-red-500 text-sm mt-1">{errors.date}</p>
                 )}
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-[var(--primary-color)]/80 mb-2">
                   Appointment Time
@@ -280,7 +288,6 @@ const BookLab = () => {
                 )}
               </div>
             </div>
-
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-[var(--primary-color)]/80 mb-2">
@@ -299,7 +306,6 @@ const BookLab = () => {
                   <p className="text-red-500 text-sm mt-1">{errors.fullName}</p>
                 )}
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-[var(--primary-color)]/80 mb-2">
                   Phone Number
@@ -318,7 +324,6 @@ const BookLab = () => {
                 )}
               </div>
             </div>
-
             <div>
               <label className="block text-sm font-medium text-[var(--primary-color)]/80 mb-2">
                 Email (optional)
@@ -332,7 +337,6 @@ const BookLab = () => {
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[var(--accent-color)] focus:border-transparent transition-all"
               />
             </div>
-
             <button
               onClick={handleProceed}
               disabled={loading}
@@ -341,7 +345,6 @@ const BookLab = () => {
               {loading ? "Processing..." : "Proceed to Payment"}
             </button>
           </div>
-
           <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
             <div className="px-6 pt-6 pb-4 border-b border-gray-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -354,7 +357,6 @@ const BookLab = () => {
                 #6906
               </span>
             </div>
-
             <div className="px-6 py-6 relative">
               <div className="absolute left-[37px] top-0 bottom-0 w-0.5 bg-gray-200">
                 <div
@@ -362,14 +364,12 @@ const BookLab = () => {
                   style={{ height: `${calculateProgress()}%` }}
                 />
               </div>
-
               <div className="relative space-y-6">
                 {steps.map((step, index) => {
                   const Icon = step.icon;
                   const isCompleted = step.status === "completed";
                   const isInProgress = step.status === "in-progress";
                   const isPending = step.status === "pending";
-
                   return (
                     <div key={index} className="relative flex gap-4">
                       <div className="relative z-10 flex-shrink-0">
@@ -393,7 +393,6 @@ const BookLab = () => {
                           )}
                         </div>
                       </div>
-
                       <div className="flex-1 pb-2">
                         <div className="flex items-center justify-between mb-2">
                           <h4 className="text-sm font-semibold text-gray-900">
@@ -422,7 +421,6 @@ const BookLab = () => {
                 })}
               </div>
             </div>
-
             <div className="bg-teal-50 px-6 py-4 border-t border-teal-100">
               <div className="flex gap-3 text-sm text-gray-700">
                 <Clock className="text-teal-600 w-5 h-5 flex-shrink-0 mt-0.5" />

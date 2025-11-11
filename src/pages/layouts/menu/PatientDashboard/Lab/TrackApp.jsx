@@ -353,12 +353,7 @@ const TrackAppointment = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <button
-          className="mb-6 flex items-center gap-2 text-[var(--primary-color)] hover:text-[var(--accent-color)] font-medium transition-colors"
-          onClick={() => navigate("/patientdashboard/app", { state: { activeTab: "lab" } })}
-        >
-          ← Back to Home
-        </button>
+       
 
         <div className="bg-[var(--color-surface)] rounded-2xl shadow-lg p-6 mb-8 border border-gray-100">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">

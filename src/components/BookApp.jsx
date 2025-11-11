@@ -10,7 +10,7 @@ import {
   getAllSymptoms,
   getDoctorsBySpecialty,
 } from '../utils/masterService';
-import { createAppointment } from '../utils/CrudService';
+import { createAppointments } from '../utils/CrudService';
 
 const MultiStepForm = () => {
   const location = useLocation();
@@ -382,7 +382,7 @@ const MultiStepForm = () => {
     });
 
     try {
-      const bookingResponse = await createAppointment(payload);
+      const bookingResponse = await createAppointments(payload);
       console.log("Booking successful:", bookingResponse);
       setTimeout(() => {
         updateState({

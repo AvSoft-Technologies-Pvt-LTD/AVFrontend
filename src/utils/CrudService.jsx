@@ -446,9 +446,8 @@ export const getNearbyAmbulances = (latitude, longitude, radiusKm = 10) =>
     params: { latitude, longitude, radiusKm },
   });
 
-
-  //cart
-  // Cart API functions
+//cart
+// Cart API functions
 export const createLabCart = (patientId, payload) =>
   axiosInstance.post('/lab/cart/add', {
     patientId,
@@ -459,6 +458,10 @@ export const createLabCart = (patientId, payload) =>
 export const getLabCart = (patientId) =>
   axiosInstance.get(`/lab/cart/${patientId}`);
 
+// Get all lab available tests (flat list of lab availability rows)
+export const getAllLabAvailableTests = () =>
+  axiosInstance.get('/lab-available-tests/getall');
+
 // Update an existing cart – PUT /lab/cart/{patientId}
 export const updateLabCart = (patientId, payload) =>
   axiosInstance.put(`/lab/cart/${patientId}`, {
@@ -466,7 +469,11 @@ export const updateLabCart = (patientId, payload) =>
     ...payload // Spread the payload (tests, scans, or packages)
   });
 
-  // --- Lab catalog detail APIs ---
+// Delete an existing cart – DELETE /lab/cart/{patientId}
+export const deleteLabCart = (patientId) =>
+  axiosInstance.delete(`/lab/cart/${patientId}`);
+
+// --- Lab catalog detail APIs ---
 export const getLabTestById = (id) => axiosInstance.get(`/lab-tests/${id}`);
 export const getScanById = (id) => axiosInstance.get(`/scans/${id}`);
 export const getPackageById = (id) => axiosInstance.get(`/packages/${id}`);
@@ -506,6 +513,12 @@ export const updateStaff = (id, data) =>
 export const deleteStaff = (id) =>
   axiosInstance.delete(`/dashboard/staff/${id}`);
 
+export const createAppointment = (data) =>
+  axiosInstance.post('labs/appointments/create', data);
+
+export const getLabAppointmentProgress = (bookingId) =>
+  axiosInstance.get(`/lab/appointments/progress/tracking/track-appointment/${bookingId}`);
+
 // ===== Appointment APIs =====
 // Get appointments by patient ID
 export const getAppointmentsByPatientId = (patientId) =>
@@ -516,5 +529,5 @@ export const getAppointmentsByDoctorId = (doctorId) =>
   axiosInstance.get(`/appointments/doctor/${doctorId}`);
 
 // Create new appointment
-export const createAppointment = (data) =>
+export const createAppointments = (data) =>
   axiosInstance.post('/appointments', data);

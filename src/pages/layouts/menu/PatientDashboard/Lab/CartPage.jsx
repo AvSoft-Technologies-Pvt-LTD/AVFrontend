@@ -3,7 +3,7 @@ import React, { useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { hydrateCart, removeFromCart, clearCart } from '../../../../../context-api/cartSlice';
-import { getLabCart /*, updateLabCart */ } from '../../../../../utils/CrudService';
+import { getLabCart, updateLabCart } from '../../../../../utils/CrudService';
 import { initializeAuth } from '../../../../../context-api/authSlice';
 import { ShoppingCart, Trash2 } from 'lucide-react';
 
@@ -19,48 +19,73 @@ const patientId = patientIdFromStore == null ? null : Number(patientIdFromStore)
 
   const cart = useSelector((state) => state.cart);
 
+  // Robustly infer item kind when it's missing
+  const inferKind = (item) => {
+    if (item?.kind) return item.kind;
+    if (item?.packageId || String(item?.title || '').toLowerCase().includes('package')) return 'package';
+    if (item?.scanId) return 'scan';
+    if (item?.testId) return 'test';
+    // Heuristic fallbacks
+    if (item?.code && String(item.code).toUpperCase().startsWith('SCN')) return 'scan';
+    return 'test';
+  };
+
+  // Normalize API cart response into flat array for Redux
+  const normalizeApiCart = (data) => {
+    const { tests = [], scans = [], packages = [] } = data || {};
+    const normTests = tests.map((t) => ({
+      ...t,
+      id: t.id ?? t.testId,
+      kind: 'test',
+      title: t.title ?? t.name ?? t.testName ?? t.code ?? 'Test',
+      price: Number(t.price) || 0,
+      quantity: t.quantity || 1,
+    }));
+    const normScans = scans.map((s) => ({
+      ...s,
+      id: s.id ?? s.scanId,
+      kind: 'scan',
+      title: s.title ?? s.name ?? s.scanName ?? s.code ?? 'Scan',
+      price: Number(s.price) || 0,
+      quantity: s.quantity || 1,
+    }));
+    const normPackages = packages.map((p) => ({
+      ...p,
+      id: p.id ?? p.packageId,
+      kind: 'package',
+      title: p.title ?? p.name ?? p.packageName ?? 'Package',
+      price: Number(p.price) || 0,
+      quantity: p.quantity || 1,
+    }));
+    return [...normTests, ...normScans, ...normPackages];
+  };
+
+  // Build backend payload from a cart array
+  const buildPayloadFromCart = (arr) => {
+    const tests = [];
+    const scans = [];
+    const packages = [];
+    (arr || []).forEach((item) => {
+      const qty = item.quantity || 1;
+      const k = inferKind(item) || item.type;
+      if (k === 'test') {
+        tests.push({ testId: item.testId ?? item.id, quantity: qty });
+      } else if (k === 'scan') {
+        scans.push({ scanId: item.scanId ?? item.id, quantity: qty });
+      } else if (k === 'package') {
+        packages.push({ packageId: item.packageId ?? item.id, quantity: qty });
+      }
+    });
+    return { tests, scans, packages };
+  };
+
   useEffect(() => {
     const fetchCart = async () => {
       try {
         if (!(Number.isInteger(patientId) && patientId > 0)) return;
         const { data } = await getLabCart(patientId);
         console.log('Fetched cart data:', data);
-
-        // shape from API:
-        // { patientId, tests:[], scans:[], packages:[], totalAmount }
-        const {
-          tests = [],
-          scans = [],
-          packages = [],
-        } = data || {};
-
-        // Normalize items and tag a stable "kind" discriminator for UI keys/removal
-        const normTests = tests.map((t) => ({
-          ...t,
-          id: t.id ?? t.testId,           // unify id for UI/removal
-          kind: 'test',                   // stable type for UI logic
-          quantity: t.quantity || 1,      // fallback
-        }));
-
-        const normScans = scans.map((s) => ({
-          ...s,
-          id: s.id ?? s.scanId,
-          kind: 'scan',
-          quantity: s.quantity || 1,
-        }));
-
-        const normPackages = packages.map((p) => ({
-          ...p,
-          id: p.id ?? p.packageId,
-          kind: 'package',
-          // packages may not have "code" - UI should handle optional
-          quantity: p.quantity || 1,
-        }));
-
-        // Flatten for your Redux cart
-        const allItems = [...normTests, ...normScans, ...normPackages];
-
-        dispatch(hydrateCart(allItems));
+        dispatch(hydrateCart(normalizeApiCart(data)));
       } catch (error) {
         console.error('Error fetching cart:', error?.response?.data || error.message);
       }
@@ -95,12 +120,17 @@ const patientId = patientIdFromStore == null ? null : Number(patientIdFromStore)
               </h3>
               {cart.length > 0 && (
                 <button
-                  onClick={() => {
-                    // If you want to sync "clear" to backend uncomment this:
-                    // updateLabCart(patientId, { tests: [], scans: [], packages: [] })
-                    //   .catch(() => {})
-                    //   .finally(() => dispatch(clearCart()));
-                    dispatch(clearCart());
+                  onClick={async () => {
+                    try {
+                      if (Number.isInteger(patientId) && patientId > 0) {
+                        await updateLabCart(patientId, { tests: [], scans: [], packages: [] });
+                      }
+                    } catch (e) {
+                      // non-blocking: still clear locally
+                      console.error('Clear-all sync failed:', e?.response?.data || e.message);
+                    } finally {
+                      dispatch(clearCart());
+                    }
                   }}
                   className="delete-btn text-xs sm:text-sm"
                 >
@@ -154,12 +184,22 @@ const patientId = patientIdFromStore == null ? null : Number(patientIdFromStore)
 
                       <div className="flex items-center justify-end mt-2 sm:mt-3">
                         <button
-                          onClick={() => {
-                            // To sync removal with backend, you’d:
-                            // 1) compute new arrays for tests/scans/packages
-                            // 2) call updateLabCart(patientId, payload)
-                            // 3) then dispatch(removeFromCart)
-                            dispatch(removeFromCart({ id: item.id, kind: item.kind || 'test' }));
+                          onClick={async () => {
+                            const targetKind = inferKind(item);
+                            try {
+                              const newCart = cart.filter((c) => !(c.id === item.id && inferKind(c) === targetKind));
+                              if (Number.isInteger(patientId) && patientId > 0) {
+                                const payload = buildPayloadFromCart(newCart);
+                                await updateLabCart(patientId, payload);
+                                // Rehydrate from backend to ensure UI reflects server state
+                                const { data } = await getLabCart(patientId);
+                                dispatch(hydrateCart(normalizeApiCart(data)));
+                              }
+                            } catch (e) {
+                              console.error('Item delete sync failed:', e?.response?.data || e.message);
+                              // still proceed to update UI
+                              dispatch(removeFromCart({ id: item.id, kind: targetKind }));
+                            }
                           }}
                           className="delete-btn text-xs sm:text-sm"
                         >

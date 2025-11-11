@@ -10,7 +10,8 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { motion } from "framer-motion";
 import { FaNotesMedical, FaVideo } from "react-icons/fa";
-import { FiExternalLink } from "react-icons/fi";
+import { FiExternalLink, FiLink } from "react-icons/fi";
+import QuickLinksPanel from "../../DoctorDashboard/QuickLinksPanel";
 import DynamicTable from "../../../../../components/microcomponents/DynamicTable";
 import TeleConsultFlow from "../../../../../components/microcomponents/Call";
 import {
@@ -354,6 +355,8 @@ const IPDTab = forwardRef(
     const [isLoadingCities, setIsLoadingCities] = useState(false);
     const [wardData, setWardData] = useState([]);
     const [bedFacilities, setBedFacilities] = useState({});
+    const [quickLinksOpen, setQuickLinksOpen] = useState(false);
+    const [quickLinksPatient, setQuickLinksPatient] = useState(null);
 
     useImperativeHandle(ref, () => ({
       openAddPatientModal: () => {
@@ -1019,7 +1022,7 @@ const handleBedSelection = useCallback(
         {
           header: "Actions",
           cell: (row) => (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               {/* <button onClick={() => handleAddRecord(row)} className="text-base p-1">
                 <FaNotesMedical />
               </button>
@@ -1028,7 +1031,7 @@ const handleBedSelection = useCallback(
                   phone={row.phone}
                   patientName={
                     row.name ||
-                    `${row.firstName || ""} ${row.middleName || ""} ${row.lastName || ""}`
+                    `${row.firstName || ""} ${row.middleName || ""} ${row.lastName || ""}` 
                       .replace(/\s+/g, " ")
                       .trim()
                   }
@@ -1042,6 +1045,17 @@ const handleBedSelection = useCallback(
                   <FaVideo />
                 </button>
               )}
+              <button
+                title="Quick Links"
+                className="p-0.5 text-base text-[var(--primary-color)]"
+                style={{ display: "flex", alignItems: "center" }}
+                onClick={() => {
+                  setQuickLinksPatient(row);
+                  setQuickLinksOpen(true);
+                }}
+              >
+                <FiLink />
+              </button>
               <button
                 title="View Medical Record"
                 onClick={() => {
@@ -1075,7 +1089,7 @@ const handleBedSelection = useCallback(
                     },
                   });
                 }}
-                className="p-1 text-base text-[var(--primary-color)]"
+                className="p-0.5 text-base text-[var(--primary-color)]"
                 style={{ display: "flex", alignItems: "center" }}
               >
                 <FiExternalLink />
@@ -1329,6 +1343,15 @@ const handleBedSelection = useCallback(
               ? "font-bold bg-yellow-100 hover:bg-yellow-200 transition-colors duration-150"
               : ""
           }
+        />
+        <QuickLinksPanel
+          isOpen={quickLinksOpen}
+          onToggle={(open) => setQuickLinksOpen(Boolean(open))}
+          setActiveForm={() => {}}
+          patient={quickLinksPatient || {}}
+          showTrigger={false}
+          usePortal={true}
+          nudgeUpPx={28}
         />
         <PatientViewModal
           isOpen={modals.viewPatient}

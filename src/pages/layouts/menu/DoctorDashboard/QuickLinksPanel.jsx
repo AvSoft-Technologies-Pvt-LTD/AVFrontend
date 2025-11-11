@@ -6,27 +6,7 @@ import { BadgeCheck, Stethoscope, LogOut } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { usePatientContext } from "../../../../context-api/PatientContext";
 
-/**
- * QuickLinksPanel
- *
- * Default behavior (by request):
- *   top: 10px;
- *   height: calc(100vh - 60px);  // user requested "calc(-60px + 100vh)"
- *   z-index: 200;
- *
- * Props:
- * - isOpen (optional): boolean (controlled)
- * - onToggle(open): fn
- * - setActiveForm: fn
- * - patient: object
- * - showTrigger: boolean (default true)
- * - usePortal: boolean (default true)
- * - autoPosition: boolean (default false) -> if true, compute top from sticky headers (old behavior)
- * - fixedTopPx: number (default 10) -> used when autoPosition === false
- * - fixedHeightCalc: string (default 'calc(100vh - 60px)') -> used when autoPosition === false
- * - nudgeUpPx: number used only by autoPosition mode (keeps backward compatibility)
- * - zIndexPanel, zIndexBackdrop
- */
+
 const QuickLinksPanel = ({
   isOpen: propIsOpen,
   onToggle,
@@ -171,22 +151,23 @@ zIndexBackdrop = 9999,
   ];
 
   const handleLinkClick = (link) => {
-    if (setActiveForm) {
-      const key = link.name.toLowerCase().split(" ")[0] || link.name.toLowerCase();
-      setActiveForm(key);
-    }
-
-    if (link.name === "Nursing & Treatment") {
-      navigate("Nursing-and-treatment", { state: { patient } });
+    // Explicit routes requested
+    if (link?.name === "Nursing & Treatment") {
+      navigate("/doctordashboard/form/Nursing-and-treatment", { state: { patient } });
       return closePanel();
     }
-    if (link.name === "Gate Pass") {
+    if (link?.name === "Gate Pass") {
       navigate("/doctordashboard/form/Gate-pass", { state: { patient } });
       return closePanel();
     }
-    if (link.name === "Discharge") {
+    if (link?.name === "Discharge") {
       navigate("/doctordashboard/form/Discharge-modal", { state: { patient } });
       return closePanel();
+    }
+
+    if (setActiveForm) {
+      const key = link.name.toLowerCase().split(" ")[0] || link.name.toLowerCase();
+      setActiveForm(key);
     }
     closePanel();
   };
