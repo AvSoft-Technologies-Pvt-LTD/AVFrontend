@@ -16,7 +16,7 @@ const TokenGenerator = () => {
   const dispatch = useDispatch();
   const doctorId = useSelector((state) => state.auth.doctorId);
 
-  // State
+  // State 
   const [step, setStep] = useState(1);
   const [errors, setErrors] = useState({});
   const [isVerifying, setIsVerifying] = useState(false);
@@ -34,6 +34,8 @@ const TokenGenerator = () => {
   const [filteredSymptoms, setFilteredSymptoms] = useState([]);
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
+  const [selectedSlotId, setSelectedSlotId] = useState(null);
+  const [lastTokenDetails, setLastTokenDetails] = useState(null);
   const [availableSlots, setAvailableSlots] = useState([]);
   const [availableDates, setAvailableDates] = useState([]);
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
@@ -147,16 +149,27 @@ const TokenGenerator = () => {
 
   // Get available time slots for selected doctor and date
   const getAvailableSlots = (doctor, date) => {
-    if (!date) return [];
+    if (!doctor || !date) return [];
     const slot = doctor.availability?.find(s => s.date === date);
-    if (slot?.times) {
-      return slot.times.filter(time =>
-        !slot.bookedSlots?.some(bookedSlot =>
-          (typeof bookedSlot === 'object' ? bookedSlot.time : bookedSlot) === time
+    if (!slot?.times) return [];
+
+    const bookedSlotTimes = slot.bookedSlots?.map(item =>
+      typeof item === 'object'
+        ? { time: item.time, slotId: item.slotId ?? null }
+        : { time: item, slotId: null }
+    ) || [];
+
+    return slot.times
+      .map(entry =>
+        typeof entry === 'object'
+          ? { time: entry.time, slotId: entry.slotId ?? null }
+          : { time: entry, slotId: null }
+      )
+      .filter(timeObj =>
+        !bookedSlotTimes.some(booked =>
+          booked.time === timeObj.time && (booked.slotId ?? null) === (timeObj.slotId ?? null)
         )
       );
-    }
-    return [];
   };
 
   // Get visible slots (9 at a time)
@@ -229,11 +242,19 @@ const TokenGenerator = () => {
     setStep(3);
   };
 
+  const clearSlotError = (prevErrors = {}) => {
+    if (!prevErrors.slot) return prevErrors;
+    const { slot, ...rest } = prevErrors;
+    return rest;
+  };
+
   const handleDoctorSelect = (doctor) => {
     setSelectedDoctor(doctor);
     setSelectedDate('');
     setSelectedTime('');
+    setSelectedSlotId(null);
     setAvailableSlots([]);
+    setErrors(prev => clearSlotError(prev));
     const dates = getAvailableDates(doctor);
     setAvailableDates(dates);
   };
@@ -241,7 +262,9 @@ const TokenGenerator = () => {
   const handleDateSelect = (date) => {
     setSelectedDate(date);
     setSelectedTime('');
+    setSelectedSlotId(null);
     setIsLoadingSlots(true);
+    setErrors(prev => clearSlotError(prev));
     setTimeout(() => {
       const slots = getAvailableSlots(selectedDoctor, date);
       setAvailableSlots(slots);
@@ -249,28 +272,74 @@ const TokenGenerator = () => {
     }, 500);
   };
 
-  const handleTimeSelect = (time) => {
+  const handleTimeSelect = ({ time, slotId }) => {
     setSelectedTime(time);
+    setSelectedSlotId(slotId ?? null);
+    if (slotId !== null && slotId !== undefined) {
+      setErrors(prev => clearSlotError(prev));
+    } else {
+      setErrors(prev => ({ ...prev, slot: 'Selected slot is missing an identifier. Please choose another slot.' }));
+    }
   };
 
   const handleGenerateToken = async () => {
+    if (selectedSlotId === null || selectedSlotId === undefined) {
+      setErrors(prev => ({ ...prev, slot: 'Please select a valid slot before generating a token.' }));
+      return;
+    }
+    const patientId = patientData?.id || patientData?.patientId;
+    if (!patientId) {
+      setErrors(prev => ({ ...prev, patient: 'Patient information is missing. Please verify again.' }));
+      setStep(1);
+      return;
+    }
+    setIsVerifying(true);
     try {
+      const departmentId = Number(selectedSpecialization?.id || selectedSpecialization?.specialtyId || 0);
+      const doctorIdentifier = Number(selectedDoctor?.doctorId || selectedDoctor?.id || 0);
+      const slotIdentifier = Number(selectedSlotId);
+      const waitMinutes = consultationType === 'virtual'
+        ? (priority === 'emergency' ? 2 : 15)
+        : (priority === 'emergency' ? 5 : 30);
+
       const requestBody = {
+        patientId:1,
         patientName: patientData.fullName,
         phoneNumber: patientData.phoneNumber,
-        departmentId: selectedSpecialization?.id || selectedSpecialization?.specialtyId,
-        specialtyId: selectedSpecialization?.id || selectedSpecialization?.specialtyId,
-        specialization: selectedSpecialization?.name,
-        doctorId: selectedDoctor?.id || selectedDoctor?.doctorId,
+        departmentId,
+        slotId: slotIdentifier,
+        doctorId: doctorIdentifier,
         priorityLevel: priority.toUpperCase(),
-        consultationType: consultationType.toUpperCase(),
-        reasonForVisit: symptoms,
+        reasonForVisit: symptoms || 'General Consultation',
         status: 'WAITING',
-        appointmentDate: selectedDate,
-        appointmentTime: selectedTime,
-        estimatedWaitMinutes: consultationType === 'virtual' ? (priority === 'emergency' ? 2 : 15) : (priority === 'emergency' ? 5 : 30),
+        estimatedWaitMinutes: waitMinutes,
       };
+
+      if (selectedDate) requestBody.appointmentDate = selectedDate;
+      if (selectedTime) requestBody.appointmentTime = selectedTime;
+      if (consultationType) requestBody.consultationType = consultationType.toUpperCase();
+
       const response = await createQueueToken(requestBody);
+      console.log('Queue token created:', response?.data || response);
+      const tokenResponse = (response && response.data) ? response.data : response;
+      const normalizedToken = {
+        tokenNumber: tokenResponse?.tokenNumber || null,
+        patientName: tokenResponse?.patientName || patientData.fullName,
+        phoneNumber: tokenResponse?.phoneNumber || patientData.phoneNumber,
+        doctorName: tokenResponse?.doctorName || selectedDoctor?.name || '',
+        specialization: tokenResponse?.departmentName || selectedSpecialization?.name || '',
+        priorityLevel: tokenResponse?.priorityLevel || priority.toUpperCase(),
+        reasonForVisit: tokenResponse?.reasonForVisit || symptoms || 'General Consultation',
+        status: tokenResponse?.status || 'WAITING',
+        slotDate: tokenResponse?.slotDate || selectedDate || null,
+        slotTime: tokenResponse?.slotTime || selectedTime || null,
+      };
+      setLastTokenDetails(normalizedToken);
+      setErrors(prev => {
+        const cleared = clearSlotError(prev);
+        const { patient, ...rest } = cleared || {};
+        return rest;
+      });
       setStep(4);
     } catch (error) {
       console.error('API Error:', error);
@@ -291,6 +360,8 @@ const TokenGenerator = () => {
     setSelectedDoctor(null);
     setPriority('normal');
     setConsultationType('opd');
+    setSelectedSlotId(null);
+    setLastTokenDetails(null);
   };
 
   // Get next token number
@@ -304,6 +375,71 @@ const TokenGenerator = () => {
       return 1;
     }
   };
+
+  const formatDateFromArray = (dateArray) => {
+    if (Array.isArray(dateArray) && dateArray.length >= 3) {
+      const [year, month, day] = dateArray;
+      const dateObj = new Date(year, (month ?? 1) - 1, day);
+      if (!Number.isNaN(dateObj.getTime())) {
+        return dateObj.toLocaleDateString('en-US', {
+          weekday: 'long',
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric',
+        });
+      }
+    }
+    return null;
+  };
+
+  const formatDateString = (dateValue) => {
+    if (!dateValue) return null;
+    const dateObj = new Date(dateValue);
+    if (Number.isNaN(dateObj.getTime())) return null;
+    return dateObj.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
+
+  const formatLabelValue = (value) => {
+    if (!value) return 'N/A';
+    return value
+      .toString()
+      .replace(/_/g, ' ')
+      .toLowerCase()
+      .replace(/(^|\s)\S/g, (match) => match.toUpperCase());
+  };
+
+  const formatTimeValue = (timeValue) => {
+    if (!timeValue) return 'N/A';
+    if (/[AP]M$/i.test(timeValue)) return timeValue;
+    const [hoursStr, minutes = '00'] = timeValue.split(':');
+    let hours = Number(hoursStr);
+    if (Number.isNaN(hours)) return timeValue;
+    const suffix = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+    return `${hours}:${minutes.padStart(2, '0')} ${suffix}`;
+  };
+
+  const fallbackTokenNumber = `T${getNextTokenNumber().toString().padStart(3, '0')}`;
+  const displayTokenNumber = lastTokenDetails?.tokenNumber || fallbackTokenNumber;
+  const displayPatientName = lastTokenDetails?.patientName || patientData?.fullName || 'N/A';
+  const displayPhoneNumber = lastTokenDetails?.phoneNumber || patientData?.phoneNumber || 'N/A';
+  const displayDoctorName = lastTokenDetails?.doctorName || selectedDoctor?.name || 'N/A';
+  const displaySpecialization = lastTokenDetails?.specialization || selectedSpecialization?.name || 'N/A';
+  const displayPriorityRaw = lastTokenDetails?.priorityLevel || priority.toUpperCase();
+  const displayPriority = formatLabelValue(displayPriorityRaw);
+  const displayReason = lastTokenDetails?.reasonForVisit || symptoms || 'N/A';
+  const displayStatus = formatLabelValue(lastTokenDetails?.status || 'WAITING');
+  const displaySlotDate =
+    formatDateFromArray(lastTokenDetails?.slotDate) ||
+    formatDateString(lastTokenDetails?.slotDate) ||
+    formatDateString(selectedDate) ||
+    'N/A';
+  const displaySlotTime = formatTimeValue(lastTokenDetails?.slotTime || selectedTime);
 
   // Render
   return (
@@ -574,16 +710,19 @@ const TokenGenerator = () => {
                         <div className="space-y-3">
                           <div className="grid grid-cols-3 gap-2">
                             {getVisibleSlots(availableSlots).map((timeSlot, index) => {
-                              const timeValue = typeof timeSlot === 'object' ? timeSlot.time : timeSlot;
-                              const isBooked = selectedDoctor?.bookedSlots?.some(slot =>
-                                (typeof slot === 'object' ? slot.time : slot) === timeValue
-                              );
-                              const isSelected = selectedTime === timeValue;
+                              const timeValue = timeSlot.time;
+                              const slotId = timeSlot.slotId ?? null;
+                              const isBooked = selectedDoctor?.bookedSlots?.some(slot => {
+                                const bookedTime = typeof slot === 'object' ? slot.time : slot;
+                                const bookedSlotId = typeof slot === 'object' ? slot.slotId ?? null : null;
+                                return bookedTime === timeValue && (bookedSlotId ?? null) === (slotId ?? null);
+                              });
+                              const isSelected = selectedTime === timeValue && (selectedSlotId ?? null) === (slotId ?? null);
                               return (
                                 <button
-                                  key={index}
+                                  key={`${timeValue}-${slotId ?? index}`}
                                   disabled={isBooked}
-                                  onClick={() => handleTimeSelect(timeValue)}
+                                  onClick={() => handleTimeSelect(timeSlot)}
                                   className={`py-2 px-3 rounded-lg text-xs font-medium transition-all duration-200 relative ${
                                     isBooked
                                       ? "bg-red-100 text-red-400 cursor-not-allowed border border-red-200"
@@ -709,76 +848,48 @@ const TokenGenerator = () => {
               </div>
               <h2 className="h2-heading">Token Generated!</h2>
               <div className="bg-gradient-to-r from-[#01D48C] to-[#01B07A] text-white p-12 rounded-3xl shadow-2xl">
-                <p className="text-lg opacity-90 mb-2">Your Token Number</p>
-                <p className="text-2xl font-black mb-2">T{getNextTokenNumber().toString().padStart(3, '0')}</p>
-                <div className="bg-white bg-opacity-20 rounded-xl p-4">
-                  <p className="text-lg text-black">Consultation Type</p>
-                  <p className="text-2xl text-black font-bold mt-1">
-                    {consultationType === 'virtual' ? 'Virtual Consultation' : 'OPD Visit'}
-                  </p>
-                  <p className="text-lg text-black mt-3">Estimated Wait Time</p>
-                  <p className="text-2xl text-black font-bold mt-1">
-                    {consultationType === 'virtual' ?
-                      (priority === 'emergency' ? '~2 minutes' : '~15 minutes') :
-                      (priority === 'emergency' ? '~5 minutes' : '~30 minutes')
-                    }
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-gray-50 p-6 rounded-2xl">
-                  <h3 className="font-bold text-xl mb-4">Patient Details</h3>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center border-b pb-2">
-                      <span className="text-gray-600">Name</span>
-                      <span className="font-semibold">{patientData?.fullName}</span>
+                <p className="text-lg opacity-90 mb-2">Last Token Number</p>
+                <p className="text-3xl font-black mb-6">{displayTokenNumber}</p>
+                <div className="bg-white/15 rounded-2xl p-6 backdrop-blur-sm">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left text-sm text-white/90">
+                    <div>
+                      <p className="uppercase text-xs tracking-wide opacity-80">Patient Name</p>
+                      <p className="text-base font-semibold text-white">{displayPatientName}</p>
                     </div>
-                    <div className="flex justify-between items-center border-b pb-2">
-                      <span className="text-gray-600">Phone</span>
-                      <span className="font-semibold">{patientData?.phoneNumber}</span>
+                    <div>
+                      <p className="uppercase text-xs tracking-wide opacity-80">Doctor Name</p>
+                      <p className="text-base font-semibold text-white">{displayDoctorName}</p>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Gender</span>
-                      <span className="font-semibold">{patientData?.gender}</span>
+                    <div>
+                      <p className="uppercase text-xs tracking-wide opacity-80">Specialization</p>
+                      <p className="text-base font-semibold text-white">{displaySpecialization}</p>
                     </div>
-                  </div>
-                </div>
-
-                <div className="bg-gray-50 p-6 rounded-2xl">
-                  <h3 className="font-bold text-xl mb-4">Appointment Details</h3>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center border-b pb-2">
-                      <span className="text-gray-600">Consultation Type</span>
-                      <span className={`font-semibold ${consultationType === 'virtual' ? 'text-purple-600' : 'text-blue-600'}`}>
-                        {consultationType === 'virtual' ? 'Virtual' : 'OPD Visit'}
-                      </span>
+                    <div>
+                      <p className="uppercase text-xs tracking-wide opacity-80">Priority Level</p>
+                      <p className="text-base font-semibold text-white">{displayPriority}</p>
                     </div>
-                    <div className="flex justify-between items-center border-b pb-2">
-                      <span className="text-gray-600">Doctor</span>
-                      <span className="font-semibold">{selectedDoctor?.name}</span>
+                    <div>
+                      <p className="uppercase text-xs tracking-wide opacity-80">Appointment Date</p>
+                      <p className="text-base font-semibold text-white">{displaySlotDate}</p>
                     </div>
-                    <div className="flex justify-between items-center border-b pb-2">
-                      <span className="text-gray-600">Specialization</span>
-                      <span className="font-semibold">{selectedSpecialization?.name}</span>
+                    <div>
+                      <p className="uppercase text-xs tracking-wide opacity-80">Appointment Time</p>
+                      <p className="text-base font-semibold text-white">{displaySlotTime}</p>
                     </div>
-                    <div className="flex justify-between items-center border-b pb-2">
-                      <span className="text-gray-600">Queue Position</span>
-                      <span className="font-semibold">{selectedDoctor?.queue}</span>
+                    <div>
+                      <p className="uppercase text-xs tracking-wide opacity-80">Status</p>
+                      <p className="text-base font-semibold text-white">{displayStatus}</p>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Priority</span>
-                      <span className={`font-semibold ${priority === 'emergency' ? 'text-red-600' : 'text-green-600'}`}>
-                        {priority === 'emergency' ? 'Emergency' : 'Normal'}
-                      </span>
+                    <div>
+                      <p className="uppercase text-xs tracking-wide opacity-80">Reason For Visit</p>
+                      <p className="text-base font-semibold text-white">{displayReason}</p>
                     </div>
                   </div>
                 </div>
               </div>
-
               <button
                 onClick={resetForm}
-                className="btn btn-primary w-full"
+                className="btn btn-primary mx-auto"
               >
                 Generate Another Token
               </button>

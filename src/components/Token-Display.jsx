@@ -70,13 +70,13 @@ const DisplayBoard = () => {
     },
     {
       header: "Department",
-      accessor: "departmentId",
-      cell: (row) => `Department ${row.departmentId}`,
+      accessor: "departmentName",
+      cell: (row) => `${row.departmentName}`,
     },
     {
       header: "Doctor",
-      accessor: "doctorId",
-      cell: (row) => `Doctor ${row.doctorId}`,
+      accessor: "doctorName",
+      cell: (row) => `${row.doctorName}`,
     },
     {
       header: "Priority",

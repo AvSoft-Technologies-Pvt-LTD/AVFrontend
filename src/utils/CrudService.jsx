@@ -531,3 +531,16 @@ export const getAppointmentsByDoctorId = (doctorId) =>
 // Create new appointment
 export const createAppointments = (data) =>
   axiosInstance.post('/appointments', data);
+
+
+// Get all master queue tokens
+export const getAllMasterQueueTokens = () =>
+  axiosInstance.get('/master-queue-tokens');
+
+// Get master queue token by ID
+export const getMasterQueueTokenById = (tokenId) =>
+  axiosInstance.get(`/master-queue-tokens/${tokenId}`);
+
+// Create new master queue token
+export const createMasterQueueToken = (data) =>
+  axiosInstance.post('/master-queue-tokens', data);
