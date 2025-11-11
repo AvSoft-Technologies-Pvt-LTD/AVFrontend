@@ -13,11 +13,11 @@ const OtpAlert = ({ phone, otp, onDismiss }) => (
     <div className="bg-white border-l-4 border-[#01D48C] p-4 rounded-lg flex items-start gap-3 max-w-sm backdrop-blur-md bg-white/90">
       <CheckCircle className="text-[#01D48C] mt-1" size={20} />
       <div>
-        <h4 className="font-semibold text-[#0E1630] text-lg">OTP Sent!</h4>
-        <p className="text-sm text-gray-600">
+        <h4 className="h4-heading">OTP Sent!</h4>
+        <p className="paragraph">
           An OTP has been sent to <span className="font-medium">{phone}</span>.
         </p>
-        <p className="text-sm text-gray-600 mt-1">
+        <p className="paragraph">
           For testing: <span className="font-medium">{otp}</span>
         </p>
       </div>
@@ -43,13 +43,11 @@ const AadharInput = ({ value, onChange, error }) => {
         type="text"
         value={formatAadhar(value)}
         onChange={handleChange}
-        className={`w-full p-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#01D48C] ${
-          error ? 'border-red-500' : 'border-gray-300'
-        } bg-white/70`}
+        className={`input-field ${error ? 'input-error' : ''}`}
         placeholder="XXXX XXXX XXXX"
         maxLength={14}
       />
-      {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+      {error && <p className="error-text">{error}</p>}
     </div>
   );
 };
@@ -267,8 +265,8 @@ const PatientVerificationSteps = ({
             <div className="p-6 bg-white rounded-xl border border-gray-200 transition-all hover:shadow-sm">
               <div className="flex flex-col items-center text-center">
                 <CreditCard className="text-[#01D48C]" size={32} />
-                <h3 className="text-xl font-bold mt-3 text-[#0E1630]">Aadhar Card</h3>
-                <p className="text-sm text-gray-600 mb-5">Secure biometric verification</p>
+                <h3 className="h3-heading">Aadhar Card</h3>
+                <p className="paragraph mb-4">Secure biometric verification</p>
                 <AadharInput
                   value={formData.aadharNumber}
                   onChange={(val) => setFormData({ ...formData, aadharNumber: val })}
@@ -277,7 +275,7 @@ const PatientVerificationSteps = ({
                 <button
                   onClick={handleAadharSubmit}
                   disabled={isVerifying}
-                  className="mt-5 w-full py-3 bg-gradient-to-r from-[#01D48C] to-[#248070] text-white rounded-lg hover:shadow-md transition-all flex items-center justify-center gap-2 font-medium"
+                  className="btn btn-primary mt-4"
                 >
                   <Fingerprint size={20} /> Use this method
                 </button>
@@ -287,8 +285,8 @@ const PatientVerificationSteps = ({
             <div className="p-6 bg-white rounded-xl border border-gray-200 transition-all hover:shadow-sm">
               <div className="flex flex-col items-center text-center">
                 <Phone className="text-[#01D48C]" size={32} />
-                <h3 className="text-xl font-bold mt-3 text-[#0E1630]">Phone Number</h3>
-                <p className="text-sm text-gray-600 mb-5">Verify using OTP</p>
+                <h3 className="h3-heading">Phone Number</h3>
+                <p className="paragraph mb-4">Verify using OTP</p>
                 {verificationMethod !== 'phone' ? (
                   <>
                     <input
@@ -298,18 +296,16 @@ const PatientVerificationSteps = ({
                       onChange={(e) =>
                         setFormData({ ...formData, phoneNumber: e.target.value.replace(/[^\d]/g, '') })
                       }
-                      className={`w-full p-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#01D48C] ${
-                        errors.phoneNumber ? 'border-red-500' : 'border-gray-300'
-                      } bg-white`}
+                      className={`input-field mb-4 ${errors.phoneNumber ? 'input-error' : ''}`}
                       placeholder="9876543210"
                     />
                     {errors.phoneNumber && (
-                      <p className="text-red-500 text-sm mt-1">{errors.phoneNumber}</p>
+                      <p className="error-text">{errors.phoneNumber}</p>
                     )}
                     <button
                       onClick={handlePhoneSendOtp}
                       disabled={isVerifying}
-                      className="mt-5 w-full py-3 bg-gradient-to-r from-[#01D48C] to-[#248070] text-white rounded-lg hover:shadow-md transition-all flex items-center justify-center gap-2 font-medium"
+                      className="btn btn-primary"
                     >
                       {isVerifying ? (
                         <>
@@ -324,7 +320,7 @@ const PatientVerificationSteps = ({
                   </>
                 ) : (
                   <>
-                    <p className="text-sm text-gray-600 mb-5">
+                    <p className="paragraph">
                       Enter OTP sent to {formData.phoneNumber}
                     </p>
                     <OtpInput
@@ -332,10 +328,10 @@ const PatientVerificationSteps = ({
                       value={formData.otp}
                       onChange={(val) => setFormData({ ...formData, otp: val })}
                     />
-                    {errors.otp && <p className="text-red-500 text-sm mt-1">{errors.otp}</p>}
+                    {errors.otp && <p className="error-text">{errors.otp}</p>}
                     <button
                       onClick={handleOtpVerification}
-                      className="mt-5 w-full py-3 bg-gradient-to-r from-[#01D48C] to-[#248070] text-white rounded-lg hover:shadow-md transition-all flex items-center justify-center gap-2 font-medium"
+                      className="btn btn-primary"
                     >
                       <CheckCircle size={20} /> Verify OTP
                     </button>
@@ -357,7 +353,7 @@ const PatientVerificationSteps = ({
               <div className="flex justify-center mt-6">
                 <button
                   onClick={handleFingerprintScanStart}
-                  className="px-6 py-3 bg-gradient-to-r from-[#01D48C] to-[#248070] text-white rounded-lg hover:shadow-md transition-all flex items-center gap-2 font-medium"
+                  className="btn btn-primary"
                 >
                   Start Scanning
                 </button>
@@ -398,13 +394,11 @@ const PatientVerificationSteps = ({
                 </div>
                 {/* Right Side: Profile Circle and Name */}
                 <div className="flex flex-col items-center md:items-end w-full md:w-auto mt-4 md:mt-0">
-                  <div className="w-28 h-28 rounded-full bg-gradient-to-br from-[#01D48C] to-[#248070] text-white flex items-center justify-center text-4xl font-bold shadow-lg relative">
+                  <div className="w-28 h-28 rounded-full bg-gradient-to-br from-[#01D48C] to-[#248070] text-white flex items-center justify-center text-4xl font-bold shadow-lg relative profile-circle">
                     {patientData.fullName.charAt(0)}
                     <CheckCircle className="absolute bottom-1 right-1 bg-[#68c723] text-white rounded-full" size={20} />
                   </div>
-                  <h3 className="text-2xl font-bold text-[#0E1630] text-center mt-3">
-                    {patientData.fullName}
-                  </h3>
+                  <h3 className="h2-heading">{patientData.fullName}</h3>
                 </div>
               </div>
             </div>
@@ -415,13 +409,13 @@ const PatientVerificationSteps = ({
                   setPatientData(null);
                   onCancel && onCancel();
                 }}
-                className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg shadow-sm font-medium"
+                className="btn btn-secondary"
               >
                 <X size={18} className="inline mr-1" /> Not {patientData.fullName}
               </button>
               <button
                 onClick={() => onConfirm && onConfirm(patientData)}
-                className="px-6 py-3 bg-gradient-to-r from-[#01D48C] to-[#248070] text-white rounded-lg shadow-sm hover:shadow-md font-medium"
+                className="btn btn-primary"
               >
                 <CheckCircle size={18} className="inline mr-1" /> Yes, that’s me
               </button>

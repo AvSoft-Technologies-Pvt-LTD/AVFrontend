@@ -10,11 +10,13 @@ import {
   getAllSymptoms,
   getDoctorsBySpecialty,
 } from '../utils/masterService';
+import { createAppointment } from '../utils/CrudService';
 
 const MultiStepForm = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const user = useSelector((state) => state.auth?.user);
+  const patientId = useSelector((state) => state.auth?.patientId) || 0;
 
   // Clear sessionStorage on unmount and navigation
   useEffect(() => {
@@ -22,7 +24,7 @@ const MultiStepForm = () => {
       const formStateKeys = [
         'consultationType', 'symptoms', 'specialty', 'specialtyId', 'selectedState',
         'location', 'pincode', 'doctorType', 'hospitalName', 'hospitalId', 'minPrice', 'maxPrice',
-        'fullAddress', 'isCurrentLocation', 'selectedDate', 'selectedTime'
+        'fullAddress', 'isCurrentLocation', 'selectedDate', 'selectedTime', 'selectedSlotId'
       ];
       formStateKeys.forEach(key => {
         sessionStorage.removeItem(`formState_${key}`);
@@ -35,7 +37,7 @@ const MultiStepForm = () => {
       const formStateKeys = [
         'consultationType', 'symptoms', 'specialty', 'specialtyId', 'selectedState',
         'location', 'pincode', 'doctorType', 'hospitalName', 'hospitalId', 'minPrice', 'maxPrice',
-        'fullAddress', 'isCurrentLocation', 'selectedDate', 'selectedTime'
+        'fullAddress', 'isCurrentLocation', 'selectedDate', 'selectedTime', 'selectedSlotId'
       ];
       formStateKeys.forEach(key => {
         sessionStorage.removeItem(`formState_${key}`);
@@ -74,6 +76,7 @@ const MultiStepForm = () => {
       maxPrice: "",
       selectedDate: "",
       selectedTime: "",
+      selectedSlotId: 0,
       fullAddress: "",
       showBookingModal: false,
       showConfirmationModal: false,
@@ -88,6 +91,7 @@ const MultiStepForm = () => {
   const [symptomsDropdownOpen, setSymptomsDropdownOpen] = useState(false);
   const [symptomsSearch, setSymptomsSearch] = useState("");
   const [allSymptoms, setAllSymptoms] = useState([]);
+  const [currentSlotGroup, setCurrentSlotGroup] = useState(0);
 
   // Update state and sessionStorage
   const updateState = (updates) => {
@@ -100,23 +104,16 @@ const MultiStepForm = () => {
       console.log("No specialtyId provided, skipping doctor fetch");
       return;
     }
-    
     try {
       updateState({ loadingDoctors: true });
       console.log("Fetching doctors for specialtyId:", state.specialtyId);
-      
       const response = await getDoctorsBySpecialty(state.specialtyId);
       console.log("Doctors API response:", response.data);
-      
       let doctors = response.data || [];
-      
-      // Ensure doctors array has proper structure
       if (!Array.isArray(doctors)) {
         console.warn("API response is not an array, converting:", doctors);
         doctors = [];
       }
-      
-      // Process doctors to ensure they have required fields
       const processedDoctors = doctors.map(doctor => ({
         id: doctor.id || doctor.doctorId,
         doctorId: doctor.doctorId || doctor.id,
@@ -133,9 +130,7 @@ const MultiStepForm = () => {
         availability: doctor.availability || [],
         bookedSlots: doctor.bookedSlots || []
       }));
-      
       console.log("Processed doctors:", processedDoctors);
-      
       updateState({
         doctors: processedDoctors,
         filteredDoctors: processedDoctors,
@@ -143,8 +138,6 @@ const MultiStepForm = () => {
       });
     } catch (error) {
       console.error("Failed to fetch doctors:", error);
-      
-      // Detailed error logging
       if (error.response) {
         console.error("API Error Response:", {
           status: error.response.status,
@@ -156,7 +149,6 @@ const MultiStepForm = () => {
       } else {
         console.error("Request setup error:", error.message);
       }
-      
       updateState({
         doctors: [],
         filteredDoctors: [],
@@ -181,13 +173,12 @@ const MultiStepForm = () => {
 
   // On specialty selection: fetch by specialty; if cleared, clear doctors
   useEffect(() => {
-    console.log("Specialty changed:", { 
-      specialtyId: state.specialtyId, 
+    console.log("Specialty changed:", {
+      specialtyId: state.specialtyId,
       specialty: state.specialty,
       consultationType: state.consultationType,
-      location: state.location 
+      location: state.location
     });
-    
     if (state.specialtyId) {
       fetchDoctorsBySpecialty();
     } else {
@@ -345,37 +336,54 @@ const MultiStepForm = () => {
 
   // Handle payment
   const handlePayment = async () => {
-    const userId = localStorage.getItem("userId");
-    const payload = {
-      userId,
-      name: `${user?.firstName || "Guest"} ${user?.lastName || ""}`,
-      phone: user?.phone || "N/A",
-      email: user?.email,
-      symptoms: state.symptoms,
-      date: state.selectedDate,
-      time: state.selectedTime,
-      specialty: state.specialty,
-      specialtyId: state.specialtyId,
-      consultationType: state.consultationType,
-      location: state.consultationType === "Virtual" ? "Online" : state.location,
-      doctorId: state.selectedDoctor?.doctorId || state.selectedDoctor?.id || "N/A",
-      doctorName: state.selectedDoctor?.doctorName || state.selectedDoctor?.name || "N/A",
-      fees: state.selectedDoctor?.fees ?? '',
-      status: "Upcoming",
-      notification: {
-        doctorId: state.selectedDoctor?.doctorId || state.selectedDoctor?.id || "N/A",
-        message: `New appointment with ${user?.firstName || "a patient"} on ${state.selectedDate} at ${state.selectedTime}. Symptoms: ${state.symptoms || "None"}. ${state.consultationType === "Virtual" ? "Virtual consultation" : `Location: ${state.location || "Not specified"}`}.`
+    const doctorId = state.selectedDoctor?.doctorId || state.selectedDoctor?.id || 0;
+    const hospitalId = state.hospitalId || 0;
+    const slotId = state.selectedSlotId || 0;
+
+    let symptomId = 0;
+    if (state.symptoms) {
+      const symptom = allSymptoms.find((s) => s.name === state.symptoms);
+      if (symptom?.id) {
+        symptomId = symptom.id;
       }
+    }
+
+    let appointmentTime = state.selectedTime;
+    if (appointmentTime) {
+      const [time, modifier] = appointmentTime.split(' ');
+      let [hours, minutes] = time.split(':');
+      if (hours === '12') {
+        hours = '00';
+      }
+      if (modifier === 'PM') {
+        hours = parseInt(hours, 10) + 12;
+      }
+      appointmentTime = `${hours.toString().padStart(2, '0')}:${minutes}`;
+    }
+
+    const payload = {
+      patientId: patientId,
+      doctorId: doctorId,
+      hospitalId: hospitalId,
+      slotId: slotId,
+      symptomId: symptomId,
+      specialtyId: state.specialtyId || 0,
+      appointmentDate: state.selectedDate,
+      appointmentTime: appointmentTime,
+      consultationType: state.consultationType,
+      consultationFees: state.selectedDoctor?.fees || 0.1,
+      notes: state.symptoms || "No specific symptoms",
     };
+
     updateState({
       isLoading: true,
       showBookingModal: false,
-      showConfirmationModal: true
+      showConfirmationModal: true,
     });
+
     try {
-      const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-      const bookingResponse = await axios.post(`${BACKEND_URL}/api/bookings`, payload);
-      console.log("Booking successful:", bookingResponse.data);
+      const bookingResponse = await createAppointment(payload);
+      console.log("Booking successful:", bookingResponse);
       setTimeout(() => {
         updateState({
           showConfirmationModal: false,
@@ -385,6 +393,7 @@ const MultiStepForm = () => {
           symptoms: "",
           selectedDate: "",
           selectedTime: "",
+          selectedSlotId: 0,
           specialty: "",
           specialtyId: "",
           specialties: [],
@@ -403,11 +412,12 @@ const MultiStepForm = () => {
       console.error("Booking failed:", error);
       updateState({
         showConfirmationModal: false,
-        isLoading: false
+        isLoading: false,
       });
-      const errorMessage = error.response?.data?.message ||
-                          error.message ||
-                          "Booking failed. Please check your internet connection and try again.";
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        "Booking failed. Please check your internet connection and try again.";
       alert(`Booking Failed: ${errorMessage}`);
       updateState({ showBookingModal: true });
     }
@@ -417,8 +427,39 @@ const MultiStepForm = () => {
   const getTimesForDate = (date) => {
     if (!state.selectedDoctor?.availability || !date) return [];
     const availabilitySlot = state.selectedDoctor.availability.find(slot => slot.date === date);
-    return availabilitySlot ? availabilitySlot.times : [];
+    if (!availabilitySlot) return [];
+
+    return availabilitySlot.times.map(time => {
+      if (typeof time === 'object') {
+        return { time: time.time, slotId: time.slotId };
+      } else {
+        return { time: time, slotId: 0 };
+      }
+    });
   };
+
+  // Get visible slots (9 at a time)
+  const getVisibleSlots = (allSlots) => {
+    const startIndex = currentSlotGroup * 9;
+    const endIndex = startIndex + 9;
+    return allSlots.slice(startIndex, endIndex);
+  };
+
+  // Handle slot navigation
+  const handleSlotNavigation = (direction) => {
+    const totalSlots = getTimesForDate(state.selectedDate).length;
+    const totalGroups = Math.ceil(totalSlots / 9);
+    if (direction === 'left') {
+      setCurrentSlotGroup(prev => Math.max(0, prev - 1));
+    } else {
+      setCurrentSlotGroup(prev => Math.min(totalGroups - 1, prev + 1));
+    }
+  };
+
+  // Reset slot group when date changes
+  useEffect(() => {
+    setCurrentSlotGroup(0);
+  }, [state.selectedDate]);
 
   // Get today's date
   const getTodayDate = () => {
@@ -540,8 +581,6 @@ const MultiStepForm = () => {
 
   return (
     <div className="min-h-screen px-5">
-      {/* Back Button */}
-
       {/* Main Form */}
       <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20 p-6 space-y-6">
         {/* Consultation Type */}
@@ -1039,7 +1078,7 @@ const MultiStepForm = () => {
                   className="w-full p-3 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200 text-sm"
                   value={state.selectedDate}
                   min={getTodayDate()}
-                  onChange={(e) => updateState({ selectedDate: e.target.value, selectedTime: '' })}
+                  onChange={(e) => updateState({ selectedDate: e.target.value, selectedTime: '', selectedSlotId: 0 })}
                 />
               </div>
               {state.selectedDate && (
@@ -1054,32 +1093,82 @@ const MultiStepForm = () => {
                     )}
                   </label>
                   {getTimesForDate(state.selectedDate).length > 0 ? (
-                    <div className="grid grid-cols-3 gap-2">
-                      {getTimesForDate(state.selectedDate).map(time => {
-                        const isBooked = state.selectedDoctor.bookedSlots?.some(slot =>
-                          slot.date === state.selectedDate && slot.time === time
-                        );
-                        const isSelected = state.selectedTime === time;
-                        return (
+                    <div className="space-y-3">
+                      {/* Navigation Arrows and Slot Counter */}
+                      {getTimesForDate(state.selectedDate).length > 9 && (
+                        <div className="flex items-center justify-between">
                           <button
-                            key={time}
-                            disabled={isBooked}
-                            onClick={() => updateState({ selectedTime: time })}
-                            className={`py-2 px-3 rounded-lg text-xs font-medium transition-all duration-200 relative ${
-                              isBooked
-                                ? "bg-red-100 text-red-400 cursor-not-allowed border border-red-200"
-                                : isSelected
-                                ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md transform scale-105"
-                                : "bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200"
+                            onClick={() => handleSlotNavigation('left')}
+                            disabled={currentSlotGroup === 0}
+                            className={`p-2 rounded-lg transition-all duration-200 ${
+                              currentSlotGroup === 0
+                                ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
+                                : 'bg-white border border-slate-200 text-slate-600 hover:bg-emerald-50 hover:border-emerald-300'
                             }`}
                           >
-                            {time}
-                            {isBooked && (
-                              <div className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></div>
-                            )}
+                            <FaChevronLeft className="text-sm" />
                           </button>
-                        );
-                      })}
+                          <span className="text-xs text-slate-500">
+                            Showing {currentSlotGroup * 9 + 1}-{Math.min((currentSlotGroup + 1) * 9, getTimesForDate(state.selectedDate).length)} of {getTimesForDate(state.selectedDate).length}
+                          </span>
+                          <button
+                            onClick={() => handleSlotNavigation('right')}
+                            disabled={currentSlotGroup >= Math.ceil(getTimesForDate(state.selectedDate).length / 9) - 1}
+                            className={`p-2 rounded-lg transition-all duration-200 ${
+                              currentSlotGroup >= Math.ceil(getTimesForDate(state.selectedDate).length / 9) - 1
+                                ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
+                                : 'bg-white border border-slate-200 text-slate-600 hover:bg-emerald-50 hover:border-emerald-300'
+                            }`}
+                          >
+                            <FaChevronRight className="text-sm" />
+                          </button>
+                        </div>
+                      )}
+                      {/* Time Slots Grid (3x3 for 9 slots) */}
+                      <div className="grid grid-cols-3 gap-2">
+                        {getVisibleSlots(getTimesForDate(state.selectedDate)).map(timeSlot => {
+                          const isBooked = state.selectedDoctor.bookedSlots?.some(slot =>
+                            slot.date === state.selectedDate && slot.time === timeSlot.time
+                          );
+                          const isSelected = state.selectedTime === timeSlot.time;
+                          return (
+                            <button
+                              key={timeSlot.slotId}
+                              disabled={isBooked}
+                              onClick={() => updateState({
+                                selectedTime: timeSlot.time,
+                                selectedSlotId: timeSlot.slotId // Store slotId
+                              })}
+                              className={`py-2 px-3 rounded-lg text-xs font-medium transition-all duration-200 relative ${
+                                isBooked
+                                  ? "bg-red-100 text-red-400 cursor-not-allowed border border-red-200"
+                                  : isSelected
+                                  ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md transform scale-105"
+                                  : "bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200"
+                              }`}
+                            >
+                              {timeSlot.time}
+                              {isBooked && (
+                                <div className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {/* Slot Indicators */}
+                      {getTimesForDate(state.selectedDate).length > 9 && (
+                        <div className="flex justify-center gap-1">
+                          {Array.from({ length: Math.ceil(getTimesForDate(state.selectedDate).length / 9) }).map((_, index) => (
+                            <button
+                              key={index}
+                              onClick={() => setCurrentSlotGroup(index)}
+                              className={`w-2 h-2 rounded-full transition-all duration-200 ${
+                                currentSlotGroup === index ? "bg-emerald-500 scale-125" : "bg-slate-300"
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="text-center py-6 bg-slate-50 rounded-xl border border-slate-200">
