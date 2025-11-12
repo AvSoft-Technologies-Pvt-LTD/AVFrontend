@@ -62,7 +62,7 @@ const PrescriptionForm = ({
   type,
   doctorId: doctorIdFromProps,
 }) => {
-  const { activeTab, patients } = usePatientContext();
+  const { activeTab, patient: ctxPatient } = usePatientContext();
   const doctorIdFromRedux = useSelector((state) => state.auth.doctorId);
   const [prescriptions, setPrescriptions] = useState(
     data?.prescriptions?.length
@@ -81,11 +81,22 @@ const PrescriptionForm = ({
   const [frequencies, setFrequencies] = useState([]);
   const [intakes, setIntakes] = useState([]);
   const canvasRef = useRef(null);
+  const [appointmentId, setAppointmentId] = useState(null);
 
   useEffect(() => {
     setEmail(propEmail || patient?.email || "");
     setPhone(propPhone || patient?.phone || patient?.mobileNo || "");
   }, [propEmail, propPhone, patient]);
+
+  useEffect(() => {
+    // Pull appointmentId from selected patient in context (selectedThisPatient) or prop fallback
+    const apptIdRaw = ctxPatient?.appointmentId ?? patient?.appointmentId ?? null;
+    const apptIdNum = apptIdRaw != null ? Number(apptIdRaw) : null;
+    setAppointmentId(Number.isFinite(apptIdNum) ? apptIdNum : null);
+    if (Number.isFinite(apptIdNum)) {
+      console.log("Using appointmentId (numeric):", apptIdNum);
+    }
+  }, [ctxPatient, patient]);
 
   useEffect(() => {
     const fetchDosageUnits = async () => {
@@ -174,17 +185,28 @@ const PrescriptionForm = ({
 
   const handleSave = async () => {
     // Filter out medicines with medicineId: 0 if backend ignores them
-    const medicines = prescriptions.map((med) => ({
-      medicineId: med.medicineId || 0,
-      dosage: med.dosage.toString(),
-      duration: med.duration.toString(),
-      dosageUnitId: med.dosageUnitId || 0,
-      frequencyId: med.frequencyId || 0,
-      intakeId: med.intakeId || 0,
-    }));
+    const medicines = prescriptions.map((med) => {
+      const unitId = med.dosageUnitId || (dosageUnits.find((u) => u.name === med.dosageUnit)?.id ?? 0);
+      const freqId = med.frequencyId || (frequencies.find((f) => f.name === med.frequency)?.id ?? 0);
+      const intakeId = med.intakeId || (intakes.find((i) => i.name === med.intake)?.id ?? 0);
+      return {
+        medicineId: med.medicineId || 0,
+        dosage: String(med.dosage),
+        duration: String(med.duration),
+        dosageUnitId: unitId,
+        frequencyId: freqId,
+        intakeId: intakeId,
+      };
+    });
     console.log("Medicines payload:", medicines); // Debugging
+    const contextIdNum = appointmentId != null ? Number(appointmentId) : null;
+    if (!Number.isFinite(contextIdNum)) {
+      toast.error("Context ID is required");
+      return;
+    }
     const payload = {
-      patientId: patient?.patientId,
+      contextId: contextIdNum,
+      patientId: ctxPatient?.patientId ?? patient?.patientId,
       doctorId: doctorIdFromRedux || doctorIdFromProps || 1,
       context: (activeTab || "IPD").toUpperCase(),
       medicines,
@@ -229,15 +251,21 @@ const PrescriptionForm = ({
       medicineId: med.medicineId || 0,
       dosage: med.dosage.toString(),
       duration: med.duration.toString(),
-      dosageUnitId: med.dosageUnitId || 0,
+      dosageUnitId: med.dosageUnitId || 1,
       frequencyId: med.frequencyId || 0,
       intakeId: med.intakeId || 0,
     }));
     console.log("Medicines payload:", medicines); // Debugging
+    const contextIdNum = appointmentId != null ? Number(appointmentId) : null;
+    if (!Number.isFinite(contextIdNum)) {
+      toast.error("Context ID is required");
+      return;
+    }
     const payload = {
-      patientId: patient?.id || 1,
+      contextId: 1,
+      patientId: ctxPatient?.id ?? patient?.id ?? 1,
       doctorId: doctorIdFromRedux || doctorIdFromProps || 1,
-      context: (activeTab || "OPD").toUpperCase(),
+      context: (activeTab).toUpperCase(),
       medicines,
     };
     try {

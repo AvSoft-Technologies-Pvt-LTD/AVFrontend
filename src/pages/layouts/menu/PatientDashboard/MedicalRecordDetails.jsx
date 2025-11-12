@@ -404,7 +404,8 @@ const PatientMedicalRecordDetails = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await getPatientVitalById(selectedRecord.patientId || "1");
+      const response = await getPatientVitalById(selectedRecord.patientId);
+      console.log("Fetched vitals data::::::::::::", response.data);
       const patientVitals = response.data;
       if (patientVitals) {
         setVitalsData({

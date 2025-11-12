@@ -1,7 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { Bell, MessageCircle, ArrowLeft, Search, Filter, CheckCircle, Circle, X, Clock, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import { useSelector } from "react-redux";
+import {
+  getPatientNotifications,
+  getPatientUnreadNotificationCount,
+  getLatestPatientNotifications,
+  markPatientNotificationRead,
+  markAllPatientNotificationsRead,
+} from "../../../../utils/masterService";
 
 const PatientNotificationsPage = () => {
   const [notifications, setNotifications] = useState([]);
@@ -11,22 +18,76 @@ const PatientNotificationsPage = () => {
   const [filterType, setFilterType] = useState("all");
   const [selectedNotification, setSelectedNotification] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState(20);
+  const { patientId } = useSelector((s) => s.auth || {});
   const navigate = useNavigate();
+
+  // Normalize backend date representation to ISO string
+  const normalizeDate = (val) => {
+    try {
+      if (Array.isArray(val) && val.length >= 6) {
+        const [y, m, d, hh, mm, ss, nanos] = val;
+        const ms = nanos ? Math.floor(nanos / 1e6) : 0;
+        return new Date(y, (m || 1) - 1, d || 1, hh || 0, mm || 0, ss || 0, ms).toISOString();
+      }
+      if (typeof val === "string") return val;
+    } catch (_) {}
+    return new Date().toISOString();
+  };
 
   const fetchNotifications = async () => {
     try {
       setLoading(true);
-      const res = await axios.get("https://67e631656530dbd3110f0322.mockapi.io/notify");
-      const sorted = res.data
-        .map((n) => ({
-          ...n,
-          createdAt: n.createdAt && !isNaN(new Date(n.createdAt)) ? n.createdAt : new Date().toISOString(),
-          unread: n.unread ?? true,
-          message: n.message || "New notification",
+      if (!patientId) {
+        setNotifications([]);
+        setFilteredNotifications([]);
+        setUnreadCount(0);
+        setLoading(false);
+        return;
+      }
+      const res = await getPatientNotifications({ patientId, page, size });
+      console.log("Notifications fetch params:", { patientId, page, size });
+      console.log("Notifications raw response:", res.data);
+      const data = res.data ?? {};
+      // Support multiple shapes: array at root, content at root, or data.content
+      const items = Array.isArray(data)
+        ? data
+        : Array.isArray(data.content)
+        ? data.content
+        : Array.isArray(data.data?.content)
+        ? data.data.content
+        : [];
+      const mapped = items.map((n) => {
+        const t = (n.type || "").toString().toUpperCase();
+        const title = (n.title || "").toString();
+        const msg = (n.message || "").toString();
+        const link = (n.link || "").toString();
+        const isPaymentType = ["PAYMENT", "PAYMENT_DUE", "BILL", "BILLING", "INVOICE", "BOOKING_APPOINTMENT", "APPOINTMENT", "BOOKING", "PAY_NOW"]
+          .some((k) => t.includes(k));
+        const mentionsPayment = /pay\s?now|pay\b|payment|bill|invoice|booking|appointment/i.test(`${title} ${msg}`);
+        const linkToPayment = /payment|pay-now|checkout/i.test(link);
+        const isSuccess = /PAYMENT_SUCCESS|SUCCESS/i.test(t) || /payment\s+successful|success(ful)?/i.test(`${title} ${msg}`);
+        const showPayButton = !isSuccess && (isPaymentType || mentionsPayment || linkToPayment);
+        return ({
+          id: n.notificationId,
+          notificationId: n.notificationId,
+          patientId: n.patientId,
           type: n.type || "general",
-          priority: n.priority || "normal",
-        }))
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+          title: n.title || "",
+          message: n.message || "New notification",
+          payload: n.payload,
+          link: n.link,
+          unread: !n.read,
+          read: n.read,
+          createdAt: normalizeDate(n.createdAt),
+          priority: "normal",
+          description: n.description,
+          showPayButton,
+        });
+      });
+      const sorted = mapped.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
       setNotifications(sorted);
       setFilteredNotifications(sorted);
     } catch (err) {
@@ -38,7 +99,21 @@ const PatientNotificationsPage = () => {
 
   useEffect(() => {
     fetchNotifications();
-  }, []);
+  }, [patientId, page, size]);
+
+  const fetchUnread = async () => {
+    if (!patientId) { setUnreadCount(0); return; }
+    try {
+      const res = await getPatientUnreadNotificationCount(patientId);
+      setUnreadCount(Number(res.data) || 0);
+    } catch (e) {
+      console.error("Unread count error:", e);
+    }
+  };
+
+  useEffect(() => {
+    fetchUnread();
+  }, [patientId]);
 
   useEffect(() => {
     let filtered = notifications;
@@ -65,14 +140,30 @@ const PatientNotificationsPage = () => {
     return `${Math.floor(diff / 86400)} day${Math.floor(diff / 86400) > 1 ? "s" : ""} ago`;
   };
 
-  const markAsRead = (notificationId) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === notificationId ? { ...n, unread: false } : n))
-    );
+  const markAsRead = async (notificationId) => {
+    try {
+      if (patientId) {
+        await markPatientNotificationRead(notificationId, patientId);
+      }
+      setNotifications((prev) => prev.map((n) => (n.id === notificationId ? { ...n, unread: false, read: true } : n)));
+      setFilteredNotifications((prev) => prev.map((n) => (n.id === notificationId ? { ...n, unread: false, read: true } : n)));
+      fetchUnread();
+    } catch (e) {
+      console.error("Mark as read error:", e);
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
+  const markAllAsRead = async () => {
+    try {
+      if (patientId) {
+        await markAllPatientNotificationsRead(patientId);
+      }
+      setNotifications((prev) => prev.map((n) => ({ ...n, unread: false, read: true })));
+      setFilteredNotifications((prev) => prev.map((n) => ({ ...n, unread: false, read: true })));
+      fetchUnread();
+    } catch (e) {
+      console.error("Mark all as read error:", e);
+    }
   };
 
   const getPriorityColor = (priority) => {
@@ -100,7 +191,9 @@ const PatientNotificationsPage = () => {
   const openNotificationModal = (notification) => {
     setSelectedNotification(notification);
     setIsModalOpen(true);
-    markAsRead(notification.id);
+    if (notification.unread) {
+      markAsRead(notification.id);
+    }
   };
 
   const closeModal = () => {
@@ -108,7 +201,7 @@ const PatientNotificationsPage = () => {
     setSelectedNotification(null);
   };
 
-  const unreadCount = notifications.filter((n) => n.unread).length;
+  // unreadCount from API is shown in header/buttons
 
   if (loading) {
     return (

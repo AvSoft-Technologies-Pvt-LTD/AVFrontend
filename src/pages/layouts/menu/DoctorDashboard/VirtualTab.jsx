@@ -120,7 +120,7 @@ const handleSelected = (r) => {
     console.log("this is",{ state: { patient: r } })
     localStorage.setItem("selectedThisPatient", JSON.stringify(r));
      setPatient(r);
-    navigate("/doctordashboard/form", { state: { patient: r } });
+     navigate("/doctordashboard/medical-record", { state: { patient: r } });
   } catch (error) {
     console.error("Error saving patient:", error);
   }
@@ -265,13 +265,20 @@ const handleSelected = (r) => {
               patientEmail={r.email}
               hospitalName={r.hospitalName || "AV Hospital"}
             /> */}
-            <button
+            {/* <button
               title="View Medical Record"
               onClick={() => {
                 console.log("Navigating to medical record with patient:", r);
                 setPatient(r); // ✅ ensure the correct patient is in context
                 navigate("/doctordashboard/medical-record", { state: { patient: r } });
               }}
+              className="p-1 text-base text-[var(--primary-color)]"
+            >
+              <FiExternalLink />
+            </button> */}
+             <button
+              title="View Medical Record"
+             onClick={() => handleSelected(r)}
               className="p-1 text-base text-[var(--primary-color)]"
             >
               <FiExternalLink />

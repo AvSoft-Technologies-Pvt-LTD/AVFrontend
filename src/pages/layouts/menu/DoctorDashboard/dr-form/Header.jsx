@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { usePatientContext } from "../../../../../context-api/PatientContext";
 import {
   Heart, FileText, FlaskRound as Flask, Pill, Stethoscope, Eye, StickyNote, Printer, ChevronDown, ChevronUp,
@@ -29,13 +30,19 @@ const Header = ({
   headerMeasureRef = null,
 }) => {
   const { activeTab } = usePatientContext();
+  const location = useLocation();
   const [showMoreForms, setShowMoreForms] = useState(false);
   const [localIsIPD, setLocalIsIPD] = useState(isIPDPatient || (String(activeTab).toUpperCase() === "IPD"));
+  const cameFromVisitPad = Boolean(location?.state?.openQuickLinks);
+  const showQuickLinks = Boolean(localIsIPD || cameFromVisitPad);
 
   useEffect(() => {
     const fromContext = String(activeTab).toUpperCase() === "IPD";
     setLocalIsIPD(Boolean(isIPDPatient || fromContext));
   }, [isIPDPatient, activeTab]);
+  useEffect(() => {
+    if (cameFromVisitPad) setQuickLinksOpen(true);
+  }, [cameFromVisitPad]);
 
   const handleFormTypeClick = (formId) => {
     setActiveForm(formId === "template" ? "template" : formId);
@@ -77,6 +84,20 @@ const Header = ({
           {/* Mobile */}
           <div className="md:hidden flex flex-col items-center gap-2 p-2 xs:p-4 w-full text-white">
             <div className="relative flex flex-nowrap xs:flex-wrap items-center xs:items-start gap-4 p-4 w-full">
+              {showQuickLinks && (
+                <div className="absolute top-4 right-2 z-10">
+  <button
+    type="button"
+    onClick={() => setQuickLinksOpen(true)}
+    className="flex items-center gap-2 px-3 py-2 bg-white text-[#01B07A] rounded-lg hover:bg-gray-100 transition-all text-sm"
+    aria-expanded={quickLinksOpen}
+  >
+    <MoreHorizontal className="w-4 h-4 text-[#01B07A]" />
+    <span className="hidden sm:inline text-xs text-[#01B07A]">Quick Links</span>
+  </button>
+</div>
+
+              )}
               <div className="w-14 h-14 flex items-center justify-center rounded-full bg-white text-[#01B07A] font-bold uppercase shadow">
                 {initials(getPatientName())}
               </div>
@@ -120,6 +141,19 @@ const Header = ({
           {/* Tablet */}
           <div className="hidden md:flex lg:hidden flex-col items-center gap-4 p-4 w-full text-white">
             <div className="relative flex flex-wrap items-start gap-6 p-4 w-full">
+              {showQuickLinks && (
+                <div className="absolute top-4 right-4 z-10">
+  <button
+    type="button"
+    onClick={() => setQuickLinksOpen(true)}
+    className="flex items-center gap-2 px-3 py-2 bg-white text-[#01B07A] rounded-lg hover:bg-gray-100 transition-all text-sm"
+    aria-expanded={quickLinksOpen}
+  >
+    <MoreHorizontal className="w-4 h-4 text-[#01B07A]" />
+    <span className="hidden sm:inline text-xs text-[#01B07A]">Quick Links</span>
+  </button>
+                </div>
+              )}
               <div className="w-20 h-20 flex items-center justify-center rounded-full bg-white text-[#01B07A] text-xl font-bold uppercase shadow">
                 {initials(getPatientName())}
               </div>
@@ -175,7 +209,20 @@ const Header = ({
 
           {/* Desktop */}
           <div className="hidden lg:block w-full mx-auto text-white rounded-b-xl shadow-md">
-            <div className="w-full px-3 py-2 sm:px-4 md:px-6 sm:py-3">
+            <div className="w-full px-3 py-2 sm:px-4 md:px-6 sm:py-3 relative">
+              {showQuickLinks && (
+                <div className="absolute top-2 right-2 z-10">
+                  <button
+                    type="button"
+                    onClick={() => setQuickLinksOpen(true)}
+                    className="flex items-center gap-2 px-3 py-2 bg-white text-[#01B07A] rounded-lg hover:bg-gray-100 transition-all text-sm"
+                    aria-expanded={quickLinksOpen}
+                  >
+                    <MoreHorizontal className="w-4 h-4 text-[#01B07A]" />
+                    <span className="hidden sm:inline text-xs text-[#01B07A]">Quick Links</span>
+                  </button>
+                </div>
+              )}
               {showPatientDetails && (
                 <div className="flex flex-col gap-2 md:gap-3">
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-4">
@@ -220,6 +267,7 @@ const Header = ({
                           )}
                         </div>
                       </div>
+                      {/* Quick Links button moved outside showPatientDetails block for desktop */}
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-1.5 md:gap-2 justify-start mt-3 md:mt-4">

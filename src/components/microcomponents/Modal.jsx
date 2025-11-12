@@ -54,6 +54,8 @@ const ReusableModal = ({
   validations = {},
   shouldValidate = false,
   extraContentPosition = "bottom",
+  preventCloseOnSave = false,
+  showSuccessToast = true,
 }) => {
   const [formValues, setFormValues] = useState({});
   const [formErrors, setFormErrors] = useState({});
@@ -181,10 +183,14 @@ const handleChange = (name, value) => {
       return;
     }
     await onSave({ ...formValues, doctorSignature });
-    toast.success(
-      mode === "add" ? "Record added Successfully!" : "Record updated Successfully!"
-    );
-    onClose();
+    if (showSuccessToast) {
+      toast.success(
+        mode === "add" ? "Record added Successfully!" : "Record updated Successfully!"
+      );
+    }
+    if (!preventCloseOnSave) {
+      onClose();
+    }
   };
 
   const handleDelete = () => {

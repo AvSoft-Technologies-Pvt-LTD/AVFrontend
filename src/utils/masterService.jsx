@@ -301,3 +301,35 @@ export const getUrgencyLevels = () => axiosInstance.get("/master/urgency-levels"
 
 export const getPharmaciesByCity = (city) =>
   axiosInstance.get("/pharmacies", { params: { city } });
+export const getPharmacyByCityAndPincode = (city, pincode) =>
+  axiosInstance.get("/pharmacy", { params: { city, pincode } });
+
+// Get OPD appointments by doctor ID
+export const getOpdAppointmentsByDoctor = (doctorId) =>
+  axiosInstance.get(`/v1/appointments/opd/doctor/${doctorId}`);
+// reason of visite
+export const getVisitReasons = () =>
+  axiosInstance.get("/master/visit-reasons");
+
+/* -----------------------------
+   PATIENT NOTIFICATIONS APIs
+------------------------------ */
+// GET paginated notifications for a patient
+export const getPatientNotifications = ({ patientId, page = 1, size = 20 }) =>
+  axiosInstance.get(`/patient/notifications`, { params: { patientId, page, size } });
+
+// GET unread count
+export const getPatientUnreadNotificationCount = (patientId) =>
+  axiosInstance.get(`/patient/notifications/unread/count`, { params: { patientId } });
+
+// GET latest N notifications
+export const getLatestPatientNotifications = (patientId, limit = 5) =>
+  axiosInstance.get(`/patient/notifications/latest`, { params: { patientId, limit } });
+
+// POST mark one notification as read
+export const markPatientNotificationRead = (notificationId, patientId) =>
+  axiosInstance.post(`/patient/notifications/${notificationId}/read`, null, { params: { patientId } });
+
+// POST mark all as read
+export const markAllPatientNotificationsRead = (patientId) =>
+  axiosInstance.post(`/patient/notifications/mark-all-read`, null, { params: { patientId } });
