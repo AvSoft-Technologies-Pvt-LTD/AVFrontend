@@ -7,7 +7,6 @@ import {
   getAllSymptoms,
   getDoctorsBySpecialty
 } from "../utils/masterService";
-import { setUser } from '../context-api/authSlice';
 import PatientVerificationSteps from './Profile';
 
 const TOKENS_KEY = 'hospital_tokens';
