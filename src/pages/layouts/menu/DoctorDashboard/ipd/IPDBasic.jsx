@@ -48,111 +48,7 @@ export const handlePincodeLookup = async (pincode) => {
 
 // Helper: Generate basic fields for step 1
 export const generateBasicFields = (masterData, availableCities, isLoadingCities) => {
-  return [
-    {
-      name: "firstName",
-      label: "First Name",
-      type: "text",
-      required: true,
-    },
-    { name: "middleName", label: "Middle Name", type: "text" },
-    {
-      name: "lastName",
-      label: "Last Name",
-      type: "text",
-      required: true,
-    },
-    {
-      name: "phone",
-      label: "Phone Number",
-      type: "text",
-      required: true,
-    },
-    {
-      name: "email",
-      label: "Email Address",
-      type: "email",
-      required: true,
-    },
-    {
-      name: "aadhaar",
-      label: "Aadhaar Number",
-      type: "text",
-      required: true,
-    },
-    {
-      name: "gender",
-      label: "Gender",
-      type: "select",
-      required: true,
-      options: masterData.genders.map((g, i) => ({
-        ...g,
-        key: `gender-${i}`,
-      })),
-    },
-    {
-      name: "dob",
-      label: "Date of Birth",
-      type: "date",
-      required: true,
-    },
-    {
-      name: "occupation",
-      label: "Occupation",
-      type: "text",
-      required: true,
-    },
-    {
-      name: "pincode",
-      label: "Pincode",
-      type: "text",
-      required: true,
-      maxLength: 6,
-    },
-    {
-      name: "city",
-      label: "City",
-      type: "select",
-      required: true,
-      options: availableCities.map((city, i) => ({
-        value: city,
-        label: city,
-        key: `city-${i}`,
-      })),
-      disabled: isLoadingCities || availableCities.length === 0,
-    },
-    {
-      name: "district",
-      label: "District",
-      type: "text",
-      readonly: true,
-    },
-    { name: "state", label: "State", type: "text", readonly: true },
-    {
-      name: "photo",
-      label: "Upload Photo",
-      type: "custom",
-    },
-    {
-      name: "password",
-      label: "Create Password",
-      type: "password",
-      required: true,
-    },
-    {
-      name: "confirmPassword",
-      label: "Confirm Password",
-      type: "password",
-      required: true,
-    },
-    {
-      name: "agreeDeclaration",
-      label: "I agree to the declaration / Privacy Policy",
-      type: "checkbox",
-      required: true,
-      colSpan: 3,
-    },
-  ];
+  return [];
 };
 
 const PhotoUpload = ({ photoPreview, onPhotoChange, onPreviewClick }) => (
@@ -401,9 +297,7 @@ const IPDBasic = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-            {fields.map((field) => renderField(field))}
-          </div>
+          {/* Fields removed intentionally */}
         </>
       ) : (
         <div className="mt-2">

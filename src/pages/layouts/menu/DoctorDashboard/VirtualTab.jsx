@@ -227,11 +227,11 @@ const handleSelected = (r) => {
       }
     };
 
-    // ✅ Update consultation
+    // Update consultation
     const handleUpdateConsultation = async (formData) => {
       try {
-        const id = selectedPatient?.id || selectedPatient?.appointmentId;
-        if (!id) {
+        const appointmentId = selectedPatient?.appointmentId;
+        if (!appointmentId) {
           console.error("No appointment ID found for update");
           return;
         }
@@ -248,7 +248,7 @@ const handleSelected = (r) => {
           consultationNotes: formData.notes, // Use consultationNotes
         };
         console.log("Payload:", payload); // Debug log
-        const res = await updateVirtualAppointment(id, payload);
+        const res = await updateVirtualAppointment(appointmentId, payload);
         if (res?.data) {
           closeModal("editPatient");
           await new Promise((r) => setTimeout(r, 500));
@@ -260,7 +260,7 @@ const handleSelected = (r) => {
     };
 
 
-    // ✅ Table columns
+    // Table columns
     const columns = [
       {
         header: "Appointment ID",

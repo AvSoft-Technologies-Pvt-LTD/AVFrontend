@@ -9,14 +9,12 @@ import React, {
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { motion } from "framer-motion";
-import { FaNotesMedical, FaVideo } from "react-icons/fa";
+import { FaVideo } from "react-icons/fa";
 import { FiExternalLink, FiLink } from "react-icons/fi";
 import QuickLinksPanel from "../../DoctorDashboard/QuickLinksPanel";
 import DynamicTable from "../../../../../components/microcomponents/DynamicTable";
-import TeleConsultFlow from "../../../../../components/microcomponents/Call";
+import ReusableModal from "../../../../../components/microcomponents/Modal";
 import {
-  getFamilyMembersByPatient,
-  getPersonalHealthByPatientId,
   getSpecializationsWardsSummaryForIpdAdmission,
 } from "../../../../../utils/CrudService";
 import IPDBasic, {
@@ -31,7 +29,6 @@ import IPDFinal, { generateAdmissionFields } from "./IPDFinal";
 
 const API = {
   FORM: "https://681f2dfb72e59f922ef5774c.mockapi.io/addpatient",
-  VITAL_SIGNS: "https://6808fb0f942707d722e09f1d.mockapi.io/health-summary",
 };
 
 const STATIC_DATA = {
@@ -83,6 +80,29 @@ const WIZARD_STEPS = [
   },
 ];
 
+// Fields for viewing IPD patient info in ReusableModal
+const IPD_VIEW_FIELDS = [
+  { key: "name", label: "Patient Name", titleKey: true, initialsKey: true },
+  { key: "sequentialId", label: "Admission ID" },
+  { key: "email", label: "Email" },
+  { key: "phone", label: "Phone" },
+  { key: "gender", label: "Gender" },
+  { key: "bloodGroup", label: "Blood Group" },
+  { key: "dob", label: "DOB" },
+  { key: "admissionDate", label: "Admission Date" },
+  { key: "status", label: "Status" },
+  { key: "department", label: "Department" },
+  { key: "wardType", label: "Ward Type" },
+  { key: "wardNo", label: "Ward Number" },
+  { key: "roomNo", label: "Room Number" },
+  { key: "bedNo", label: "Bed Number" },
+  { key: "ward", label: "Ward" },
+  { key: "insuranceType", label: "Insurance Type" },
+  { key: "dischargeDate", label: "Discharge Date" },
+  { key: "diagnosis", label: "Diagnosis" },
+  { key: "address", label: "Address" },
+];
+
 const getCurrentDate = () => new Date().toISOString().slice(0, 10);
 const getCurrentTime = () => new Date().toTimeString().slice(0, 5);
 const to24Hour = (t) =>
@@ -108,212 +128,9 @@ const incrementTime = (time = "00:00") => {
   return `${nh.toString().padStart(2, "0")}:${nm.toString().padStart(2, "0")}`;
 };
 
-const PatientViewSections = ({
-  data = {},
-  personalHealthDetails,
-  familyHistory,
-  vitalSigns,
-  loading,
-}) => {
-  const sections = useMemo(
-    () => [
-      {
-        title: "Basic Information",
-        data: {
-          Name: data.name || "-",
-          Email: data.email || "-",
-          Phone: data.phone || "-",
-          Gender: data.gender || "-",
-          "Blood Group": data.bloodGroup || "-",
-          DOB: data.dob || "-",
-        },
-      },
-      {
-        title: "IPD Admission Details",
-        data: {
-          "Admission Date": data.admissionDate || "-",
-          Status: data.status || "-",
-          Ward: data.ward || "-",
-          "Ward Type": data.wardType || "-",
-          "Ward Number": data.wardNo || "-",
-          "Room Number": data.roomNumber || data.roomNo || "N/A",
-          "Bed Number": data.bedNo || "-",
-          Department: data.department || "-",
-          "Insurance Type": data.insuranceType || "-",
-          "Discharge Date": data.dischargeDate || "Not discharged",
-          Diagnosis: data.diagnosis || "-",
-        },
-      },
-      {
-        title: "Personal Health Details",
-        data: personalHealthDetails
-          ? {
-              Height: `${personalHealthDetails.height || "N/A"} cm`,
-              Weight: `${personalHealthDetails.weight || "N/A"} kg`,
-              "Blood Group":
-                personalHealthDetails.bloodGroupName ||
-                personalHealthDetails.bloodGroup ||
-                "N/A",
-              Allergies: personalHealthDetails.allergies || "None",
-              Surgeries: personalHealthDetails.surgeries || "None",
-              Smoking: personalHealthDetails.isSmoker ? "Yes" : "No",
-              "Years Smoking": personalHealthDetails.isSmoker
-                ? personalHealthDetails.yearsSmoking || "Not specified"
-                : "N/A",
-              Alcohol: personalHealthDetails.isAlcoholic ? "Yes" : "No",
-              "Years Alcohol": personalHealthDetails.isAlcoholic
-                ? personalHealthDetails.yearsAlcoholic || "Not specified"
-                : "N/A",
-              Tobacco: personalHealthDetails.isTobacco ? "Yes" : "No",
-              "Years Tobacco": personalHealthDetails.isTobacco
-                ? personalHealthDetails.yearsTobacco || "Not specified"
-                : "N/A",
-            }
-          : null,
-      },
-      { title: "Family History", isArray: true, data: familyHistory || [] },
-      {
-        title: "Vital Signs",
-        data: vitalSigns
-          ? {
-              "Blood Pressure": vitalSigns.bloodPressure || "-",
-              "Heart Rate": vitalSigns.heartRate || "-",
-              Temperature: vitalSigns.temperature || "-",
-              "Blood Sugar": vitalSigns.bloodSugar || "-",
-              "Oxygen Saturation": vitalSigns.oxygenSaturation || "-",
-              "Respiratory Rate": vitalSigns.respiratoryRate || "-",
-            }
-          : null,
-      },
-    ],
-    [data, personalHealthDetails, familyHistory, vitalSigns]
-  );
+// Removed PatientViewSections; ReusableModal handles view UI
 
-  return (
-    <div className="space-y-4">
-      {sections.map((section) => (
-        <div key={section.title} className="border rounded-lg p-4">
-          <h3 className="font-semibold mb-2">{section.title}</h3>
-          {loading ? (
-            <div className="flex items-center gap-2">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-              <span className="text-sm text-gray-600">Loading...</span>
-            </div>
-          ) : section.isArray ? (
-            section.data?.length > 0 ? (
-              section.data.map((member, i) => (
-                <div key={i} className="p-2 bg-gray-50 rounded text-sm mb-2">
-                  <p>
-                    <strong>{member.memberName || member.name}</strong> (
-                    {member.relationName || member.relation})
-                  </p>
-                  <p>
-                    <strong>Phone:</strong>{" "}
-                    {member.phoneNumber || member.phone || "Not provided"}
-                  </p>
-                  <p>
-                    <strong>Health Conditions:</strong>{" "}
-                    {member.healthConditions?.length > 0
-                      ? member.healthConditions
-                          .map(
-                            (condition) =>
-                              condition.healthConditionName || condition.name
-                          )
-                          .join(", ")
-                      : "None reported"}
-                  </p>
-                </div>
-              ))
-            ) : (
-              <p className="text-gray-500 text-sm">No data available</p>
-            )
-          ) : section.data ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-              {Object.entries(section.data).map(([key, value]) => (
-                <p key={key}>
-                  <strong>{key}:</strong> {value ?? "N/A"}
-                </p>
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-500 text-sm">No data available</p>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-};
-
-const PatientViewModal = ({
-  isOpen,
-  onClose,
-  patient,
-  personalHealthDetails,
-  familyHistory,
-  vitalSigns,
-  loading,
-  onEdit,
-}) => {
-  if (!isOpen) return null;
-  return (
-    <motion.div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-2 sm:p-4"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-    >
-      <motion.div
-        className="flex flex-col relative w-full max-w-4xl max-h-[95vh] rounded-xl bg-white shadow-xl overflow-hidden"
-        initial={{ scale: 0.9, y: 20 }}
-        animate={{ scale: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-      >
-        <div className="sticky top-0 z-20 bg-gradient-to-r from-[#01B07A] to-[#1A223F] rounded-t-xl p-3 sm:p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <div className="relative mr-3 sm:mr-4 flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-white text-[#01B07A] text-lg sm:text-xl font-bold uppercase shadow-inner">
-                {(patient?.name || "NA").substring(0, 2).toUpperCase()}
-              </div>
-              <div>
-                <h2 className="text-lg sm:text-xl font-semibold text-white">
-                  {patient?.name || "-"}
-                </h2>
-                <p className="text-white text-sm sm:text-lg">
-                  IPD #{patient?.sequentialId || "-"}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-white text-white hover:bg-white hover:text-[#01B07A] transition-all duration-200"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
-        <div className="flex-1 overflow-auto p-3 sm:p-6 bg-gray-50">
-          <PatientViewSections
-            data={patient || {}}
-            personalHealthDetails={personalHealthDetails}
-            familyHistory={familyHistory}
-            vitalSigns={vitalSigns}
-            loading={loading}
-          />
-        </div>
-        <div className="bg-white border-t p-3 sm:p-4 flex justify-end">
-          <button
-            onClick={() => onEdit && onEdit(patient)}
-            className="px-4 sm:px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base"
-          >
-            Edit Patient
-          </button>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-};
+// Removed local PatientViewModal in favor of shared ReusableModal
 
 const IPDTab = forwardRef(
   (
@@ -334,6 +151,7 @@ const IPDTab = forwardRef(
     const [loading, setLoading] = useState(true);
     const [newPatientId, setNewPatientId] = useState(null);
     const [selectedPatient, setSelectedPatient] = useState(null);
+    const [ipdViewData, setIpdViewData] = useState({});
     const [modals, setModals] = useState({
       ipdWizard: false,
       viewPatient: false,
@@ -345,10 +163,6 @@ const IPDTab = forwardRef(
     const [selectedRoom, setSelectedRoom] = useState(null);
     const [selectedBed, setSelectedBed] = useState(null);
     const [bedScrollIndex, setBedScrollIndex] = useState(0);
-    const [personalHealthDetails, setPersonalHealthDetails] = useState(null);
-    const [familyHistory, setFamilyHistory] = useState([]);
-    const [vitalSigns, setVitalSigns] = useState(null);
-    const [detailsLoading, setDetailsLoading] = useState(false);
     const [photoPreview, setPhotoPreview] = useState(null);
     const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
     const [availableCities, setAvailableCities] = useState([]);
@@ -551,43 +365,7 @@ const IPDTab = forwardRef(
       }
     }, [doctorName]);
 
-    const fetchPatientDetails = useCallback(
-      async (patientId) => {
-        if (!patientId) return;
-        setDetailsLoading(true);
-        try {
-          const [personalRes, familyRes, vitalRes] = await Promise.all([
-            getPersonalHealthByPatientId(patientId).catch(() => ({ data: null })),
-            getFamilyMembersByPatient(patientId).catch(() => ({ data: [] })),
-            fetch(API.VITAL_SIGNS)
-              .then((res) => res.json())
-              .then((data) => ({ data }))
-              .catch(() => ({ data: [] })),
-          ]);
-          setPersonalHealthDetails(personalRes?.data ?? null);
-          setFamilyHistory(Array.isArray(familyRes?.data) ? familyRes.data : []);
-          const patientEmail = (selectedPatient?.email || "").toLowerCase().trim();
-          if (patientEmail && Array.isArray(vitalRes?.data)) {
-            const matchingVitalSigns = vitalRes.data.find(
-              (v) => (v.email || "").toLowerCase().trim() === patientEmail
-            );
-            setVitalSigns(matchingVitalSigns || null);
-          } else {
-            setVitalSigns(null);
-          }
-          toast.success("Patient details loaded successfully!");
-        } catch (error) {
-          console.error("Error fetching patient details:", error);
-          toast.error("Failed to fetch some patient details");
-          setPersonalHealthDetails(null);
-          setFamilyHistory([]);
-          setVitalSigns(null);
-        } finally {
-          setDetailsLoading(false);
-        }
-      },
-      [selectedPatient]
-    );
+    // Removed fetchPatientDetails since extended sections are not shown in ReusableModal
 
     const openModal = useCallback((modalName) => {
       setModals((prev) => ({ ...prev, [modalName]: true }));
@@ -611,10 +389,6 @@ const IPDTab = forwardRef(
       setModals((prev) => ({ ...prev, [modalName]: false }));
       if (modalName === "viewPatient") {
         setSelectedPatient(null);
-        setPersonalHealthDetails(null);
-        setFamilyHistory([]);
-        setVitalSigns(null);
-        setDetailsLoading(false);
       }
       if (modalName === "ipdWizard") {
         setIpdWizardStep(1);
@@ -677,10 +451,32 @@ const IPDTab = forwardRef(
         setSelectedPatient(patient);
         openModal("viewPatient");
         const patientId = patient?.id || patient?.patientId;
-        if (patientId) fetchPatientDetails(patientId);
-        else toast.error("Unable to load patient details: Missing patient ID");
+        if (!patientId) toast.error("Unable to load patient details: Missing patient ID");
+        // Prepare flattened data for ReusableModal
+        const view = {
+          name: patient?.name || [patient?.firstName, patient?.middleName, patient?.lastName].filter(Boolean).join(" ") || "-",
+          sequentialId: patient?.sequentialId || patient?.admissionId || "-",
+          email: patient?.email || patient?.patientEmail || "-",
+          phone: patient?.phone || patient?.phoneNumber || patient?.mobileNo || "-",
+          gender: patient?.gender || patient?.sex || "-",
+          bloodGroup: patient?.bloodGroup || patient?.bloodType || "-",
+          dob: patient?.dob || "-",
+          admissionDate: patient?.admissionDate || "-",
+          status: patient?.status || "-",
+          department: patient?.department || "-",
+          wardType: patient?.wardType || "-",
+          wardNo: patient?.wardNo || patient?.wardNumber || "-",
+          roomNo: patient?.roomNo || patient?.roomNumber || "-",
+          bedNo: patient?.bedNo || patient?.bedNumber || "-",
+          ward: patient?.ward || "-",
+          insuranceType: patient?.insuranceType || "-",
+          dischargeDate: typeof patient?.dischargeDate === "number" ? "-" : (patient?.dischargeDate || "-"),
+          diagnosis: patient?.diagnosis || "-",
+          address: patient?.address || patient?.temporaryAddress || patient?.addressTemp || "-",
+        };
+        setIpdViewData(view);
       },
-      [openModal, fetchPatientDetails]
+      [openModal]
     );
 
     const handleEditPatient = useCallback(
@@ -974,7 +770,7 @@ const handleBedSelection = useCallback(
 
     const columns = useMemo(
       () => [
-        { header: "ID", accessor: "sequentialId" },
+        { header: "Appointment ID", accessor: "sequentialId" },
         {
           header: "Name",
           accessor: "name",
@@ -1353,15 +1149,20 @@ const handleBedSelection = useCallback(
           usePortal={true}
           nudgeUpPx={28}
         />
-        <PatientViewModal
+        <ReusableModal
           isOpen={modals.viewPatient}
           onClose={() => closeModal("viewPatient")}
-          patient={selectedPatient}
-          personalHealthDetails={personalHealthDetails}
-          familyHistory={familyHistory}
-          vitalSigns={vitalSigns}
-          loading={detailsLoading}
-          onEdit={handleEditPatient}
+          mode="viewProfile"
+          title="IPD Patient Info"
+          data={ipdViewData || selectedPatient || {}}
+          viewFields={IPD_VIEW_FIELDS}
+          extraContent={
+            <div className="flex justify-end mt-4">
+              <button onClick={() => handleEditPatient(selectedPatient)} className="view-btn">
+                Edit Patient
+              </button>
+            </div>
+          }
         />
         {modals.ipdWizard && renderIpdWizardContent()}
       </>

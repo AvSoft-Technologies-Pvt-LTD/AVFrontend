@@ -10,20 +10,36 @@ import {
   ArrowLeft,
 } from "lucide-react";
 
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import axios from "axios";
 import { getPatientUnreadNotificationCount, getLatestPatientNotifications } from "../../utils/masterService";
 import ModulesMenu from "../../components/microcomponents/ModulesMenu";
 import logo from "../../assets/logo.png";
 
-const HeaderWithNotifications = ({ toggleSidebar, currentPageName }) => {
+const HeaderWithNotifications = ({ toggleSidebar }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCountState, setUnreadCountState] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
   const [isMobileHeaderOpen, setIsMobileHeaderOpen] = useState(false);
   const navigate = useNavigate();
   const user = useSelector((state) => state.auth?.user);
+  const location = useLocation();
+  const pageTitle = (() => {
+    const parts = (location?.pathname || "/").split("/").filter(Boolean);
+    if (parts.length <= 1) return "Dashboard";
+    const last = parts[parts.length - 1];
+    const dashboardRoots = new Set([
+      "doctordashboard",
+      "patientdashboard",
+      "hospitaldashboard",
+      "labdashboard",
+      "superadmindashboard",
+    ]);
+    if (dashboardRoots.has(last)) return "Dashboard";
+    const normalized = last.replace(/-/g, " ");
+    return normalized.replace(/\b\w/g, (c) => c.toUpperCase());
+  })();
 
   const getRoleConfig = (userType) => {
     const configs = {
@@ -278,7 +294,7 @@ const HeaderWithNotifications = ({ toggleSidebar, currentPageName }) => {
 
                   <div>
                     <p className="text-[var(--primary-color)] font-bold text-lg">
-                      {currentPageName}
+                      {pageTitle}
                     </p>
                   </div>
                 </div>
