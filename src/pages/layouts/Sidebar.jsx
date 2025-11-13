@@ -149,7 +149,7 @@ export const menuItemsMap = {
     {
       icon: CalendarCheck,
       label: "My Appointments",
-      path: "/patientdashboard/app",
+      path: "/patientdashboard/appointments",
     },
     {
       icon: FileText,

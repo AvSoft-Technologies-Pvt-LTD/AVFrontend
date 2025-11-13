@@ -232,26 +232,32 @@ const BedAmenitiesStep = ({
                 <input
                   type="number"
                   min="1"
-                  max="20"
-                  value={bedCountByRoom[room.id] ?? 1}
+                  value={bedCountByRoom[room.id] ?? ""}
                   onChange={(e) => {
-                    const v = parseInt(e.target.value, 10);
+                    const raw = e.target.value;
+                    if (raw === "") {
+                      setBedCountByRoom((prev) => ({ ...prev, [room.id]: "" }));
+                      return;
+                    }
+                    const v = parseInt(raw, 10);
                     setBedCountByRoom((prev) => ({
                       ...prev,
-                      [room.id]: isNaN(v) ? 1 : Math.max(1, Math.min(20, v)),
+                      [room.id]: isNaN(v) ? "" : Math.max(1, v),
                     }));
                   }}
-                  placeholder="Beds"
+                  placeholder="No. of beds"
                   className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm w-full sm:w-20"
                 />
                 <button
                   onClick={async () => {
                     if (!room.number) return;
-                    const count = Math.max(1, parseInt(bedCountByRoom[room.id] ?? 1, 10));
+                    const countRaw = bedCountByRoom[room.id];
+                    const count = parseInt(countRaw, 10);
+                    if (isNaN(count) || count < 1) return;
                     setBedMasterData((prev) => ({ ...prev, selectedRoom: room, activeRoomId: room.id }));
                     await addBed(room.id, count);
                   }}
-                  disabled={!room.number || String(bedMasterData.activeRoomId) === String(room.id)}
+                  disabled={!room.number || isNaN(parseInt(bedCountByRoom[room.id], 10)) || parseInt(bedCountByRoom[room.id], 10) < 1 || String(bedMasterData.activeRoomId) === String(room.id)}
                   className="btn view-btn text-sm flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Plus size={14} /> Add Beds

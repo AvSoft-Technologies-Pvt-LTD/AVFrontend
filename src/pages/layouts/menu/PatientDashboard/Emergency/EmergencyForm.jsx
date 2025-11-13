@@ -831,7 +831,7 @@ const EmergencyForm = () => {
               </div>
             </div>
             <button
-              onClick={() => navigate("/patientdashboard/ambulancesearch")}
+              onClick={() => navigate("/patientdashboard/ambulance-search")}
               className="bg-green-500 hover:bg-green-600 text-white text-xs sm:text-sm px-3 py-1 sm:px-4 sm:py-2 rounded-lg flex items-center gap-1"
             >
               <Lucide.MapPin className="w-3 h-3 sm:w-4 sm:h-4" />

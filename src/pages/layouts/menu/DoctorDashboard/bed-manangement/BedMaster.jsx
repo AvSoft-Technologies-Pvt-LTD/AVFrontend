@@ -643,7 +643,7 @@ const BedMaster = () => {
         toast.success("Bed management configuration saved successfully!");
       }
 
-      navigate("/doctordashboard/bedroommanagement");
+      navigate("/doctordashboard/bedroom-management");
     } catch (error) {
       console.error("Error saving to backend:", error);
       toast.error("Failed to save configuration. Please try again.");
@@ -769,14 +769,7 @@ const BedMaster = () => {
         <div className="max-w-7xl mx-auto">
           <div className="mb-4 sm:mb-6 md:mb-8">
             <motion.div className="mb-3 sm:mb-4 md:mb-6" initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
-              <div className="flex items-center gap-2 mb-2 sm:mb-3 md:mb-4">
-                <button
-                  onClick={() => navigate("/doctordashboard/bedroommanagement")}
-                  className="flex items-center text-xs sm:text-sm text-[var(--primary-color)] hover:underline"
-                >
-                  ← Back to List
-                </button>
-              </div>
+           
               <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">
                 {incomingEditData ? "Edit" : "Create"} Bed Management Master
               </h1>

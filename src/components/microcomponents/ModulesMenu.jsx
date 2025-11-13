@@ -45,7 +45,7 @@ export default function ModulesMenu({ user, onModuleSelect }) {
     Laboratory: "/labmodule",
     Frontdesk: "/frontdesk",
     QueueStatus: "/queuemanagement",
-    BedManagement: "/bedroommanagement",
+    BedManagement: "/bedroom-management",
     Reports: "/reports",
   };
 

@@ -227,7 +227,7 @@ const BedRoomList = () => {
     // ✅ FIXED: Use backend ward ID (not random ID)
     const candidateId = row?.wardId ?? row?.raw?.wardId ?? row?.raw?.id ?? row?.id ?? null;
     if (!candidateId) {
-      navigate("/doctordashboard/bedroommanagement/bedmaster", { state: { editData: row } });
+      navigate("/doctordashboard/bedroom-management/bedmaster", { state: { editData: row } });
       return;
     }
     try {
@@ -239,7 +239,7 @@ const BedRoomList = () => {
         toast.error("Ward details not found.");
         return;
       }
-      navigate("/doctordashboard/bedroommanagement/bedmaster", { state: { editData: wardPayload } });
+      navigate("/doctordashboard/bedroom-management/bedmaster", { state: { editData: wardPayload } });
     } catch (err) {
       console.error("Failed to load ward details for edit:", err);
       toast.error("Could not load ward details. Try again.");
@@ -248,7 +248,7 @@ const BedRoomList = () => {
     }
   };
 
-  const handleCreateMaster = () => navigate("/doctordashboard/bedroommanagement/bedmaster");
+  const handleCreateMaster = () => navigate("/doctordashboard/bedroom-management/bedmaster");
   const handleView = (row) => toast.info(`Viewing details for ${row.department} - ${row.ward}`);
   const handleViewPatients = (ward, department) => {
     const patients = checkIPDPatients(ward, department);
