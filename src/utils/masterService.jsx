@@ -30,8 +30,7 @@ export const getRelations = () => axiosInstance.get('/master/relation');
 export const getPracticeTypes = () => axiosInstance.get('/master/practiceType');
 export const getScanServices = () => axiosInstance.get('/master/scanServices');
 export const getSpecialServices = () => axiosInstance.get('/master/specialServices');
-export const getSpecializationsBySymptoms = (params) =>
-  axiosInstance.get('/master/specializations/search-by-symptoms', { params });
+export const getSpecializationsBySymptoms = (params) => axiosInstance.get('/master/specializations/search-by-symptoms', { params });
 
 // Enhanced specializations API call with better error handling
 export const getSpecializationsByPracticeType = (practiceTypeId) =>axiosInstance.get('/master/specializations/by-practice-type', { params: { practiceTypeId },});
@@ -199,8 +198,8 @@ export const updateLabAction = (id, data) => axiosInstance.put(`/lab-actions/${i
 export const deleteLabAction = id => axiosInstance.delete(`/lab-actions/${id}`);
 
 export const getAllClinicalNotes = () => axiosInstance.get("/clinical-notes");
-export const getClinicalNotes = (patientId, doctorId, context) =>
-  axiosInstance.get("/clinical-notes", { params: { patientId, doctorId, context } });export const createClinicalNote = data => axiosInstance.post("/clinical-notes", data);
+export const getClinicalNotes = (patientId, doctorId, context) =>axiosInstance.get("/clinical-notes", { params: { patientId, doctorId, context } });
+export const createClinicalNote = data => axiosInstance.post("/clinical-notes", data);
 export const updateClinicalNote = (id, data) => axiosInstance.put(`/clinical-notes/${id}`, data);
 export const deleteClinicalNote = id => axiosInstance.delete(`/clinical-notes/${id}`);
 

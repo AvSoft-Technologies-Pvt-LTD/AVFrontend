@@ -55,7 +55,7 @@ body {
 /* Buttons */
 @layer components {
   .btn {
-    @apply flex items-center justify-center gap-3 px-8 py-2 rounded-full text-white font-semibold transition-all duration-300;
+    @apply flex items-center justify-center gap-3 px-8 py-1 rounded-full text-white font-semibold transition-all duration-300;
   }
   .btn-primary {
     @apply bg-[#0E1630] hover:scale-105 shadow-sm;

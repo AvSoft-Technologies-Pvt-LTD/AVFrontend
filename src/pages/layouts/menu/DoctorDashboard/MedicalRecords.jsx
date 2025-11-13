@@ -132,14 +132,16 @@ const DrMedicalRecords = () => {
     doctorId: Number(user?.doctorId || 1),
     context: recordType.toUpperCase(),
     hospitalId: Number(formData.hospitalId),
-    chiefComplaint: formData.chiefComplaint || "",
+    symptoms: Array.isArray(formData.chiefComplaint)
+      ? formData.chiefComplaint.map((id) => Number(id))
+      : [],
     medicalConditionIds: Array.isArray(formData.medicalConditionIds)
       ? formData.medicalConditionIds.map((id) => Number(id))
       : [],
     medicalStatusId: formData.medicalStatusId ? Number(formData.medicalStatusId) : null,
     dateOfVisit: formData.dateOfVisit || new Date().toISOString().split("T")[0],
-    registerPhone: formData.registerPhone || "",
-    uploadedBy: Number(user?.doctorId || "" ), // Add this line
+    registerPhone: formData.registerPhone ? String(formData.registerPhone).trim() : "",
+    uploadedBy: "DOCTOR",
   };
   console.log("Payload sent to backend:", sanitizedPayload);
   try {
@@ -156,6 +158,12 @@ const DrMedicalRecords = () => {
   const handleViewDetails = (row) => {
     // Navigate to a detailed view of the record, passing the record data as state
     navigate(`/doctordashboard/medical-record-details`, { state: { record: row } });
+  };
+
+  const handleShareRecord = (row) => {
+    // Placeholder for share functionality
+    console.log("Share record:", row);
+    // TODO: Implement share functionality
   };
   const fetchMasterData = async () => {
     try {
@@ -279,7 +287,7 @@ const DrMedicalRecords = () => {
       .map((record) => ({
         ...record,
         hospitalName: resolveHospitalLabel(record.hospitalId ?? record.hospitalName),
-        chiefComplaint: record.chiefComplaint || record.diagnosis || "",
+        chiefComplaint: record.symptomNames ? record.symptomNames.join(", ") : (record.chiefComplaint || record.diagnosis || ""),
         dateOfVisit: formatDateArray(record.dateOfVisit),
         dateOfAdmission: formatDateArray(record.dateOfAdmission),
         dateOfDischarge: formatDateArray(record.dateOfDischarge),

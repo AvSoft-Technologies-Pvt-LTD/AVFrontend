@@ -48,13 +48,23 @@ export const deleteFamily = (id) =>
 ------------------------------ */
 
 // Generate a new health card for a patient
-export const generateHealthCard = (patientId, data) => {
-  return axiosInstance.post(`/health-cards/generate/${patientId}`, data);
+export const generateHealthCard = (patientId) => {
+  return axiosInstance.post(`/health-cards/generate/${patientId}`);
 };
 
 // Get an existing health card by patientId
 export const getHealthCardByPatientId = (patientId) => {
   return axiosInstance.get(`/health-cards/patient/${patientId}`);
+};
+
+// Create or update health card (POST endpoint for new cards)
+export const createHealthCard = (data) => {
+  return axiosInstance.post('/health-cards', data);
+};
+
+// Update existing health card
+export const updateHealthCard = (healthCardId, data) => {
+  return axiosInstance.put(`/health-cards/${healthCardId}`, data);
 };
 
 /* -----------------------------
@@ -333,8 +343,10 @@ export const getAllVirtualAppointments = () =>
   axiosInstance.get('/doc-virtual-appointments');
  
 // Get virtual appointment by ID
-export const getVirtualAppointmentById = (id) =>
-  axiosInstance.get(`/doc-virtual-appointments/${id}`);
+export const getVirtualAppointmentById = (doctorId) => {
+  console.log("Making request to:", `/doc-virtual-appointments/${doctorId}`);
+  return axiosInstance.get(`/doc-virtual-appointments/${doctorId}`);
+};
 
 // Create a new virtual appointment
 export const createVirtualAppointment = (data) =>

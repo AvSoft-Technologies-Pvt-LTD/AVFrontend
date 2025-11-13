@@ -11,6 +11,7 @@ import {
   getFamilyMembersByPatient, createFamily, updateFamily, deleteFamily,
   createPersonalHealth, updatePersonalHealth, getPersonalHealthByPatientId,
   getAdditionalDetailsByPatientId, createAdditionalDetails, updateAdditionalDetails,
+  generateHealthCard, getHealthCardByPatientId,
 } from '../../../../utils/CrudService';
 import {
   getHealthConditions, getCoverageTypes, getRelations, getBloodGroups,
@@ -58,6 +59,8 @@ function Dashboard() {
   const [modalMode, setModalMode] = useState('edit');
   const [modalData, setModalData] = useState({});
   const [showHealthCardModal, setShowHealthCardModal] = useState(false);
+  const [hasHealthCard, setHasHealthCard] = useState(false);
+  const [loadingHealthCard, setLoadingHealthCard] = useState(false);
   const [profileCompletion, setProfileCompletion] = useState(33);
   const [feedbackMessage, setFeedbackMessage] = useState({ show: false, message: '', type: '' });
   const [editFamilyMember, setEditFamilyMember] = useState(null);
@@ -119,7 +122,7 @@ function Dashboard() {
     {
       name: 'surgeries',
       label: 'Surgeries',
-      type: 'select',
+      type: 'multiselect',
       colSpan: 1,
       options: surgeries,
       durationField: 'surgeryDuration',
@@ -130,7 +133,7 @@ function Dashboard() {
     {
       name: 'allergies',
       label: 'Allergies',
-      type: 'select',
+      type: 'multiselect',
       colSpan: 1,
       options: allergies,
       durationField: 'allergyDuration',
@@ -187,6 +190,44 @@ function Dashboard() {
       personal: personalComplete,
       family: familyComplete,
     };
+  };
+
+  const handleHealthCardAction = async () => {
+    const patientId = patientData?.id || reduxPatientId;
+    if (!patientId) {
+      showFeedback('Patient ID is required', 'error');
+      return;
+    }
+
+    if (!hasHealthCard) {
+      // Generate health card for first-time patient
+      try {
+        setLoadingHealthCard(true);
+        const response = await generateHealthCard(patientId);
+        showFeedback('Health card generated successfully!', 'success');
+        setHasHealthCard(true);
+        // Open modal to show the generated card
+        setShowHealthCardModal(true);
+      } catch (error) {
+        console.error('Error generating health card:', error);
+        showFeedback('Failed to generate health card. Please try again.', 'error');
+      } finally {
+        setLoadingHealthCard(false);
+      }
+    } else {
+      // View existing health card
+      setShowHealthCardModal(true);
+    }
+  };
+
+  const checkHealthCardExistence = async (patientId) => {
+    if (!patientId) return;
+    try {
+      await getHealthCardByPatientId(patientId);
+      setHasHealthCard(true);
+    } catch (error) {
+      setHasHealthCard(false);
+    }
   };
 
   const fetchAllData = async () => {
@@ -246,6 +287,9 @@ function Dashboard() {
 
       const patientId = reduxPatientId;
       if (patientId) {
+        // Check if health card exists
+        await checkHealthCardExistence(patientId);
+        
         const [patientRes, familyRes, healthRes, additionalRes] = await Promise.all([
           getPatientById(patientId).catch(() => ({ data: null })),
           getFamilyMembersByPatient(patientId).catch(() => ({ data: [] })),
@@ -310,8 +354,8 @@ function Dashboard() {
             tobaccoDuration: healthRes.data.yearsTobacco || '',
             allergies: healthRes.data.allergyNames || [],
             surgeries: healthRes.data.surgeryNames || [],
-            allergyDuration: healthRes.data.yearsAllergy || '',
-            surgeryDuration: healthRes.data.yearsSurgery || '',
+            allergyDuration: healthRes.data.allergySinceYears || healthRes.data.yearsAllergy || '',
+            surgeryDuration: healthRes.data.surgerySinceYears || healthRes.data.yearsSurgery || '',
           };
           setHasPersonalHealthData(true);
         }
@@ -359,6 +403,16 @@ function Dashboard() {
         ? updatedData.surgeries.map((surgery) => Number(surgery.value || surgery))
         : [];
 
+      // Validate that if allergyIds are provided, allergyDuration must be > 0
+      if (allergyIds.length > 0 && (!updatedData.allergyDuration || Number(updatedData.allergyDuration) <= 0)) {
+        return showFeedback('Allergy duration must be greater than 0 when allergies are selected', 'error');
+      }
+
+      // Validate that if surgeryIds are provided, surgeryDuration must be > 0
+      if (surgeryIds.length > 0 && (!updatedData.surgeryDuration || Number(updatedData.surgeryDuration) <= 0)) {
+        return showFeedback('Surgery duration must be greater than 0 when surgeries are selected', 'error');
+      }
+
       const personalHealthData = {
         height: Number(updatedData.height) || 0,
         weight: Number(updatedData.weight) || 0,
@@ -371,8 +425,8 @@ function Dashboard() {
         yearsTobacco: updatedData.isTobaccoUser ? Number(updatedData.tobaccoDuration) || 0 : 0,
         allergyIds,
         surgeryIds,
-        yearsAllergy: updatedData.allergyDuration ? Number(updatedData.allergyDuration) || 0 : 0,
-        yearsSurgery: updatedData.surgeryDuration ? Number(updatedData.surgeryDuration) || 0 : 0,
+        allergySinceYears: (allergyIds.length > 0 && updatedData.allergyDuration) ? Number(updatedData.allergyDuration) || 0 : 0,
+        surgerySinceYears: (surgeryIds.length > 0 && updatedData.surgeryDuration) ? Number(updatedData.surgeryDuration) || 0 : 0,
         patientId: String(patientId),
       };
 
@@ -431,13 +485,30 @@ function Dashboard() {
 
     if (section === 'personal') {
       setModalFields(basePersonalFields);
+      
+      // Convert allergy names back to IDs for the multiselect
+      const allergyIds = userData.allergies && Array.isArray(userData.allergies)
+        ? userData.allergies.map(allergyName => {
+            const allergy = allergies.find(a => a.label === allergyName);
+            return allergy ? allergy.value : allergyName;
+          })
+        : [];
+      
+      // Convert surgery names back to IDs for the multiselect  
+      const surgeryIds = userData.surgeries && Array.isArray(userData.surgeries)
+        ? userData.surgeries.map(surgeryName => {
+            const surgery = surgeries.find(s => s.label === surgeryName);
+            return surgery ? surgery.value : surgeryName;
+          })
+        : [];
+      
       setModalData({
         height: userData.height || '',
         weight: userData.weight || '',
         bloodGroup: userData.bloodGroupId || '',
-        surgeries: userData.surgeries || [],
+        surgeries: surgeryIds,
         surgeryDuration: userData.surgeryDuration || '',
-        allergies: userData.allergies || [],
+        allergies: allergyIds,
         allergyDuration: userData.allergyDuration || '',
         isAlcoholicUser: userData.isAlcoholicUser || false,
         alcoholDuration: userData.alcoholDuration || '',
@@ -661,10 +732,11 @@ function Dashboard() {
         <h1 className="text-l sm:text-2xl lg:text-2xl font-bold text-gray-900 m-0">Patient Information</h1>
         <div className="flex gap-3">
           <button
-            onClick={() => setShowHealthCardModal(true)}
-            className="px-2 py-1 sm:px-6 sm:py-3 bg-[var(--accent-color)] hover:bg-green-600 text-white font-medium rounded-xl transition-colors duration-200 text-sm sm:text-base"
+            onClick={handleHealthCardAction}
+            disabled={loadingHealthCard}
+            className="px-2 py-1 sm:px-6 sm:py-3 bg-[var(--accent-color)] hover:bg-green-600 text-white font-medium rounded-xl transition-colors duration-200 text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            View Health Card
+            {loadingHealthCard ? 'Generating...' : hasHealthCard ? 'View Health Card' : 'Generate Health Card'}
           </button>
           <button
             onClick={() => navigate('/patientdashboard/settings')}
@@ -803,7 +875,7 @@ function Dashboard() {
               &times;
             </button>
             <div className="rounded-lg overflow-hidden">
-              <Healthcard hideLogin isOpen onClose={() => setShowHealthCardModal(false)} />
+              <Healthcard hideLogin patientId={patientData?.id || reduxPatientId} isOpen onClose={() => setShowHealthCardModal(false)} />
             </div>
           </div>
         </div>
