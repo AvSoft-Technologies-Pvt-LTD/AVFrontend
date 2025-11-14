@@ -63,11 +63,14 @@ const mapDoctorAppointment = (appointment) => {
     appointment?.doctor?.name ||
     appointment?.doctorFullName ||
     appointment?.doctor;
-  const specialty =
+  const specializationName =
+    appointment?.specializationName ||
     appointment?.specialty ||
     appointment?.speciality ||
     appointment?.departmentName ||
-    appointment?.doctorSpecialty;
+    appointment?.doctorSpecialty ||
+    appointment?.doctor?.specializationName ||
+    appointment?.doctor?.speciality;
   const rawDate =
     appointment?.date ||
     appointment?.appointmentDate ||
@@ -93,6 +96,7 @@ const mapDoctorAppointment = (appointment) => {
     appointment?.clinicName;
   const fees =
     appointment?.fees ??
+    appointment?.consultationFees ??
     appointment?.consultationFee ??
     appointment?.fee ??
     appointment?.paymentAmount;
@@ -105,7 +109,8 @@ const mapDoctorAppointment = (appointment) => {
   return {
     ...appointment,
     doctorName: doctorName || "-",
-    specialty: specialty || "-",
+    specialty: specializationName || "-",
+    specializationName: specializationName || "-",
     date: formatDateValue(rawDate),
     time: formatTimeValue(rawTime),
     rawDate,

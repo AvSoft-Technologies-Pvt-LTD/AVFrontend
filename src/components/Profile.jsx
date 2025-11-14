@@ -3,7 +3,6 @@ import {
   User, Phone, CreditCard, CheckCircle, Fingerprint,
   Calendar, MapPin, Lock, Loader2, X
 } from 'lucide-react';
-import logo from '../assets/logo.png';
 
 const validatePhone = (p) => /^\d{10}$/.test(p);
 const validateAadhar = (a) => /^\d{12}$/.test(a);
@@ -38,12 +37,12 @@ const AadharInput = ({ value, onChange, error }) => {
     if (rawValue.length <= 12) onChange(rawValue);
   };
   return (
-    <div>
+    <div className="w-full max-w-xs mx-auto">
       <input
         type="text"
         value={formatAadhar(value)}
         onChange={handleChange}
-        className={`input-field ${error ? 'input-error' : ''}`}
+        className={`input-field w-full ${error ? 'input-error' : ''}`}
         placeholder="XXXX XXXX XXXX"
         maxLength={14}
       />
@@ -73,7 +72,7 @@ const OtpInput = ({ length, value, onChange }) => {
     }
   };
   return (
-    <div className="flex gap-3 justify-center">
+    <div className="flex gap-3 justify-center mt-4 md:mt-6">
       {otp.map((digit, index) => (
         <input
           key={index}
@@ -288,7 +287,7 @@ const PatientVerificationSteps = ({
                 <h3 className="h3-heading">Phone Number</h3>
                 <p className="paragraph mb-4">Verify using OTP</p>
                 {verificationMethod !== 'phone' ? (
-                  <>
+                  <div className="w-full max-w-xs mx-auto space-y-4">
                     <input
                       type="tel"
                       maxLength={10}
@@ -296,7 +295,7 @@ const PatientVerificationSteps = ({
                       onChange={(e) =>
                         setFormData({ ...formData, phoneNumber: e.target.value.replace(/[^\d]/g, '') })
                       }
-                      className={`input-field mb-4 ${errors.phoneNumber ? 'input-error' : ''}`}
+                      className={`input-field w-full ${errors.phoneNumber ? 'input-error' : ''}`}
                       placeholder="9876543210"
                     />
                     {errors.phoneNumber && (
@@ -305,7 +304,7 @@ const PatientVerificationSteps = ({
                     <button
                       onClick={handlePhoneSendOtp}
                       disabled={isVerifying}
-                      className="btn btn-primary"
+                      className="btn btn-primary w-full"
                     >
                       {isVerifying ? (
                         <>
@@ -317,25 +316,29 @@ const PatientVerificationSteps = ({
                         </>
                       )}
                     </button>
-                  </>
+                  </div>
                 ) : (
-                  <>
-                    <p className="paragraph">
-                      Enter OTP sent to {formData.phoneNumber}
-                    </p>
-                    <OtpInput
-                      length={otpLength}
-                      value={formData.otp}
-                      onChange={(val) => setFormData({ ...formData, otp: val })}
-                    />
-                    {errors.otp && <p className="error-text">{errors.otp}</p>}
-                    <button
-                      onClick={handleOtpVerification}
-                      className="btn btn-primary"
-                    >
-                      <CheckCircle size={20} /> Verify OTP
-                    </button>
-                  </>
+                  <div className="w-full mt-2">
+                    <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 shadow-sm space-y-4">
+                      <p className="paragraph text-center">
+                        Enter OTP sent to {formData.phoneNumber}
+                      </p>
+                      <OtpInput
+                        length={otpLength}
+                        value={formData.otp}
+                        onChange={(val) => setFormData({ ...formData, otp: val })}
+                      />
+                      {errors.otp && <p className="error-text text-center">{errors.otp}</p>}
+                      <div className="flex justify-center">
+                        <button
+                          onClick={handleOtpVerification}
+                          className="btn btn-primary mt-2"
+                        >
+                          <CheckCircle size={20} /> Verify OTP
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>

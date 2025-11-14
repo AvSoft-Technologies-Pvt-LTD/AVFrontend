@@ -163,7 +163,7 @@ const DisplayBoard = () => {
       </div>
 
       <div className="w-full mx-auto p-0 m-0 bg-white rounded-none border-none">
-        <h2 className="text-base md:text-lg font-bold mb-2 text-[var(--color-surface)] text-start pl-2">
+        <h2 className="text-base md:text-lg font-bold mb-2 text-[var(primary-color)] text-start pl-2">
           Waiting and Recently Called Tokens
         </h2>
         <div className="overflow-x-auto">

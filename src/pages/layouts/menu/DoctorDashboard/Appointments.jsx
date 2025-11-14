@@ -7,12 +7,94 @@ import DynamicTable from '../../../../components/microcomponents/DynamicTable';
 import { useSelector } from 'react-redux';
 import ReusableModal from '../../../../components/microcomponents/Modal';
 import { Check, X, Calendar, Trash2 } from 'lucide-react';
+import { getAppointmentsByDoctorId } from '../../../../utils/CrudService';
 
 const TABS = [
   { label: 'Pending', value: 'pending' },
   { label: 'Confirmed', value: 'confirmed' },
   { label: 'Rejected', value: 'rejected' }
 ];
+
+const toDateObject = (value) => {
+  if (!value) return null;
+  if (Array.isArray(value) && value.length >= 3) {
+    const [year, month, day] = value;
+    const date = new Date(year, (month ?? 1) - 1, day);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  if (typeof value === 'string') {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+  return null;
+};
+
+const formatDateValue = (value) => {
+  const dateObj = toDateObject(value) || toDateObject(`${value}`);
+  if (!dateObj) return value || '';
+  const year = dateObj.getFullYear();
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const formatTimeValue = (value) => {
+  if (value === null || value === undefined) return '';
+  if (Array.isArray(value) && value.length >= 2) {
+    const [hours = 0, minutes = 0] = value;
+    const suffix = hours >= 12 ? 'PM' : 'AM';
+    const normalizedHours = ((hours % 12) || 12).toString().padStart(2, '0');
+    const normalizedMinutes = String(minutes).padStart(2, '0');
+    return `${normalizedHours}:${normalizedMinutes}${suffix}`;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (/\d\s?[AP]M$/i.test(trimmed) || /\d{1,2}:\d{2}\s?[AP]M$/i.test(trimmed)) {
+      return trimmed.toUpperCase().replace(/\s+/g, '');
+    }
+    const timeMatch = trimmed.match(/^(\d{1,2})(?::(\d{1,2}))?(?::(\d{1,2}))?$/);
+    if (timeMatch) {
+      const hours = parseInt(timeMatch[1], 10);
+      const minutes = parseInt(timeMatch[2] || '0', 10);
+      const suffix = hours >= 12 ? 'PM' : 'AM';
+      const normalizedHours = ((hours % 12) || 12).toString().padStart(2, '0');
+      const normalizedMinutes = String(minutes).padStart(2, '0');
+      return `${normalizedHours}:${normalizedMinutes}${suffix}`;
+    }
+  }
+  return `${value}`;
+};
+
+const toTimeParts = (value) => {
+  if (Array.isArray(value) && value.length >= 1) {
+    return {
+      hours: Number(value[0]) || 0,
+      minutes: Number(value[1]) || 0,
+    };
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim().toUpperCase();
+    const ampmMatch = trimmed.match(/^(\d{1,2})(?::(\d{2}))?(?::(\d{2}))?\s*(AM|PM)$/);
+    if (ampmMatch) {
+      let hours = parseInt(ampmMatch[1], 10);
+      const minutes = parseInt(ampmMatch[2] || '0', 10);
+      const meridiem = ampmMatch[4];
+      if (meridiem === 'PM' && hours < 12) hours += 12;
+      if (meridiem === 'AM' && hours === 12) hours = 0;
+      return { hours, minutes };
+    }
+
+    const numericMatch = trimmed.match(/^(\d{1,2})(?::(\d{2}))?(?::(\d{2}))?$/);
+    if (numericMatch) {
+      const hours = parseInt(numericMatch[1], 10);
+      const minutes = parseInt(numericMatch[2] || '0', 10);
+      return { hours, minutes };
+    }
+  }
+
+  return null;
+};
 
 const notify = async (name, phone, message, btn = false, doctorName) => {
   try {
@@ -81,45 +163,106 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
 
   useEffect(() => {
     const fetchAppointments = async () => {
-      if (!doctorName) return;
+      const doctorId = user?.doctorId;
+      if (!doctorId) {
+        console.warn('Doctor ID not found for logged-in user.');
+        setLoading(false);
+        return;
+      }
       try {
         setLoading(true);
-        const res = await axios.get('https://67e3e1e42ae442db76d2035d.mockapi.io/register/book');
-        const allAppointments = res.data;
-        const normalizedDoctorName = doctorName.trim().toLowerCase();
-        const filteredAppointments = allAppointments.filter(
-          (appointment) => appointment.doctorName.trim().toLowerCase() === normalizedDoctorName
-        );
-        console.log("Filtered Appointments:", filteredAppointments);
-        const merged = filteredAppointments.map((appointment) => ({
-          id: appointment.id,
-          name: appointment.name || 'Unknown',
-          email: appointment.email,
-          phone: appointment.phone || 'N/A',
-          date: appointment.date,
-          time: appointment.time,
-          reason: appointment.symptoms,
-          specialty: appointment.specialty,
-          type: appointment.consultationType,
-          doctorName: appointment.doctorName,
-          status: appointment.status === 'Upcoming' ? 'Pending' : appointment.status || 'Pending',
-          prescription: '',
-          link: '',
-          rejectReason: appointment.rejectReason || '',
-          linkSent: false,
-          rescheduleCount: appointment.rescheduleCount || 0
-        }));
-        merged.sort((a, b) => b.id - a.id);
-        setAppointments(merged);
+        const response = await getAppointmentsByDoctorId(doctorId);
+        const appointmentsData = Array.isArray(response.data)
+          ? response.data
+          : response.data?.data ?? [];
+
+        const mappedAppointments = appointmentsData.map((appointment) => {
+          const patient = appointment.patient || appointment.patientDetails || appointment.patientInfo || {};
+          const schedule = appointment.schedule || appointment.slot || {};
+          const createdAt = appointment.createdAt || appointment.updatedAt || appointment.appointmentDateTime || appointment.created_at || null;
+          const derivedDoctorName = appointment.doctorName || doctorName || (user?.name ? `Dr. ${user.name}` : '');
+          const nameFromParts = [patient.firstName, patient.middleName, patient.lastName]
+            .filter(Boolean)
+            .join(' ');
+
+          const rawDate = appointment.date ?? appointment.appointmentDate ?? schedule.date ?? '';
+          const rawTime = appointment.time ?? appointment.appointmentTime ?? schedule.time ?? '';
+          const appointmentNotes = appointment.notes || appointment.note || appointment.reason || appointment.symptoms || appointment.complaint || '';
+          const specializationName = appointment.specializationName || appointment.specialization || appointment.specialty || (appointment.specializationDetails?.name ?? appointment.specializationDetails?.specialization ?? 
+            (appointment.specializationInfo?.name ?? appointment.specializationInfo?.specialization) ?? '');
+          const consultationType = appointment.consultationType || appointment.type || schedule.consultationType || appointment.mode || 'Unknown';
+          const status = appointment.status === 'Upcoming' ? 'Pending' : appointment.status ?? 'Pending';
+
+          const formattedDate = formatDateValue(rawDate);
+          const formattedTime = formatTimeValue(rawTime);
+
+          let sortTimestamp = null;
+          if (createdAt) {
+            const createdMs = new Date(createdAt).getTime();
+            if (!Number.isNaN(createdMs)) {
+              sortTimestamp = createdMs;
+            }
+          }
+
+          if (sortTimestamp === null) {
+            const dateObj = toDateObject(rawDate);
+            const timeParts = toTimeParts(rawTime);
+            if (dateObj) {
+              const dateTime = new Date(dateObj);
+              if (timeParts) {
+                dateTime.setHours(timeParts.hours ?? 0, timeParts.minutes ?? 0, 0, 0);
+              }
+              const candidate = dateTime.getTime();
+              if (!Number.isNaN(candidate)) {
+                sortTimestamp = candidate;
+              }
+            }
+          }
+
+          if (sortTimestamp === null) {
+            sortTimestamp = Date.now();
+          }
+
+          return {
+            id: appointment.id ?? appointment.appointmentId ?? appointment.bookingId ?? `${Date.now()}-${Math.random()}`,
+            name: appointment.patientName || patient.name || nameFromParts || 'Unknown',
+            email: appointment.patientEmail ?? patient.email ?? '',
+            phone: appointment.patientPhone ?? patient.phone ?? 'N/A',
+            date: formattedDate,
+            time: formattedTime,
+            reason: appointmentNotes,
+            specialty: specializationName,
+            consultationType,
+            type: consultationType,
+            doctorName: derivedDoctorName,
+            status,
+            prescription: appointment.prescription ?? '',
+            link: appointment.link ?? appointment.meetingLink ?? '',
+            rejectReason: appointment.rejectReason ?? appointment.rejectionReason ?? '',
+            linkSent: appointment.linkSent ?? false,
+            rescheduleCount: appointment.rescheduleCount ?? 0,
+            rawNotes: appointmentNotes,
+            rawSpecialization: specializationName,
+            createdAt,
+            rawDate,
+            rawTime,
+            sortTimestamp,
+          };
+        });
+
+        const sortedAppointments = [...mappedAppointments].sort((a, b) => (b.sortTimestamp ?? 0) - (a.sortTimestamp ?? 0));
+
+        setAppointments(sortedAppointments);
       } catch (error) {
-        console.error('Error fetching appointments:', error);
+        console.error('Error fetching appointments by doctor:', error);
         toast.error('Failed to fetch appointments');
       } finally {
         setLoading(false);
       }
     };
+
     fetchAppointments();
-  }, [doctorName]);
+  }, [user?.doctorId, doctorName]);
 
   useEffect(() => {
     localStorage.setItem('appointments', JSON.stringify(appointments));
@@ -364,9 +507,9 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
     { key: 'phone', label: 'Phone' },
     { key: 'date', label: 'Appointment Date' },
     { key: 'time', label: 'Appointment Time' },
-    { key: 'reason', label: 'Reason' },
+    { key: 'consultationType', label: 'Consultation Type' },
     { key: 'specialty', label: 'Specialty' },
-    { key: 'type', label: 'Type' },
+    { key: 'reason', label: 'Notes / Reason' },
     { key: 'status', label: 'Status' },
     ...(tab === 'rejected' ? [{ key: 'rejectReason', label: 'Rejection Reason' }] : [])
   ];

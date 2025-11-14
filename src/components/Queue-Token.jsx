@@ -7,7 +7,6 @@ import {
   getAllSymptoms,
   getDoctorsBySpecialty
 } from "../utils/masterService";
-import { setUser } from '../context-api/authSlice';
 import PatientVerificationSteps from './Profile';
 
 const TOKENS_KEY = 'hospital_tokens';
@@ -32,7 +31,7 @@ const TokenGenerator = () => {
   const [allSymptoms, setAllSymptoms] = useState([]);
   const [showSymptomsSuggestions, setShowSymptomsSuggestions] = useState(false);
   const [filteredSymptoms, setFilteredSymptoms] = useState([]);
-  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedDate, setSelectedDate] = useState(getTodayDate());
   const [selectedTime, setSelectedTime] = useState('');
   const [selectedSlotId, setSelectedSlotId] = useState(null);
   const [lastTokenDetails, setLastTokenDetails] = useState(null);
@@ -130,10 +129,10 @@ const TokenGenerator = () => {
   }, [selectedSpecialization?.id]);
 
   // Get today's date
-  const getTodayDate = () => {
+  function getTodayDate() {
     const today = new Date();
     return today.toISOString().split('T')[0];
-  };
+  }
 
   // Get available dates for selected doctor
   const getAvailableDates = (doctor) => {
@@ -172,17 +171,17 @@ const TokenGenerator = () => {
       );
   };
 
-  // Get visible slots (9 at a time)
+  // Get visible slots (12 at a time)
   const getVisibleSlots = (allSlots) => {
-    const startIndex = currentSlotGroup * 9;
-    const endIndex = startIndex + 9;
+    const startIndex = currentSlotGroup * 12;
+    const endIndex = startIndex + 12;
     return allSlots.slice(startIndex, endIndex);
   };
 
   // Handle slot navigation
   const handleSlotNavigation = (direction) => {
     const totalSlots = getAvailableSlots(selectedDoctor, selectedDate).length;
-    const totalGroups = Math.ceil(totalSlots / 9);
+    const totalGroups = Math.ceil(totalSlots / 12);
     if (direction === 'left') {
       setCurrentSlotGroup(prev => Math.max(0, prev - 1));
     } else {
@@ -250,13 +249,19 @@ const TokenGenerator = () => {
 
   const handleDoctorSelect = (doctor) => {
     setSelectedDoctor(doctor);
-    setSelectedDate('');
+    const today = getTodayDate();
+    setSelectedDate(today);
     setSelectedTime('');
     setSelectedSlotId(null);
-    setAvailableSlots([]);
+    setIsLoadingSlots(true);
     setErrors(prev => clearSlotError(prev));
     const dates = getAvailableDates(doctor);
     setAvailableDates(dates);
+    setTimeout(() => {
+      const slots = getAvailableSlots(doctor, today);
+      setAvailableSlots(slots);
+      setIsLoadingSlots(false);
+    }, 500);
   };
 
   const handleDateSelect = (date) => {
@@ -301,6 +306,11 @@ const TokenGenerator = () => {
       const waitMinutes = consultationType === 'virtual'
         ? (priority === 'emergency' ? 2 : 15)
         : (priority === 'emergency' ? 5 : 30);
+      const appointmentDate = getTodayDate();
+      const now = new Date();
+      const hours24 = now.getHours().toString().padStart(2, '0');
+      const minutes24 = now.getMinutes().toString().padStart(2, '0');
+      const currentTime24 = `${hours24}:${minutes24}`;
 
       const requestBody = {
         patientId:1,
@@ -315,8 +325,8 @@ const TokenGenerator = () => {
         estimatedWaitMinutes: waitMinutes,
       };
 
-      if (selectedDate) requestBody.appointmentDate = selectedDate;
-      if (selectedTime) requestBody.appointmentTime = selectedTime;
+      if (appointmentDate) requestBody.appointmentDate = appointmentDate;
+      requestBody.appointmentTime = currentTime24;
       if (consultationType) requestBody.consultationType = consultationType.toUpperCase();
 
       const response = await createQueueToken(requestBody);
@@ -335,6 +345,19 @@ const TokenGenerator = () => {
         slotTime: tokenResponse?.slotTime || selectedTime || null,
       };
       setLastTokenDetails(normalizedToken);
+      // Remove the just-booked slot from the availableSlots list so it no longer appears as selectable
+      setAvailableSlots(prev =>
+        prev.filter(slot => {
+          const timeValue = slot.time;
+          const slotIdValue = slot.slotId ?? null;
+          return !(
+            timeValue === selectedTime &&
+            (slotIdValue ?? null) === (selectedSlotId ?? null)
+          );
+        })
+      );
+      setSelectedTime('');
+      setSelectedSlotId(null);
       setErrors(prev => {
         const cleared = clearSlotError(prev);
         const { patient, ...rest } = cleared || {};
@@ -360,6 +383,7 @@ const TokenGenerator = () => {
     setSelectedDoctor(null);
     setPriority('normal');
     setConsultationType('opd');
+    setSelectedDate(getTodayDate());
     setSelectedSlotId(null);
     setLastTokenDetails(null);
   };
@@ -422,6 +446,26 @@ const TokenGenerator = () => {
     const suffix = hours >= 12 ? 'PM' : 'AM';
     hours = hours % 12 || 12;
     return `${hours}:${minutes.padStart(2, '0')} ${suffix}`;
+  };
+
+  const to24HourTime = (timeValue) => {
+    if (!timeValue) return '';
+    if (!/[AP]M$/i.test(timeValue)) {
+      return timeValue;
+    }
+    const [timePart, modifier] = timeValue.split(/\s+/);
+    const [rawHours, rawMinutes = '00'] = timePart.split(':');
+    let hours = Number(rawHours);
+    let minutes = rawMinutes;
+    if (Number.isNaN(hours)) return timeValue;
+    const upperMod = modifier.toUpperCase();
+    if (upperMod === 'PM' && hours < 12) {
+      hours += 12;
+    }
+    if (upperMod === 'AM' && hours === 12) {
+      hours = 0;
+    }
+    return `${hours.toString().padStart(2, '0')}:${minutes.padStart(2, '0')}`;
   };
 
   const fallbackTokenNumber = `T${getNextTokenNumber().toString().padStart(3, '0')}`;
@@ -675,15 +719,14 @@ const TokenGenerator = () => {
                 <div className="bg-gray-50 p-6 rounded-2xl space-y-6">
                   <h3 className="text-lg font-bold text-gray-800">Select Appointment Date & Time</h3>
 
-                  {/* Date Selection */}
+                  {/* Date (Today - Fixed) */}
                   <div className="space-y-3">
-                    <label className="block text-sm font-medium text-gray-700">Select Appointment Date</label>
+                    <label className="block text-sm font-medium text-gray-700">Appointment Date (Today)</label>
                     <input
                       type="date"
-                      className="w-full p-3 rounded-lg border border-gray-200 focus:border-[#01D48C] focus:ring-2 focus:ring-[#01D48C]/20 transition-all text-sm"
+                      className="w-full p-3 rounded-lg border border-gray-200 bg-gray-100 cursor-not-allowed text-sm"
                       value={selectedDate}
-                      min={getTodayDate()}
-                      onChange={(e) => handleDateSelect(e.target.value)}
+                      readOnly
                     />
                     {selectedDate && (
                       <p className="text-xs text-green-600">
@@ -707,8 +750,8 @@ const TokenGenerator = () => {
                           <p className="text-gray-600 text-sm">Loading available slots...</p>
                         </div>
                       ) : availableSlots.length > 0 ? (
-                        <div className="space-y-3">
-                          <div className="grid grid-cols-3 gap-2">
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-4 gap-2">
                             {getVisibleSlots(availableSlots).map((timeSlot, index) => {
                               const timeValue = timeSlot.time;
                               const slotId = timeSlot.slotId ?? null;
@@ -739,6 +782,28 @@ const TokenGenerator = () => {
                               );
                             })}
                           </div>
+
+                          {/* Slot navigation arrows */}
+                          {availableSlots.length > 12 && (
+                            <div className="flex items-center justify-center gap-6 mt-2">
+                              <button
+                                type="button"
+                                onClick={() => handleSlotNavigation('left')}
+                                className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-300 text-base text-gray-700 hover:bg-gray-100 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                                disabled={currentSlotGroup === 0}
+                              >
+                                &#8592;
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleSlotNavigation('right')}
+                                className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-300 text-base text-gray-700 hover:bg-gray-100 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                                disabled={currentSlotGroup >= Math.ceil(availableSlots.length / 12) - 1}
+                              >
+                                &#8594;
+                              </button>
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <div className="text-center py-6 bg-gray-100 rounded-lg border border-gray-200">
@@ -816,20 +881,20 @@ const TokenGenerator = () => {
                 </div>
               </div>
 
-              <div className="flex gap-4">
+              <div className="flex gap-4 justify-center">
                 <button
                   onClick={() => {
                     setStep(2);
                     setSuggestedSpecializations([]);
                     setSelectedSpecialization(null);
                   }}
-                  className="btn btn-secondary w-full"
+                  className="btn btn-secondary"
                 >
                   Go Back
                 </button>
                 <button
                   onClick={handleGenerateToken}
-                  className="btn btn-primary w-full"
+                  className="btn btn-primary"
                   disabled={!selectedDoctor || !selectedDate || !selectedTime}
                 >
                   {isVerifying ? 'Generating...' : !selectedDoctor ? 'Select Doctor First' : !selectedDate ? 'Select Date' : !selectedTime ? 'Select Time Slot' : 'Generate Token'}
