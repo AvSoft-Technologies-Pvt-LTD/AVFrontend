@@ -54,6 +54,8 @@ const ReusableModal = ({
   validations = {},
   shouldValidate = false,
   extraContentPosition = "bottom",
+  preventCloseOnSave = false,
+  showSuccessToast = true,
 }) => {
   const [formValues, setFormValues] = useState({});
   const [formErrors, setFormErrors] = useState({});
@@ -181,10 +183,14 @@ const handleChange = (name, value) => {
       return;
     }
     await onSave({ ...formValues, doctorSignature });
-    toast.success(
-      mode === "add" ? "Record added Successfully!" : "Record updated Successfully!"
-    );
-    onClose();
+    if (showSuccessToast) {
+      toast.success(
+        mode === "add" ? "Record added Successfully!" : "Record updated Successfully!"
+      );
+    }
+    if (!preventCloseOnSave) {
+      onClose();
+    }
   };
 
   const handleDelete = () => {
@@ -418,7 +424,10 @@ const handleChange = (name, value) => {
                                     const selected = formValues[field.name];
                                     const df = field.durationFor;
                                     // Show input if a value is selected and it's not empty
-                                    const showInput = !!selected && selected !== "";
+                                    // For multiselect, check if array has items; for select, check if value exists
+                                    const showInput = field.type === "multiselect" 
+                                      ? Array.isArray(selected) && selected.length > 0
+                                      : !!selected && selected !== "";
                                     return showInput ? (
                                       <div className="mt-2 flex items-center gap-2">
                                         <input

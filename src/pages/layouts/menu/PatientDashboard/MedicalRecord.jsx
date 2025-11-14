@@ -194,10 +194,11 @@ const MedicalRecords = () => {
       const payload = {
         patientId,
         hospitalId: formData.hospitalName,
-        symptoms: formData.symptoms,
+       symptomIds: formData.symptoms,
           medicalConditionIds: [formData.conditions[0]],
         medicalStatusId: formData.status,
         uploadedBy: "PATIENT", 
+        doctorId: formData.doctorId, // Explicitly set to null for patient-created records
         ...(state.activeTab === "OPD" && { dateOfVisit: formData.dateOfVisit }),
         ...(state.activeTab === "IPD" && {
           dateOfAdmission: formData.dateOfAdmission,

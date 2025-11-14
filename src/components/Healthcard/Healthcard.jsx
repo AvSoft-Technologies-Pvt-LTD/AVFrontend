@@ -11,25 +11,24 @@ import {
   getPatientSubscription,
   createPatientSubscription,
   updatePatientSubscription,
-  generateHealthCard,
   getHealthCardByPatientId,
 } from "../../utils/CrudService";
 
-function Healthcard({ hideLogin }) {
+function Healthcard({ hideLogin, patientId }) {
   const [subscriptionPlans, setSubscriptionPlans] = useState([]);
   const [subscription, setSubscription] = useState(localStorage.getItem("subscription") || null);
   const [patientSubscription, setPatientSubscription] = useState(null);
-  const [selectedPlan, setSelectedPlan] = useState(null);
   const [loadingPlans, setLoadingPlans] = useState(true);
   const [loadingCard, setLoadingCard] = useState(false);
-  const [qrImage, setQrImage] = useState("");
   const [healthId, setHealthId] = useState("");
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
-  const [isCardGenerated, setIsCardGenerated] = useState(false);
   const [healthCardData, setHealthCardData] = useState(null);
   const navigate = useNavigate();
   const user = useSelector((state) => state.auth.user);
   const cardRef = useRef(null);
+
+  // Use passed patientId or fallback to user.patientId
+  const currentPatientId = patientId || user?.patientId;
 
   // Helper functions for plan icons, gradients, and QR colors
   const getIconForPlan = (name) => {
@@ -138,8 +137,8 @@ function Healthcard({ hideLogin }) {
   useEffect(() => {
     const fetchSub = async () => {
       try {
-        if (!user?.patientId) return;
-        const res = await getPatientSubscription(user.patientId);
+        if (!currentPatientId) return;
+        const res = await getPatientSubscription(currentPatientId);
         setPatientSubscription(res.data);
         const planKey = res.data.planName?.toLowerCase();
         setSubscription(planKey);
@@ -148,80 +147,33 @@ function Healthcard({ hideLogin }) {
         console.log("No subscription found or failed to fetch", err);
       }
     };
-    if (user?.patientId) fetchSub();
-  }, [user?.patientId]);
+    if (currentPatientId) fetchSub();
+  }, [currentPatientId]);
 
   // Fetch existing health card
   useEffect(() => {
     const fetchHealthCard = async () => {
       try {
-        if (!user?.patientId) return;
+        if (!currentPatientId) return;
         setLoadingCard(true);
-        const res = await getHealthCardByPatientId(user.patientId);
-        setHealthCardData(res.data);
-        setHealthId(res.data.healthCardId);
-        setIsCardGenerated(true);
+        const res = await getHealthCardByPatientId(currentPatientId);
+        const cardData = res.data;
+        setHealthCardData(cardData);
+        setHealthId(cardData.healthCardId);
       } catch (err) {
         console.log("No health card found or failed to fetch", err);
       } finally {
         setLoadingCard(false);
       }
     };
-    if (user?.patientId) fetchHealthCard();
-  }, [user?.patientId]);
-
-  // Generate QR code
-  useEffect(() => {
-    if (healthId && subscription && subscriptionPlans.length > 0) {
-      const plan = subscriptionPlans.find((p) => p.id === subscription);
-      QRCode.toDataURL(
-        healthId,
-        {
-          width: 128,
-          margin: 2,
-          color: { dark: plan?.qrColor || "#01D48C", light: "#FFFFFF" },
-        },
-        (err, url) => {
-          if (!err) setQrImage(url);
-        }
-      );
-    }
-  }, [healthId, subscription, subscriptionPlans]);
+    if (currentPatientId) fetchHealthCard();
+  }, [currentPatientId]);
 
   // Generate health card
 useEffect(() => {
-  const generateCard = async () => {
-    if (!user?.patientId || !subscription || isCardGenerated || healthCardData) return;
-    const plan = subscriptionPlans.find((p) => p.id === subscription);
-    if (!plan) return;
-    setLoadingCard(true);
-    try {
-      // Check if health card already exists
-      const existingCard = await getHealthCardByPatientId(user.patientId);
-      if (existingCard.data) {
-        setHealthCardData(existingCard.data);
-        setHealthId(existingCard.data.healthCardId);
-        setIsCardGenerated(true);
-        return;
-      }
-      // If not, generate a new one
-      const payload = {
-        name: `${user.firstName} ${user.lastName}`,
-        gender: user.gender,
-        cardColorHex: getQRColorForPlan(plan.name),
-      };
-      const res = await generateHealthCard(user.patientId, payload);
-      setHealthCardData(res.data);
-      setHealthId(res.data.healthCardId);
-      setIsCardGenerated(true);
-    } catch (err) {
-      console.error("Failed to generate health card", err);
-    } finally {
-      setLoadingCard(false);
-    }
-  };
-  generateCard();
-}, [user, subscription, subscriptionPlans, isCardGenerated, healthCardData]);
+  // Health card generation is now handled in Dashboard.jsx
+  // This component only displays existing cards
+}, [currentPatientId, subscription, subscriptionPlans, healthCardData, user]);
 
   const handleScan = () => {
     toast.info(`OTP sent to ${user.phone}: 123456`, { autoClose: 2000 });
@@ -232,6 +184,13 @@ useEffect(() => {
     if (!d) return "N/A";
     const date = new Date(d);
     return `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
+  };
+
+  // Helper function to format date with month and year only
+  const formatDateMonthYear = (d) => {
+    if (!d) return "N/A";
+    const date = new Date(d);
+    return `${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
   };
 
   // Handle plan selection
@@ -312,20 +271,22 @@ useEffect(() => {
   {/* User Info: Photo, Name, DOB, Gender */}
   <div className="flex justify-between items-center -mt-2 sm:-mt-3">
     <div className="flex items-center gap-2 sm:gap-4">
-     <img
+     {(healthCardData?.photoPath || user?.photoPath) && (
+       <img
   src={
-    healthCardData?.photoPath ||
-    "https://img.freepik.com/premium-vector/default-avatar-profile-icon-social-media-user-image-gray-avatar-icon-blank-profile-silhouette-vector-illustration_561158-3383.jpg"
+    healthCardData?.photoPath ? `http://localhost:8080/${healthCardData.photoPath.replace(/\\/g, '/')}` :
+    `http://localhost:8080/${user.photoPath.replace(/\\/g, '/')}`
   }
   alt="User"
   className="w-14 h-14 sm:w-20 sm:h-20 object-cover rounded-full border-2 border-white shadow"
 />
+     )}
       <div>
         <p className="font-bold text-base sm:text-lg text-white uppercase">
-  {healthCardData?.patientName || "N/A"}
+  {healthCardData?.patientName || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || "N/A"}
 </p>
 <p className="text-xs sm:text-sm text-white">
-  DOB: {formatDate(healthCardData?.dob)} | Gender: {healthCardData?.gender || "N/A"}
+  DOB: {formatDate(healthCardData?.dob || user?.dob)} | Gender: {healthCardData?.gender || user?.gender || "N/A"}
 </p>
       </div>
     </div>
@@ -338,11 +299,17 @@ useEffect(() => {
      <div className="font-mono text-lg sm:text-xl tracking-wider font-bold text-white">
   {healthCardData?.healthCardId || "N/A"}
 </div>
+
+{healthCardData?.issueDate && (
+  <div className="text-xs text-white/80">
+    Valid: {formatDateMonthYear(healthCardData.issueDate)} - {formatDateMonthYear(healthCardData.expiryDate)}
+  </div>
+)}
     </div>
     <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white p-1 sm:p-1.5 rounded-lg flex items-center justify-center shadow-lg">
-     {healthCardData?.qrImagePath ? (
+     {healthCardData?.qrImagePath || healthCardData?.qrBase64 ? (
   <img
-    src={`http://localhost:8080/${healthCardData.qrImagePath.replace(/\\/g, '/')}`}
+    src={healthCardData?.qrBase64 || `http://localhost:8080/${healthCardData.qrImagePath?.replace(/\\/g, '/')}`}
     alt="QR Code"
     className="w-full h-full cursor-pointer border-2 border-white"
     onClick={handleScan}
@@ -355,6 +322,8 @@ useEffect(() => {
 </div>
 
       </div>
+      
+      {/* DOWNLOAD BUTTON */}
       <div className="flex gap-3 mt-6">
         <button
           onClick={() => {
@@ -397,16 +366,10 @@ useEffect(() => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {subscriptionPlans.map((plan) => {
                 const IconComponent = plan.icon;
-                const isSelected = selectedPlan?.id === plan.id;
                 return (
                   <div
                     key={plan.id}
-                    onClick={() => setSelectedPlan(plan)}
-                    className={`relative cursor-pointer rounded-xl p-4 sm:p-6 border-2 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${
-                      isSelected
-                        ? `border-${plan.color}-500 bg-${plan.color}-50 shadow-2xl ring-2 ring-${plan.color}-200`
-                        : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
-                    }`}
+                    className={`relative cursor-pointer rounded-xl p-4 sm:p-6 border-2 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg border-gray-200 hover:border-gray-300 hover:shadow-md`}
                   >
                     {plan.id === 'gold' && (
                       <div className="absolute -top-2 left-1/2 transform -translate-x-1/2">
@@ -442,13 +405,6 @@ useEffect(() => {
                     >
                       {patientSubscription?.planName?.toLowerCase() === plan.id ? "Current Plan" : "Select Plan"}
                     </button>
-                    {isSelected && (
-                      <div className={`absolute inset-0 rounded-xl border-2 border-${plan.color}-500 bg-${plan.color}-50/20 flex items-center justify-center`}>
-                        <div className={`bg-${plan.color}-500 text-white rounded-full p-1.5 sm:p-2 shadow-md`}>
-                          <Check className="w-4 h-4 sm:w-5 sm:h-5" />
-                        </div>
-                      </div>
-                    )}
                   </div>
                 );
               })}

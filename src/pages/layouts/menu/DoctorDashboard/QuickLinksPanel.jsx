@@ -1,11 +1,9 @@
-// File: DrForm/QuickLinksPanel.jsx
 import React, { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { ChevronRight, X, Grid3X3 } from "lucide-react";
-import { BadgeCheck, Stethoscope, LogOut } from "lucide-react";
+import { BadgeCheck, Stethoscope, LogOut, Receipt } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { usePatientContext } from "../../../../context-api/PatientContext";
-
 
 const QuickLinksPanel = ({
   isOpen: propIsOpen,
@@ -14,41 +12,32 @@ const QuickLinksPanel = ({
   patient: propPatient,
   showTrigger = true,
   usePortal = true,
-  autoPosition = false, // default: use fixed top/height as requested
+  autoPosition = false,
   fixedTopPx = 10,
   fixedHeightCalc = "calc(100vh - 60px)",
   offsetTopRem = 5.5,
-  nudgeUpPx = 28, // only used if autoPosition=true
- zIndexPanel = 10000,
-zIndexBackdrop = 9999,
-
+  nudgeUpPx = 28,
+  zIndexPanel = 10000,
+  zIndexBackdrop = 9999,
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { activeTab } = usePatientContext();
-
-  const patient =
-    location.state?.patient ||
-    propPatient || {
-      name: "Unknown Patient",
-      email: "unknown@example.com",
-      phone: "N/A",
-      age: "N/A",
-      gender: "N/A",
-      diagnosis: "N/A",
-      type: "IPD",
-    };
-
+  const patient = location.state?.patient || propPatient || {
+    name: "Unknown Patient",
+    email: "unknown@example.com",
+    phone: "N/A",
+    age: "N/A",
+    gender: "N/A",
+    diagnosis: "N/A",
+    type: "IPD",
+  };
   const activeIsIPD = String(activeTab || "").toUpperCase() === "IPD";
   const patientType = String(patient?.type || patient?.context || "").toLowerCase();
   const isIPDPatient = activeIsIPD || patientType === "ipd";
-
-  // controlled/uncontrolled
   const [internalOpen, setInternalOpen] = useState(false);
   const isControlled = typeof propIsOpen !== "undefined";
   const isOpen = isControlled ? propIsOpen : internalOpen;
-
-  // only used in autoPosition mode
   const [panelTopPxAuto, setPanelTopPxAuto] = useState(null);
 
   const computeHeaderBottomPx = useCallback(() => {
@@ -62,7 +51,6 @@ zIndexBackdrop = 9999,
         }
       });
       if (!sticky.length) return null;
-
       const pinned = sticky.filter((el) => {
         try {
           const r = el.getBoundingClientRect();
@@ -72,7 +60,6 @@ zIndexBackdrop = 9999,
         }
       });
       if (!pinned.length) return null;
-
       const bottoms = pinned.map((el) => el.getBoundingClientRect().bottom);
       const maxBottom = Math.max(...bottoms);
       return Math.round(maxBottom + window.scrollY);
@@ -83,7 +70,6 @@ zIndexBackdrop = 9999,
 
   useEffect(() => {
     if (!autoPosition) return;
-
     const update = () => {
       const headerBottom = computeHeaderBottomPx();
       if (headerBottom && headerBottom > 0) {
@@ -93,7 +79,6 @@ zIndexBackdrop = 9999,
         setPanelTopPxAuto(null);
       }
     };
-
     update();
     const onResize = () => window.requestAnimationFrame(update);
     window.addEventListener("resize", onResize);
@@ -106,13 +91,13 @@ zIndexBackdrop = 9999,
 
   useEffect(() => {
     if (isControlled && onToggle) onToggle(propIsOpen);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const openPanel = () => {
     if (!isControlled) setInternalOpen(true);
     if (onToggle) onToggle(true);
   };
+
   const closePanel = () => {
     if (!isControlled) setInternalOpen(false);
     if (onToggle) onToggle(false);
@@ -137,6 +122,13 @@ zIndexBackdrop = 9999,
       bgColor: "bg-blue-50",
       hoverBgColor: "hover:bg-blue-100",
     },
+    {
+      name: "Billing",
+      icon: Receipt,
+      color: "text-yellow-600",
+      bgColor: "bg-yellow-50",
+      hoverBgColor: "hover:bg-yellow-100",
+    },
     ...(isIPDPatient
       ? [
           {
@@ -151,7 +143,6 @@ zIndexBackdrop = 9999,
   ];
 
   const handleLinkClick = (link) => {
-    // Explicit routes requested
     if (link?.name === "Nursing & Treatment") {
       navigate("/doctordashboard/form/Nursing-and-treatment", { state: { patient } });
       return closePanel();
@@ -160,11 +151,15 @@ zIndexBackdrop = 9999,
       navigate("/doctordashboard/form/Gate-pass", { state: { patient } });
       return closePanel();
     }
+    if (link?.name === "Billing") {
+      // Updated path to match your billing integration component
+      navigate("/doctordashboard/billing-integration", { state: { patient } });
+      return closePanel();
+    }
     if (link?.name === "Discharge") {
       navigate("/doctordashboard/form/Discharge-modal", { state: { patient } });
       return closePanel();
     }
-
     if (setActiveForm) {
       const key = link.name.toLowerCase().split(" ")[0] || link.name.toLowerCase();
       setActiveForm(key);
@@ -172,16 +167,11 @@ zIndexBackdrop = 9999,
     closePanel();
   };
 
-  // PANEL STYLES
-  // If autoPosition is enabled and we computed a value, use that;
-  // otherwise use the fixed top/height requested by the user.
   const panelStyle = (() => {
     if (autoPosition && panelTopPxAuto) {
       return { top: `${panelTopPxAuto}px`, height: `calc(100vh - ${panelTopPxAuto}px)`, zIndex: zIndexPanel };
     }
-    // fixed/default requested values:
-   return { top: `${fixedTopPx}px`, height: `calc(100vh - ${fixedTopPx - 10}px)`, zIndex: zIndexPanel };
-
+    return { top: `${fixedTopPx}px`, height: `calc(100vh - ${fixedTopPx - 10}px)`, zIndex: zIndexPanel };
   })();
 
   const backdropStyle = { zIndex: zIndexBackdrop };
@@ -205,7 +195,6 @@ zIndexBackdrop = 9999,
           <ChevronRight className="w-3 h-3" />
         </button>
       )}
-
       {isOpen && (
         <>
           <div
@@ -221,7 +210,6 @@ zIndexBackdrop = 9999,
             role="dialog"
             aria-modal="true"
           >
-            {/* Sticky panel header so it stays visible while panel content scrolls */}
             <div className="sticky top-0 z-10 bg-gradient-to-r from-[var(--primary-color)] to-[var(--accent-color)] text-white p-3 flex items-center justify-between">
               <div>
                 <h3 className="text-base font-semibold">Quick Access</h3>
@@ -235,7 +223,6 @@ zIndexBackdrop = 9999,
                 <X className="w-4 h-4" />
               </button>
             </div>
-
             <div className="flex-1 p-3 overflow-y-auto">
               <div className="grid grid-cols-1 gap-2">
                 {links.map((link, index) => (
@@ -254,6 +241,8 @@ zIndexBackdrop = 9999,
                           ? "Generate visitor passes"
                           : link.name === "Nursing & Treatment"
                           ? "View treatment details"
+                          : link.name === "Billing"
+                          ? "Generate patient bill"
                           : link.name === "Discharge"
                           ? "Process discharge"
                           : "Open"}
@@ -263,8 +252,6 @@ zIndexBackdrop = 9999,
                   </button>
                 ))}
               </div>
-
-             
             </div>
           </aside>
         </>

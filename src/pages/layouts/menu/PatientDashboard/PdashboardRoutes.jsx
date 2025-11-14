@@ -47,7 +47,7 @@ const PdashboardRoutes = () => {
       <Route path="medical-records" element={<MedicalRecord/>} />
       <Route path="medical-record-details" element={<MedicalRecordDetails/>} />
       <Route path="settings" element={<Settings />} />
-      <Route path="app" element={<AppointmentList />} />
+      <Route path="appointments" element={<AppointmentList />} />
       <Route path="book-appointment" element={<MultiStepForm />} />
       <Route path="/document-reader" element={<DocsReader />} />
       {/* Optional extra routes */}
@@ -56,7 +56,7 @@ const PdashboardRoutes = () => {
       <Route path="notifications" element={<PatientNotifications/>} />
       <Route path="/payment" element={<PaymentForm />} />
       <Route path="emergency" element={<h1>Emergency Info</h1>} />
-                <Route path="/ambulancesearch" element={<EmergencySearch />} />
+                <Route path="/ambulance-search" element={<EmergencySearch />} />
 
       <Route path="lab-tests" element={<LabHome />} />
   <Route path=":type/:id" element={<TestDetail />} />

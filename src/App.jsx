@@ -193,7 +193,7 @@ const App = () => {
         path="tokendisplay"
         element={<TokenDisplay tokens={tokens} />}
       />
-      <Route path="bedroommanagement" element={<BedRoomList/>}/>
+      <Route path="bedroom-management" element={<BedRoomList/>}/>
     </>
   );
 
@@ -234,7 +234,7 @@ const App = () => {
             <Route index element={<Overview />} />
             {sharedRoutes}
             <Route path="template" element={<ImageAnnotationCanvas />} />
-            <Route path="bedroommanagement/bedmaster" element={<BedMaster />} />
+            <Route path="bedroom-management/bedmaster" element={<BedMaster />} />
 <Route path="scheduler" element={<Scheduler />} />
     <Route path="scheduler/availability" element={<AvailabilityOverviewPage />} />
     <Route path="scheduler/availability/create" element={<AvailabilityPage />} />

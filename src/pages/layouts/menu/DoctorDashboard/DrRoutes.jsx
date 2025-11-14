@@ -11,6 +11,7 @@ import QuickLinksPanel from "./QuickLinksPanel";
 import NotificationPage from "../../../../components/NotificationPage"; // Adjust the import path as needed
 // import MedicalRecordsTemplate from "./MedicalRecordsTemplate";
 // import BillingForm from "./BillingForm";
+import BillingIntegration from "../../../../components/Billing/BillingIntegration";
 import MedicalRecordDetails from "./MedicalRecordDetails";
 import MedicalRecords from "./MedicalRecords";
 import SecondOpinion from "./SecondOpinion";
@@ -35,12 +36,14 @@ const DrRoutes = () => {
       <Route path="form/Gate-pass" element={<GatePassModal />} />
 	  <Route path="form/Discharge-modal" element={<DischargeModal />} />    
   
-
+ <Route path="form/Discharge-modal" element={<DischargeModal />} />   
 
 <Route path="medical-record-details" element={<MedicalRecordDetails/>} />
       <Route path="quicklinks" element={<QuickLinksPanel />} />
        {/* <Route path="dr-admin" element={<StaffManagement />} /> */}
      <Route path="billing" element={<Payments />} />
+     <Route path="billing-integration" element={<BillingIntegration />} />
+
       <Route path="settings" element={<Settings />} />
       {/* <Route path="MedicalRecordsTemplate" element={<MedicalRecordsTemplate/>} /> */}
             {/* <Route path="add-billing" element={<BillingForm/>} /> */}

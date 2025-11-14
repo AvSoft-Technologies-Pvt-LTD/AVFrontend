@@ -1,20 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import {
-  MapPin,
-  Phone,
-  Clock,
-  Building,
-  Search,
-  Loader2,
-  Navigation,
-  ExternalLink,
-  Star,
-  Globe,
-  Target,
-  Crosshair,
-} from 'lucide-react';
-import { getPharmaciesByCity } from '../../../../utils/masterService'; // Import from masterservice.jsx
+import { MapPin, Phone, Clock, Building, Search, Loader2, Navigation, ExternalLink, Star, Globe, Target, Crosshair } from 'lucide-react';
+import { getPharmacyByCityAndPincode } from "../../../../utils/masterService";
 
 const PharmacyFinder = () => {
   const [pharmacies, setPharmacies] = useState([]);
@@ -23,7 +10,6 @@ const PharmacyFinder = () => {
   const [userLocation, setUserLocation] = useState(null);
   const [locationError, setLocationError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [citySearchQuery, setCitySearchQuery] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
   const [currentLocationName, setCurrentLocationName] = useState('');
 
@@ -31,90 +17,49 @@ const PharmacyFinder = () => {
     axios.defaults.timeout = 15000;
   }, []);
 
-  useEffect(() => {
-    if (userLocation) {
-      fetchNearbyPharmacies(userLocation.lat, userLocation.lon);
-    }
-  }, [userLocation]);
-
   const handleSearch = async (e) => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
     setSearchLoading(true);
     setError(null);
-
     try {
-      const response = await axios.get('https://nominatim.openstreetmap.org/search', {
-        params: {
-          q: `${searchQuery}, India`,
-          format: 'json',
-          limit: 1,
-          addressdetails: 1,
-        },
-      });
-      const data = response.data;
-      if (!data || data.length === 0) {
-        setError('Location not found. Please try a different search term.');
-        return;
+      const isPincode = /^\d{6}$/.test(searchQuery.trim());
+      let response;
+      if (isPincode) {
+        response = await getPharmacyByCityAndPincode(null, searchQuery.trim());
+      } else {
+        response = await getPharmacyByCityAndPincode(searchQuery.trim(), null);
       }
-      const location = data[0];
-      setUserLocation({
-        lat: parseFloat(location.lat),
-        lon: parseFloat(location.lon),
-      });
-      setCurrentLocationName(location.display_name);
-    } catch (err) {
-      console.error('Search error:', err);
-      setError(
-        err.code === 'ECONNABORTED'
-          ? 'Search request timed out. Please try again.'
-          : err.response
-          ? `Search failed: ${err.response.status} ${err.response.statusText}`
-          : err.request
-          ? 'Network error. Please check your internet connection.'
-          : 'Failed to search location. Please try again.'
-      );
-    } finally {
-      setSearchLoading(false);
-    }
-  };
-
-  const handleCitySearch = async (e) => {
-    e.preventDefault();
-    if (!citySearchQuery.trim()) return;
-    setSearchLoading(true);
-    setError(null);
-
-    try {
-      const response = await getPharmaciesByCity(citySearchQuery);
-      const data = response.data;
-      if (!data || data.length === 0) {
-        setError('No pharmacies found in the specified city. Please try a different city.');
-        return;
-      }
-      const formattedData = data.map((pharmacy) => ({
+      const pharmaciesData = response.data.map((pharmacy) => ({
         id: pharmacy.id,
-        name: pharmacy.name || 'Local Pharmacy',
-        type: 'Pharmacy',
-        address: pharmacy.address || 'Address not available',
-        phone: pharmacy.phone || 'Not available',
+        name: pharmacy.name || "Local Pharmacy",
+        type: pharmacy.type || "Pharmacy",
+        address: pharmacy.address || "Address not available",
+        phone: pharmacy.phone || "Not available",
         website: pharmacy.website || null,
-        opening_hours: pharmacy.opening_hours || 'Hours not available',
-        lat: pharmacy.lat,
-        lon: pharmacy.lon,
+        opening_hours: pharmacy.opening_hours || "Hours not available",
+        lat: pharmacy.latitude,
+        lon: pharmacy.longitude,
         distance: 0,
         brand: pharmacy.brand || null,
         operator: pharmacy.operator || null,
       }));
-      setPharmacies(formattedData);
+      if (!pharmaciesData.length) {
+        setError("No pharmacies found for the given city or pincode. Please try a different search term.");
+        return;
+      }
+      setPharmacies(pharmaciesData);
+      setCurrentLocationName(searchQuery);
     } catch (err) {
-      console.error('City search error:', err);
+      console.error("Search error:", err);
       setError(
-        err.code === 'ECONNABORTED'
-          ? 'Request timed out. Please try again.'
+        err.code === "ECONNABORTED"
+          ? "Search request timed out. Please try again."
           : err.response
-          ? `Failed to fetch pharmacies: ${err.response.status} ${err.response.statusText}`
-          : 'Network error. Please check your internet connection.'
+          ? `Search failed: ${err.response.status} ${err.response.statusText}`
+          : err.request
+          ? "Network error. Please check your internet connection."
+          : "Failed to search location. Please try again."
       );
     } finally {
       setSearchLoading(false);
@@ -141,14 +86,57 @@ const PharmacyFinder = () => {
               lon: longitude,
               format: 'json',
               addressdetails: 1,
+              zoom: 18,
             },
           });
+
+          const address = res.data.address;
+          const pincode = address?.postcode || null;
+
+          if (!pincode) {
+            setLocationError('Could not determine pincode for your location.');
+            setLoading(false);
+            return;
+          }
+
           setUserLocation({ lat: latitude, lon: longitude });
           setCurrentLocationName(res.data.display_name || 'Current Location');
+
+          const response = await getPharmacyByCityAndPincode(null, pincode);
+
+          const pharmaciesData = response.data.map((pharmacy) => ({
+            id: pharmacy.id,
+            name: pharmacy.name || "Local Pharmacy",
+            type: pharmacy.type || "Pharmacy",
+            address: pharmacy.address || "Address not available",
+            phone: pharmacy.phone || "Not available",
+            website: pharmacy.website || null,
+            opening_hours: pharmacy.opening_hours || "Hours not available",
+            lat: pharmacy.latitude,
+            lon: pharmacy.longitude,
+            distance: calculateDistance(latitude, longitude, pharmacy.latitude, pharmacy.longitude),
+            brand: pharmacy.brand || null,
+            operator: pharmacy.operator || null,
+          }));
+
+          if (!pharmaciesData.length) {
+            setError("No pharmacies found near your location. Please try a different search term.");
+            setLoading(false);
+            return;
+          }
+
+          setPharmacies(pharmaciesData);
         } catch (err) {
-          console.error('Reverse geocoding error:', err);
-          setUserLocation({ lat: latitude, lon: longitude });
-          setCurrentLocationName('Current Location');
+          console.error('Error fetching location or pharmacies:', err);
+          setError(
+            err.code === "ECONNABORTED"
+              ? "Request timed out. Please try again."
+              : err.response
+              ? `Failed to fetch data: ${err.response.status} ${err.response.statusText}`
+              : "Network error. Please check your internet connection."
+          );
+        } finally {
+          setLoading(false);
         }
       },
       (err) => {
@@ -160,167 +148,8 @@ const PharmacyFinder = () => {
         };
         setLocationError(msg[err.code] || 'Unknown location error occurred.');
       },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 300000,
-      }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
     );
-  };
-
-  const fetchNearbyPharmacies = async (lat, lon) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const overpassQuery = `[out:json][timeout:45];
-      (
-        node["amenity"="pharmacy"](around:15000,${lat},${lon});
-        way["amenity"="pharmacy"](around:15000,${lat},${lon});
-        relation["amenity"="pharmacy"](around:15000,${lat},${lon});
-        node["shop"="medical"](around:15000,${lat},${lon});
-        way["shop"="medical"](around:15000,${lat},${lon});
-        node["shop"="chemist"](around:15000,${lat},${lon});
-        way["shop"="chemist"](around:15000,${lat},${lon});
-        node["amenity"="hospital"]["pharmacy"="yes"](around:15000,${lat},${lon});
-        node["amenity"="clinic"]["pharmacy"="yes"](around:15000,${lat},${lon});
-        node["healthcare"="pharmacy"](around:15000,${lat},${lon});
-        way["healthcare"="pharmacy"](around:15000,${lat},${lon});
-      );
-      out body;
-      >;
-      out skel qt;`;
-
-      const res = await axios.post('https://overpass-api.de/api/interpreter', overpassQuery, {
-        headers: { 'Content-Type': 'text/plain' },
-        timeout: 45000,
-      });
-
-      let elements = res.data.elements || [];
-      let nodes = elements.filter(
-        (e) =>
-          e.type === 'node' &&
-          e.tags &&
-          (e.tags.amenity === 'pharmacy' ||
-           e.tags.shop === 'medical' ||
-           e.tags.shop === 'chemist' ||
-           e.tags.healthcare === 'pharmacy' ||
-           (e.tags.amenity === 'hospital' && e.tags.pharmacy === 'yes') ||
-           (e.tags.amenity === 'clinic' && e.tags.pharmacy === 'yes'))
-      );
-
-      if (!nodes.length) {
-        const backupQuery = `[out:json][timeout:30];
-        (
-          node["amenity"="pharmacy"](around:25000,${lat},${lon});
-          node["shop"="medical"](around:25000,${lat},${lon});
-          node["shop"="chemist"](around:25000,${lat},${lon});
-        );
-        out body;`;
-
-        const backupRes = await axios.post('https://overpass-api.de/api/interpreter', backupQuery, {
-          headers: { 'Content-Type': 'text/plain' },
-          timeout: 30000,
-        });
-
-        const backupElements = backupRes.data.elements || [];
-        const backupNodes = backupElements.filter(
-          (e) =>
-            e.type === 'node' &&
-            e.tags &&
-            (e.tags.amenity === 'pharmacy' ||
-             e.tags.shop === 'medical' ||
-             e.tags.shop === 'chemist')
-        );
-
-        if (!backupNodes.length) {
-          setError('No pharmacies found in your area (searched up to 25km radius). Try searching in a different location or major city nearby.');
-          setPharmacies([]);
-          return;
-        }
-        nodes.push(...backupNodes);
-      }
-
-      const uniqueNodes = nodes.filter(
-        (n, i, s) =>
-          i === s.findIndex((o) => Math.abs(o.lat - n.lat) < 0.0001 && Math.abs(o.lon - n.lon) < 0.0001)
-      );
-
-      const data = await Promise.all(
-        uniqueNodes.map(async (n) => {
-          let dist = calculateDistance(lat, lon, n.lat, n.lon);
-          let address = 'Address not available';
-
-          try {
-            const addrRes = await axios.get('https://nominatim.openstreetmap.org/reverse', {
-              params: {
-                lat: n.lat,
-                lon: n.lon,
-                format: 'json',
-                addressdetails: 1,
-              },
-              timeout: 8000,
-            });
-            address = addrRes.data.display_name || address;
-          } catch (err) {
-            console.error('Address lookup error:', err);
-            if (n.tags['addr:full']) {
-              address = n.tags['addr:full'];
-            } else if (n.tags['addr:street']) {
-              const s = n.tags['addr:street'];
-              const h = n.tags['addr:housenumber'] || '';
-              const c = n.tags['addr:city'] || '';
-              const st = n.tags['addr:state'] || '';
-              address = `${h} ${s}, ${c}, ${st}`.trim().replace(/^,\s*/, '').replace(/,\s*$/, '');
-            }
-          }
-
-          const type =
-            n.tags.amenity === 'pharmacy'
-              ? 'Pharmacy'
-              : n.tags.shop === 'medical'
-              ? 'Medical Store'
-              : n.tags.shop === 'chemist'
-              ? 'Chemist'
-              : n.tags.healthcare === 'pharmacy'
-              ? 'Healthcare Pharmacy'
-              : 'Pharmacy';
-
-          const name = n.tags.name || n.tags.brand || `Local ${type}`;
-
-          return {
-            id: n.id,
-            name,
-            type,
-            address,
-            phone: n.tags.phone || n.tags['contact:phone'] || 'Not available',
-            website: n.tags.website || n.tags['contact:website'] || null,
-            opening_hours: n.tags.opening_hours || 'Hours not available',
-            lat: n.lat,
-            lon: n.lon,
-            distance: dist,
-            brand: n.tags.brand || null,
-            operator: n.tags.operator || null,
-          };
-        })
-      );
-
-      data.sort((a, b) => a.distance - b.distance);
-      setPharmacies(data.slice(0, 50));
-    } catch (err) {
-      console.error('Error fetching pharmacies:', err);
-      setError(
-        err.code === 'ECONNABORTED'
-          ? 'Request timed out. The pharmacy service may be busy. Please try again.'
-          : err.response
-          ? `Failed to fetch pharmacies: ${err.response.status} ${err.response.statusText}`
-          : err.request
-          ? 'Network error. Please check your internet connection and try again.'
-          : 'Failed to fetch nearby pharmacies. Please try again.'
-      );
-    } finally {
-      setLoading(false);
-    }
   };
 
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
@@ -329,7 +158,8 @@ const PharmacyFinder = () => {
     const dLon = deg2rad(lon2 - lon1);
     const a =
       Math.sin(dLat / 2) ** 2 +
-      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon / 2) ** 2;
+      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+      Math.sin(dLon / 2) ** 2;
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   };
@@ -356,75 +186,42 @@ const PharmacyFinder = () => {
           <div className="flex justify-center mb-4 sm:mb-6">
             <div className="relative">
               <Building className="w-8 h-8 sm:w-10 sm:h-10" style={{ color: '#0E1630' }} />
-              <div
-                className="absolute -top-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: '#01D48C' }}
-              >
+              <div className="absolute -top-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: '#01D48C' }}>
                 <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-white rounded-full"></div>
               </div>
             </div>
           </div>
-          <h1
-            className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-center mb-2 sm:mb-3"
-            style={{ color: '#0E1630' }}
-          >
+          <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-center mb-2 sm:mb-3" style={{ color: '#0E1630' }}>
             Pharmacy Finder
           </h1>
-          <p
-            className="text-sm sm:text-base md:text-lg text-center mb-6 sm:mb-8 font-medium"
-            style={{ color: '#0E1630' }}
-          >
+          <p className="text-sm sm:text-base md:text-lg text-center mb-6 sm:mb-8 font-medium" style={{ color: '#0E1630' }}>
             Find nearby pharmacies, medical stores & chemists with comprehensive search
           </p>
           <div className="flex flex-col items-center gap-3 sm:gap-4">
-            <form
-              onSubmit={handleSearch}
-              className="flex gap-2 w-full max-w-xs sm:max-w-md md:max-w-2xl items-center"
-            >
+            <form onSubmit={handleSearch} className="flex gap-2 w-full max-w-xs sm:max-w-md md:max-w-2xl items-center">
               <div className="relative flex-1">
-                
-              </div>
-            
-            </form>
-
-            {/* City Search Form */}
-            <form
-              onSubmit={handleCitySearch}
-              className="flex gap-2 w-full max-w-xs sm:max-w-md md:max-w-2xl items-center"
-            >
-              <div className="relative flex-1">
-                <Search
-                  className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5"
-                  style={{ color: '#0E1630', opacity: 0.5 }}
-                />
+                <Search className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5" style={{ color: '#0E1630', opacity: 0.5 }} />
                 <input
                   type="text"
-                  value={citySearchQuery}
-                  onChange={(e) => setCitySearchQuery(e.target.value)}
-                  placeholder="Search by city..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by city, pincode, or landmark..."
                   className="w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-2 sm:py-3 border-2 rounded-lg sm:rounded-xl text-sm sm:text-base bg-white transition-all duration-300 outline-none focus:ring-2"
                   style={{ borderColor: '#0E1630', color: '#0E1630', '--tw-ring-color': '#01D48C' }}
                 />
               </div>
               <button
                 type="submit"
-                disabled={searchLoading || !citySearchQuery.trim()}
+                disabled={searchLoading || !searchQuery.trim()}
                 className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 text-white rounded-lg sm:rounded-xl font-semibold transition-all duration-300 hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none shadow-lg"
                 style={{ backgroundColor: '#0E1630' }}
               >
-                {searchLoading ? (
-                  <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
-                ) : (
-                  <Search className="w-4 h-4 sm:w-5 sm:h-5" />
-                )}
+                {searchLoading ? <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" /> : <Search className="w-4 h-4 sm:w-5 sm:h-5" />}
               </button>
             </form>
-
             <div className="flex items-center gap-2 sm:gap-4 w-full max-w-xs sm:max-w-md md:max-w-2xl">
               <div className="flex-1 h-px" style={{ backgroundColor: '#0E1630', opacity: 0.2 }}></div>
-              <span className="text-xs sm:text-sm font-medium" style={{ color: '#0E1630', opacity: 0.6 }}>
-                OR
-              </span>
+              <span className="text-xs sm:text-sm font-medium" style={{ color: '#0E1630', opacity: 0.6 }}>OR</span>
               <div className="flex-1 h-px" style={{ backgroundColor: '#0E1630', opacity: 0.2 }}></div>
             </div>
             <button
@@ -475,14 +272,9 @@ const PharmacyFinder = () => {
           <div className="flex flex-col justify-center items-center py-12 sm:py-16 bg-white/90 backdrop-blur-xl rounded-xl sm:rounded-2xl mb-4 sm:mb-5">
             <div className="relative">
               <Loader2 className="w-8 h-8 sm:w-10 sm:h-10 animate-spin mb-3 sm:mb-4" style={{ color: '#0E1630' }} />
-              <div
-                className="absolute inset-0 w-8 h-8 sm:w-10 sm:h-10 border-2 sm:border-4 rounded-full animate-ping"
-                style={{ borderColor: '#01D48C' }}
-              ></div>
+              <div className="absolute inset-0 w-8 h-8 sm:w-10 sm:h-10 border-2 sm:border-4 rounded-full animate-ping" style={{ borderColor: '#01D48C' }}></div>
             </div>
-            <p className="font-medium text-xs sm:text-sm" style={{ color: '#0E1630' }}>
-              Searching for pharmacies in a 15km radius...
-            </p>
+            <p className="font-medium text-xs sm:text-sm" style={{ color: '#0E1630' }}>Searching for pharmacies...</p>
             <p className="text-xs sm:text-sm mt-1.5 sm:mt-2" style={{ color: '#0E1630', opacity: 0.6 }}>
               This may take a moment for comprehensive results
             </p>
@@ -498,61 +290,34 @@ const PharmacyFinder = () => {
         )}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
           {pharmacies.map((pharmacy) => (
-            <div
-              key={pharmacy.id}
-              className="bg-white/95 backdrop-blur-xl rounded-lg sm:rounded-xl p-4 sm:p-5 shadow-md sm:shadow-lg border border-white/20 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl relative overflow-hidden"
-            >
-              <div
-                className="absolute top-0 left-0 right-0 h-0.5 sm:h-1"
-                style={{ background: 'linear-gradient(90deg, #0E1630 0%, #01D48C 100%)' }}
-              ></div>
+            <div key={pharmacy.id} className="bg-white/95 backdrop-blur-xl rounded-lg sm:rounded-xl p-4 sm:p-5 shadow-md sm:shadow-lg border border-white/20 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-0.5 sm:h-1" style={{ background: 'linear-gradient(90deg, #0E1630 0%, #01D48C 100%)' }}></div>
               <div className="flex justify-between items-start mb-3 sm:mb-4 gap-2 sm:gap-3">
                 <div className="flex-1 min-w-0">
-                  <h3
-                    className="text-sm sm:text-base font-bold leading-tight mb-1 truncate"
-                    style={{ color: '#0E1630' }}
-                  >
-                    {pharmacy.name}
-                  </h3>
-                  <span
-                    className="inline-block px-2 py-0.5 sm:px-2.5 sm:py-1 text-xs font-semibold rounded-full"
-                    style={{ backgroundColor: '#01D48C', color: 'white', opacity: 0.9 }}
-                  >
-                    {pharmacy.type}
-                  </span>
+                  <h3 className="text-sm sm:text-base font-bold leading-tight mb-1 truncate" style={{ color: '#0E1630' }}>{pharmacy.name}</h3>
+                  <span className="inline-block px-2 py-0.5 sm:px-2.5 sm:py-1 text-xs font-semibold rounded-full" style={{ backgroundColor: '#01D48C', color: 'white', opacity: 0.9 }}>{pharmacy.type}</span>
                 </div>
-                <div
-                  className="text-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap shadow-sm"
-                  style={{ background: 'linear-gradient(135deg, #0E1630 0%, #01D48C 100%)' }}
-                >
+                <div className="text-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap shadow-sm" style={{ background: 'linear-gradient(135deg, #0E1630 0%, #01D48C 100%)' }}>
                   {formatDistance(pharmacy.distance)}
                 </div>
               </div>
               <div className="space-y-2 sm:space-y-2.5 mb-3 sm:mb-4">
                 <div className="flex items-start gap-2 sm:gap-3 p-2 sm:p-2.5 bg-gray-50 rounded-lg transition-colors hover:bg-gray-100">
                   <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 mt-0.5 flex-shrink-0" style={{ color: '#0E1630' }} />
-                  <span className="text-xs sm:text-sm leading-relaxed" style={{ color: '#0E1630' }}>
-                    {pharmacy.address}
-                  </span>
+                  <span className="text-xs sm:text-sm leading-relaxed" style={{ color: '#0E1630' }}>{pharmacy.address}</span>
                 </div>
                 <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-2.5 bg-gray-50 rounded-lg transition-colors hover:bg-gray-100">
                   <Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" style={{ color: '#0E1630' }} />
-                  <span className="text-xs sm:text-sm" style={{ color: '#0E1630' }}>
-                    {formatPhoneNumber(pharmacy.phone)}
-                  </span>
+                  <span className="text-xs sm:text-sm" style={{ color: '#0E1630' }}>{formatPhoneNumber(pharmacy.phone)}</span>
                 </div>
                 <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-2.5 bg-gray-50 rounded-lg transition-colors hover:bg-gray-100">
                   <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" style={{ color: '#0E1630' }} />
-                  <span className="text-xs sm:text-sm" style={{ color: '#0E1630' }}>
-                    {pharmacy.opening_hours}
-                  </span>
+                  <span className="text-xs sm:text-sm" style={{ color: '#0E1630' }}>{pharmacy.opening_hours}</span>
                 </div>
                 {pharmacy.brand && (
                   <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-2.5 bg-gray-50 rounded-lg transition-colors hover:bg-gray-100">
                     <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" style={{ color: '#0E1630' }} />
-                    <span className="text-xs sm:text-sm" style={{ color: '#0E1630' }}>
-                      Brand: {pharmacy.brand}
-                    </span>
+                    <span className="text-xs sm:text-sm" style={{ color: '#0E1630' }}>Brand: {pharmacy.brand}</span>
                   </div>
                 )}
                 {pharmacy.website && (

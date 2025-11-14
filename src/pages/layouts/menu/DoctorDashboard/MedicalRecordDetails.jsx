@@ -8,6 +8,7 @@ import DocsReader from "../../../../components/DocsReader";
 import CameraCapture from "./CameraCapture";
 import PreviewModal from "./PreviewModal";
 import ProfileCard from "../../../../components/microcomponents/ProfileCard";
+import { usePatientContext } from "../../../../context-api/PatientContext";
 import {
   ArrowLeft,
   FileText,
@@ -222,7 +223,7 @@ const MedicalRecordDetails = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const selectedRecord = location.state?.selectedRecord;
+  const selectedRecord = location.state?.record || location.state?.selectedRecord;
   const patientName = location.state?.patientName || selectedRecord?.patientName || selectedRecord?.name || "";
   const email = location.state?.email || selectedRecord?.email || "";
   const phone = location.state?.phone || selectedRecord?.phone || "";
@@ -705,8 +706,25 @@ const MedicalRecordDetails = () => {
           ))}
         </div>
       ) : (
-        <div className="text-center text-gray-600 py-8">
-          No clinical notes found for this patient and hospital.
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
+          {[
+            { label: "Symptoms", value: selectedRecord?.symptomNames ? selectedRecord.symptomNames.join(", ") : (selectedRecord?.chiefComplaint || "N/A") },
+            { label: "Medical Conditions", value: selectedRecord?.medicalConditionNames ? selectedRecord.medicalConditionNames.join(", ") : "N/A" },
+            { label: "Status", value: selectedRecord?.medicalStatusName || "N/A" },
+            { label: "Date of Visit", value: selectedRecord?.dateOfVisit ? formatDateArray(selectedRecord.dateOfVisit) : "N/A" },
+            { label: "Hospital", value: selectedRecord?.hospitalName || "N/A" },
+            { label: "Doctor", value: selectedRecord?.doctorName || "N/A" },
+            { label: "Register Phone", value: selectedRecord?.registerPhone || "N/A" },
+            { label: "Context", value: selectedRecord?.context || "N/A" },
+          ].map((item, index) => (
+            <div
+              key={index}
+              className="bg-white p-4 sm:p-6 rounded-xl border border-gray-100 hover:shadow-md transition-shadow"
+            >
+              <div className="font-bold text-sm text-gray-600 mb-2">{item.label}</div>
+              <div className="text-gray-800 text-sm break-words">{item.value}</div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -985,13 +1003,6 @@ const allTabs = [
   return (
     <ErrorBoundary>
       <div className="p-6 space-y-6">
-        <button
-          onClick={handleBack}
-          className="flex items-center gap-2 hover:text-[var(--accent-color)] transition-colors text-gray-600"
-        >
-          <ArrowLeft size={20} />
-          <span className="font-medium">Back to Medical Records</span>
-        </button>
         {selectedRecord?.isNewlyAdded && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
             <div className="flex items-center gap-2 text-blue-800">
@@ -1008,15 +1019,15 @@ const allTabs = [
   initials={getInitials(displayPatientName)}
   name={displayPatientName}
   fields={[
-    { label: "Age", value: calculatedAge },
-    { label: "Gender", value: displayGender },
+    { label: "Age", value: calculatedAge || "N/A" },
+    { label: "Gender", value: displayGender || selectedRecord?.gender || selectedRecord?.sex || "N/A" },
     { label: "Hospital", value: hospitalName },
     {
       label: "Visit Date",
       value: selectedRecord.dateOfVisit || selectedRecord.dateOfAdmission || selectedRecord.dateOfConsultation || "N/A",
     },
-    { label: "Diagnosis", value: displayDiagnosis },
-    { label: "K/C/O", value: selectedRecord["K/C/O"] ?? "--" },
+    { label: "Medical Conditions", value: selectedRecord?.medicalConditionNames ? selectedRecord.medicalConditionNames.join(", ") : "N/A" },
+    { label: "K/C/O", value: selectedRecord?.medicalConditionNames ? selectedRecord.medicalConditionNames.join(", ") : "--" },
   ]}
 />
        <div className="space-y-6">
@@ -1054,7 +1065,7 @@ const allTabs = [
 </div>
 
 {/* Desktop View: Tabs + Right-aligned "Refer to Doctor" button */}
-<div className="hidden sm:flex mb-3 sm:mb-4 overflow-x-auto custom-scrollbar justify-between">
+<div className="hidden sm:flex mb-3 sm:mb-4  justify-between">
   <div className="flex">
     {detailsTabs.map((tab) => {
       const IconComponent = tab.icon;
@@ -1074,7 +1085,7 @@ const allTabs = [
       );
     })}
   </div>
-  {selectedRecord?.type && !selectedRecord?.isNewlyAdded && (
+  {selectedRecord?.context && !selectedRecord?.isNewlyAdded && (
     <div className="flex-shrink-0">
       <button
         onClick={handleSecondOpinion}
@@ -1106,7 +1117,7 @@ const allTabs = [
       </button>
     );
   })}
-  {selectedRecord?.type && !selectedRecord?.isNewlyAdded && (
+  {selectedRecord?.context && !selectedRecord?.isNewlyAdded && (
     <div className="flex-shrink-0 flex justify-end ml-2">
       <button
         onClick={handleSecondOpinion}

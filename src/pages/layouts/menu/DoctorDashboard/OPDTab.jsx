@@ -10,7 +10,7 @@ import TeleConsultFlow from "../../../../components/microcomponents/Call";
 import { getFamilyMembersByPatient, getPersonalHealthByPatientId } from "../../../../utils/CrudService";
 import { useDispatch, useSelector } from "react-redux";
 import { registerUser } from "../../../../context-api/authSlice";
-import { getPatientById, updatePatient, getGenders, getAllSymptoms } from "../../../../utils/masterService";
+import { getPatientById, updatePatient, getGenders, getAllSymptoms, getVisitReasons } from "../../../../utils/masterService";
 import axiosInstance from "../../../../utils/axiosInstance";
 import PatientVerificationSteps from "../../../../components/Profile"; // Import the new component
 
@@ -282,6 +282,10 @@ const OpdTab = forwardRef(
   ) => {
     const navigate = useNavigate();
     const dispatch = useDispatch();
+    const { doctorId: authDoctorId, name: authDoctorName } = useSelector((state) => state.auth || {});
+    const effectiveDoctorId = authDoctorId;
+   console.log("Doctor ID:", authDoctorId);
+    const effectiveDoctorName = doctorName || authDoctorName;
     const [patients, setPatients] = useState([]);
     const [loading, setLoading] = useState(true);
     const [errors, setErrors] = useState({});
@@ -296,6 +300,9 @@ const OpdTab = forwardRef(
     const [detailsLoading, setDetailsLoading] = useState(false);
     const [genderOptions, setGenderOptions] = useState([]);
     const [symptomsOptions, setSymptomsOptions] = useState([]);
+    const [visitReasonsOptions, setVisitReasonsOptions] = useState([]);
+    const [appointmentStep, setAppointmentStep] = useState(1);
+    const [timeSlotOptions, setTimeSlotOptions] = useState([]);
 
     useEffect(() => {
       const fetchGenders = async () => {
@@ -313,7 +320,16 @@ const OpdTab = forwardRef(
       };
       fetchGenders();
     }, []);
+// Log on mount and whenever it changes
+useEffect(() => {
+  console.log("OPDTab mounted/doctorId changed -> doctorId:", authDoctorId);
+  console.log("Auth name:", authDoctorName);
+}, [authDoctorId, authDoctorName]);
 
+// Log once on first mount to confirm component renders
+useEffect(() => {
+  console.log("OPDTab mounted");
+}, []);
     useEffect(() => {
       const fetchSymptoms = async () => {
         try {
@@ -329,6 +345,24 @@ const OpdTab = forwardRef(
         }
       };
       fetchSymptoms();
+    }, []);
+
+    useEffect(() => {
+      const fetchVisitReasons = async () => {
+        try {
+          const response = await getVisitReasons();
+          const reasons = (response.data || []).map((r) => ({
+            value: r.id,
+            label: r.reasonName,
+          }));
+          setVisitReasonsOptions(reasons);
+        } catch (error) {
+          console.error("Error fetching visit reasons:", error);
+          toast.error("Failed to fetch visit reasons");
+          setVisitReasonsOptions([]);
+        }
+      };
+      fetchVisitReasons();
     }, []);
 
     useImperativeHandle(ref, () => ({
@@ -366,7 +400,10 @@ const OpdTab = forwardRef(
           .reverse();
         setPatients(
           processedPatients
-            .filter((p) => (!p.type || p.type.toLowerCase() === "opd") && p.doctorName === doctorName)
+            .filter((p) =>
+              (!p.type || p.type.toLowerCase() === "opd") &&
+              (effectiveDoctorId ? p.doctorId === effectiveDoctorId : p.doctorName === doctorName)
+            )
             .map((p, i) => ({
               ...p,
               sequentialId: i + 1,
@@ -423,7 +460,11 @@ const OpdTab = forwardRef(
     const closeModal = (modalName) => {
       setModals((prev) => ({ ...prev, [modalName]: false }));
       if (modalName === "addPatient") setFormData({ cityOptions: [] });
-      if (modalName === "appointment") setAppointmentFormData({ date: getCurrentDate(), time: getCurrentTime() });
+      if (modalName === "appointment") {
+        setAppointmentFormData({ date: getCurrentDate(), time: "" });
+        setAppointmentStep(1);
+        setTimeSlotOptions([]);
+      }
       if (modalName === "viewPatient" || modalName === "editPatient") {
         setSelectedPatient(null);
         setPersonalHealthDetails(null);
@@ -431,6 +472,45 @@ const OpdTab = forwardRef(
         setVitalSigns(null);
         setDetailsLoading(false);
       }
+    };
+
+    const generateTimeSlots = (dateStr) => {
+      if (!dateStr) return [];
+      const base = [];
+      const start = new Date(`${dateStr}T09:00:00`);
+      const end = new Date(`${dateStr}T17:00:00`);
+      let cur = new Date(start);
+      while (cur <= end) {
+        const hh = cur.getHours();
+        const mm = String(cur.getMinutes()).padStart(2, "0");
+        const ampm = hh >= 12 ? "PM" : "AM";
+        const h12 = hh % 12 === 0 ? 12 : hh % 12;
+        const value = `${String(hh).padStart(2, "0")}:${mm}`;
+        const label = `${String(h12).padStart(2, "0")}:${mm} ${ampm}`;
+        base.push({ value, label });
+        cur.setMinutes(cur.getMinutes() + 30);
+      }
+      return base;
+    };
+
+    useEffect(() => {
+      const date = appointmentFormData?.date;
+      const options = generateTimeSlots(date);
+      setTimeSlotOptions(options);
+      // Do not auto-select; require explicit user click
+      setAppointmentFormData((prev) => ({ ...prev, time: "" }));
+    }, [appointmentFormData?.date]);
+
+    const handleAppointmentModalSave = () => {
+      if (appointmentStep === 1) {
+        setAppointmentStep(2);
+        return;
+      }
+      if (!appointmentFormData?.time) {
+        toast.error("Please select a time slot");
+        return;
+      }
+      handleScheduleAppointment(appointmentFormData);
     };
 
     const fetchAddressFromPincode = async (pincode) => {
@@ -584,13 +664,18 @@ const OpdTab = forwardRef(
 
     const handleScheduleAppointment = async (formData) => {
       try {
+        const reasonValue =
+          formData?.reason && typeof formData.reason === "object"
+            ? (formData.reason.value ?? formData.reason.label ?? formData.reason.reasonName ?? "")
+            : formData?.reason;
         const payload = {
           ...formData,
           appointmentDate: formData.date,
           appointmentTime: formData.time,
           symptoms: formData.symptoms,
-          reason: formData.reason,
-          doctorName,
+          reason: reasonValue,
+          doctorName: effectiveDoctorName,
+          doctorId: effectiveDoctorId,
           type: "OPD",
           updatedAt: new Date().toISOString(),
         };
@@ -682,8 +767,8 @@ const OpdTab = forwardRef(
     }, []);
 
     useEffect(() => {
-      if (doctorName && !masterData.loading) fetchAllPatients();
-    }, [doctorName, masterData.loading]);
+      if ((effectiveDoctorId || doctorName) && !masterData.loading) fetchAllPatients();
+    }, [effectiveDoctorId, doctorName, masterData.loading]);
 
     useEffect(() => {
       const highlightIdFromState = location.state?.highlightId;
@@ -724,26 +809,75 @@ const OpdTab = forwardRef(
     />
         <ReusableModal
           isOpen={modals.appointment}
-          onClose={() => closeModal("appointment")}
+          onClose={() => {
+            if (appointmentStep > 1) {
+              setAppointmentStep(1);
+              return;
+            }
+            closeModal("appointment");
+          }}
           mode="add"
           title="Schedule Appointment"
-          fields={[
-            { name: "date", label: "Appointment Date", type: "date", required: true },
-            { name: "time", label: "Appointment Time", type: "time", required: true },
-            { name: "symptoms", label: "Symptoms", type: "multiselect", required: true, options: symptomsOptions },
-            { name: "reason", label: "Reason for Visit", type: "select", required: true, options: ["Consultation", "Follow-up", "Test", "Other"].map((r) => ({ value: r, label: r })) },
-          ]}
+          preventCloseOnSave={appointmentStep === 1}
+          showSuccessToast={false}
+          fields={
+            appointmentStep === 1
+              ? [
+                  { name: "date", label: "Appointment Date", type: "date", required: true },
+                  { name: "symptoms", label: "Symptoms", type: "multiselect", required: true, options: symptomsOptions },
+                  { name: "reason", label: "Reason for Visit", type: "select", required: true, options: (visitReasonsOptions.length ? visitReasonsOptions : ["Consultation", "Follow-up", "Test", "Other"].map((r) => ({ value: r, label: r }))) },
+                ]
+              : []
+          }
           data={appointmentFormData}
-          onSave={handleScheduleAppointment}
+          onSave={handleAppointmentModalSave}
           onChange={setAppointmentFormData}
-          saveLabel="Schedule"
-          cancelLabel="Back"
+          saveLabel={appointmentStep === 1 ? "Next" : "Schedule"}
+          cancelLabel={appointmentStep === 1 ? "Cancel" : "Back"}
           size="md"
           extraContent={
-            <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <h4 className="text-sm font-semibold text-blue-800 mb-2">Patient Information</h4>
-              <p className="text-sm text-blue-700">{formData.firstName} {formData.middleName} {formData.lastName}</p>
-              <p className="text-xs text-blue-600">{formData.email}</p>
+            <div className="space-y-4 mb-4">
+              {appointmentStep === 2 && (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2 text-emerald-700 font-semibold">
+                      <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                      Available Time Slots
+                    </div>
+                    <span className="text-xs px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">
+                      {timeSlotOptions.length} slots available
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-5 gap-2">
+                    {timeSlotOptions.map((opt) => {
+                      const selected = appointmentFormData?.time === opt.value;
+                      return (
+                        <button
+                          type="button"
+                          key={opt.value}
+                          onClick={() => setAppointmentFormData((p) => ({ ...p, time: opt.value }))}
+                          className={
+                            `px-3 py-2 text-sm rounded-lg border transition ` +
+                            (selected
+                              ? "bg-emerald-50 border-emerald-200 text-emerald-700 shadow-sm"
+                              : "bg-gray-100 border-gray-200 text-gray-700 hover:bg-gray-200")
+                          }
+                        >
+                          <span className="inline-flex items-center gap-2">
+                            <span>{opt.label}</span>
+                            {selected && <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h4 className="text-sm font-semibold text-blue-800 mb-2">Patient Information</h4>
+                <p className="text-sm text-blue-700">{formData.firstName} {formData.middleName} {formData.lastName}</p>
+                <p className="text-xs text-blue-600">{formData.email}</p>
+              </div>
             </div>
           }
         />

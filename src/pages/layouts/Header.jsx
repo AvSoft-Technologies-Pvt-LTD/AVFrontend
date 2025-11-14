@@ -10,18 +10,36 @@ import {
   ArrowLeft,
 } from "lucide-react";
 
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import axios from "axios";
+import { getPatientUnreadNotificationCount, getLatestPatientNotifications } from "../../utils/masterService";
 import ModulesMenu from "../../components/microcomponents/ModulesMenu";
 import logo from "../../assets/logo.png";
 
-const HeaderWithNotifications = ({ toggleSidebar, currentPageName }) => {
+const HeaderWithNotifications = ({ toggleSidebar }) => {
   const [notifications, setNotifications] = useState([]);
+  const [unreadCountState, setUnreadCountState] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
   const [isMobileHeaderOpen, setIsMobileHeaderOpen] = useState(false);
   const navigate = useNavigate();
   const user = useSelector((state) => state.auth?.user);
+  const location = useLocation();
+  const pageTitle = (() => {
+    const parts = (location?.pathname || "/").split("/").filter(Boolean);
+    if (parts.length <= 1) return "Dashboard";
+    const last = parts[parts.length - 1];
+    const dashboardRoots = new Set([
+      "doctordashboard",
+      "patientdashboard",
+      "hospitaldashboard",
+      "labdashboard",
+      "superadmindashboard",
+    ]);
+    if (dashboardRoots.has(last)) return "Dashboard";
+    const normalized = last.replace(/-/g, " ");
+    return normalized.replace(/\b\w/g, (c) => c.toUpperCase());
+  })();
 
   const getRoleConfig = (userType) => {
     const configs = {
@@ -115,15 +133,67 @@ const HeaderWithNotifications = ({ toggleSidebar, currentPageName }) => {
     }
   };
 
-  useEffect(() => {
-    if (user) {
-      fetchNotifications();
-      const interval = setInterval(fetchNotifications, 10000);
-      return () => clearInterval(interval);
-    }
-  }, [user]);
+  const normalizeDate = (val) => {
+    try {
+      if (Array.isArray(val) && val.length >= 6) {
+        const [y, m, d, hh, mm, ss, nanos] = val;
+        const ms = nanos ? Math.floor(nanos / 1e6) : 0;
+        return new Date(y, (m || 1) - 1, d || 1, hh || 0, mm || 0, ss || 0, ms).toISOString();
+      }
+      if (typeof val === "string") return val;
+    } catch (_) {}
+    return new Date().toISOString();
+  };
 
-  const unreadCount = notifications.filter((n) => n.unread).length;
+  const fetchPatientHeaderNotifications = async (patientId) => {
+    try {
+      const [latestRes, unreadRes] = await Promise.all([
+        getLatestPatientNotifications(patientId, 2),
+        getPatientUnreadNotificationCount(patientId),
+      ]);
+      const data = latestRes?.data ?? [];
+      const items = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.content)
+        ? data.content
+        : Array.isArray(data?.data?.content)
+        ? data.data.content
+        : [];
+      const mapped = items.map((n) => ({
+        id: n.notificationId || n.id,
+        message: n.message || n.title || "New notification",
+        createdAt: normalizeDate(n.createdAt),
+        unread: false,
+      }));
+      const sorted = mapped.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      setNotifications(sorted);
+      setUnreadCountState(Number(unreadRes?.data) || 0);
+    } catch (err) {
+      console.error("Patient header notifications error:", err);
+    }
+  };
+
+  const authState = useSelector((s) => s.auth || {});
+  const patientId = authState.patientId;
+
+  useEffect(() => {
+    if (!user) return;
+    const userTypeLocal = user?.userType?.toLowerCase();
+    let interval;
+    if (userTypeLocal === "patient" && patientId) {
+      fetchPatientHeaderNotifications(patientId);
+      interval = setInterval(() => fetchPatientHeaderNotifications(patientId), 10000);
+    } else {
+      fetchNotifications();
+      interval = setInterval(fetchNotifications, 10000);
+    }
+    return () => interval && clearInterval(interval);
+  }, [user, patientId]);
+
+  const userType = user.userType?.toLowerCase();
+  const unreadCount = userType === "patient"
+    ? unreadCountState
+    : notifications.filter((n) => n.unread).length;
   const displayNotifications = notifications.slice(0, 2);
 
   const getTimeAgo = (time) => {
@@ -180,7 +250,6 @@ const HeaderWithNotifications = ({ toggleSidebar, currentPageName }) => {
 
   const userDisplayName = getUserDisplayName(user);
   const userInitials = getUserInitials(user);
-  const userType = user.userType?.toLowerCase();
   const roleConfig = getRoleConfig(userType);
 
   return (
@@ -225,7 +294,7 @@ const HeaderWithNotifications = ({ toggleSidebar, currentPageName }) => {
 
                   <div>
                     <p className="text-[var(--primary-color)] font-bold text-lg">
-                      {currentPageName}
+                      {pageTitle}
                     </p>
                   </div>
                 </div>
