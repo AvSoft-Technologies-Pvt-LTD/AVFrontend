@@ -313,8 +313,9 @@ useEffect(() => {
     const fetchAllPatients = async () => {
       setLoading(true);
       try {
-        const response = await axiosInstance.get("/auth/patient");
+        const response = await axiosInstance.get("/auth/patient/all");
         const allPatients = response.data;
+        console.log("Fetched Patients:", allPatients);
         const processedPatients = allPatients
           .map((p) => ({
             ...p,
@@ -325,7 +326,7 @@ useEffect(() => {
         setPatients(
           processedPatients
             .filter((p) =>
-              (!p.type || p.type.toLowerCase() === "opd") &&
+              (!p.type || p.type.toLowerCase() === "OPD") &&
               (effectiveDoctorId ? p.doctorId === effectiveDoctorId : p.doctorName === doctorName)
             )
             .map((p, i) => ({

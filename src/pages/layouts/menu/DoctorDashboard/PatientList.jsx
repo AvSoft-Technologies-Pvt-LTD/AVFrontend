@@ -35,7 +35,7 @@ const PatientList = () => {
   const tabs = [
     { label: "OPD", value: "OPD" },
     { label: "IPD", value: "IPD" },
-    { label: "Virtual", value: "Virtual" },
+    { label: "VIRTUAL", value: "VIRTUAL" },
   ];
 
   const parentTabActions = [
@@ -48,7 +48,7 @@ const PatientList = () => {
             state: { tab: "IPD", autoNavigated: true },
           });
         }
-        else if (activeTab === "Virtual") virtualTabRef.current?.openScheduleConsultationModal();
+        else if (activeTab === "VIRTUAL") virtualTabRef.current?.openScheduleConsultationModal();
       },
       className: "btn btn-primary",
     },
@@ -183,7 +183,7 @@ const PatientList = () => {
         return <OpdTab ref={opdTabRef} {...commonProps} {...sharedTabProps} />;
       case "IPD":
         return <IpdTab ref={ipdTabRef} {...commonProps} {...sharedTabProps} />;
-      case "Virtual":
+      case "VIRTUAL":
         return <VirtualTab ref={virtualTabRef} {...commonProps} {...sharedTabProps} />;
       default:
         return <OpdTab ref={opdTabRef} {...commonProps} {...sharedTabProps} />;

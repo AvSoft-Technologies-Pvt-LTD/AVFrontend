@@ -484,7 +484,7 @@ const OCRPrescriptionReader = ({ askBillingTypeOnUpload = false, activeTab = "" 
 
                 <div className="flex justify-between items-end border-t pt-4 text-xs text-gray-500">
                   <p>Generated on: {new Date().toLocaleDateString()}</p>
-                  <p>Doctor Signature: ___________________</p>
+                  <p className="mt-5">Doctor Signature: ___________________</p>
                 </div>
               </div>
             </>

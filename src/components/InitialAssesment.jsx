@@ -34,15 +34,13 @@ import {
   Plus,
 } from "lucide-react";
 import {
-  TemplateModal,
-  prescriptionTemplates,
-  layoutStyles,
-} from "./TemplateModal";
-import {
   getPracticeTypes,
   getSpecializationsByPracticeType,
 } from "../utils/masterService";
 import axiosInstance from "../utils/axiosInstance";
+import { useSelector } from "react-redux";
+import TemplateModal from "../components/templates/TemplateModal";
+import { layoutStyles } from "../utils/styles/layoutStyles";
 
 const iconMapping = {
   ayurveda: Leaf,
@@ -75,17 +73,44 @@ const InitialAssessment = () => {
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState("classic");
   const [selectedColor, setSelectedColor] = useState("#2563eb");
-  const [selectedTemplateType, setSelectedTemplateType] = useState("past-history");
+  const [selectedTemplateType, setSelectedTemplateType] = useState();
   const [uploadedTemplates, setUploadedTemplates] = useState([]);
   const [showTemplateUpload, setShowTemplateUpload] = useState(false);
   const [templateUploadLoading, setTemplateUploadLoading] = useState(false);
+  const [templateName, setTemplateName] = useState("");
   const fileInputRef = useRef(null);
   const templateFileInputRef = useRef(null);
   const navigate = useNavigate();
   const [templateTypes, setTemplatesTypes] = useState();
+  const templateUploadRef = useRef(null);
 
+  // Scroll effect when showTemplateUpload changes
+  useEffect(() => {
+    if (showTemplateUpload && templateUploadRef.current) {
+      // Wait for the element to be rendered then scroll
+      setTimeout(() => {
+        templateUploadRef.current.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }, 80);
+    }
+  }, [showTemplateUpload]);
+
+  // Show the upload UI and scroll to it
+  const handleShowTemplateUpload = () => {
+    setShowTemplateUpload(true);
+    setTemplateName("");
+  };
+
+  // Trigger the hidden file input
+  const handleUploadTemplate = () => {
+    templateFileInputRef.current?.click();
+  };
+
+  const patient = useSelector((state) => state);
   const [patientInfo, setPatientInfo] = useState({
-    patientId: "",
+    patientId: 1,
     name: "",
     age: "",
     gender: "",
@@ -116,12 +141,11 @@ const InitialAssessment = () => {
     })();
   }, []);
 
-  
-  
+  const doctorId = useSelector((state) => state.auth.doctorId);
   useEffect(() => {
     fetchCategories();
   }, []);
-  
+
   const fetchCategories = async () => {
     try {
       const response = await axiosInstance.get("/template-types");
@@ -214,9 +238,11 @@ const InitialAssessment = () => {
     }
   };
 
+
   const loadUploadedTemplates = async () => {
     try {
-      const storedTemplates = JSON.parse(localStorage.getItem("uploadedTemplates") || "[]");
+      const storedTemplates = await JSON.parse(localStorage.getItem("uploadedTemplates") || "[]");
+      // console.log("Loaded templates from localStorage:", storedTemplates);
       const filteredTemplates = storedTemplates.filter(
         template => template.templateType === selectedTemplateType
       );
@@ -227,41 +253,6 @@ const InitialAssessment = () => {
     }
   };
 
-  const handleTemplateUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setTemplateUploadLoading(true);
-    const reader = new FileReader();
-
-    reader.onloadend = async () => {
-      const base64String = reader.result.split(",")[1];
-      const templateData = {
-        id: Date.now().toString(),
-        templateType: selectedTemplateType,
-        image: base64String,
-        originalFile: reader.result,
-        fileName: file.name,
-        uploadedAt: new Date().toISOString(),
-        doctorName: patientInfo.consultingDoctor,
-        specialty: selectedSpecialty,
-        practiceType: selectedPracticeType,
-      };
-      try {
-        const storedTemplates = JSON.parse(localStorage.getItem("uploadedTemplates") || "[]");
-        storedTemplates.push(templateData);
-        localStorage.setItem("uploadedTemplates", JSON.stringify(storedTemplates));
-
-        toast.success(`${templateTypes?.find(t => t.id === selectedTemplateType)?.name} template uploaded successfully!`);
-        await loadUploadedTemplates();
-      } catch (err) {
-        toast.error("Failed to upload template. Please try again.");
-      } finally {
-        setTemplateUploadLoading(false);
-      }
-    };
-
-    reader.readAsDataURL(file);
-  };
 
   const deleteTemplate = async (templateId) => {
     try {
@@ -329,8 +320,9 @@ const InitialAssessment = () => {
     }));
   };
 
-  const handleTemplateSelect = (templateId) => {
-    setSelectedTemplate(templateId);
+  const handleTemplateSelect = (template) => {
+    console.log("Selected template:", template);
+    setSelectedTemplate(template.id);
   };
 
   const handleImageUpload = async (e) => {
@@ -352,6 +344,7 @@ const InitialAssessment = () => {
       };
 
       setAnnotatedImages((prev) => [...prev, newImage]);
+      console.log("Annotated Images after upload:", [...annotatedImages, newImage]);
       const storedImages = JSON.parse(localStorage.getItem("medicalImages") || "[]");
       storedImages.push(newImage);
       localStorage.setItem("medicalImages", JSON.stringify(storedImages));
@@ -360,10 +353,10 @@ const InitialAssessment = () => {
     reader.readAsDataURL(file);
   };
 
-  const navigateToAnnotation = (image) => {
-    navigate("/image-annotation", {
+  const navigateToAnnotation = (files) => {
+    navigate("/files-annotation", {
       state: {
-        initialImage: image.originalFile || `data:image/jpeg;base64,${image.image}`,
+        initialImage: files.originalFile || `data:files/jpeg;base64,${files.files}`,
         patient: patientInfo,
         annotatedImages: annotatedImages,
         templateType: selectedTemplateType,
@@ -386,7 +379,7 @@ const InitialAssessment = () => {
   };
 
   const generatePrintTemplate = () => {
-    const currentTemplate = prescriptionTemplates[selectedTemplate];
+    // const currentTemplate = prescriptionTemplates[selectedTemplate];
     const currentLayout = layoutStyles[currentTemplate?.layout] || layoutStyles.traditional;
     const printContent = `
       <!DOCTYPE html>
@@ -512,7 +505,7 @@ const InitialAssessment = () => {
           </div>
         </div>
         ${templateFields?.map(
-            (field) => `
+      (field) => `
             <div class="section">
               <div class="section-header">${field.label || field.name}</div>
               <div class="section-content">
@@ -520,11 +513,10 @@ const InitialAssessment = () => {
               </div>
             </div>
           `
-          )
-          .join("")}
-        ${
-          handwrittenNotes
-            ? `
+    )
+        .join("")}
+        ${handwrittenNotes
+        ? `
             <div class="section">
               <div class="section-header">Additional Notes</div>
               <div class="section-content">
@@ -532,8 +524,8 @@ const InitialAssessment = () => {
               </div>
             </div>
           `
-            : ""
-        }
+        : ""
+      }
         <div class="footer">
           <p>Signature: ___________</p>
         </div>
@@ -557,9 +549,8 @@ const InitialAssessment = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${template.title.replace(/\s+/g, "_")}_${
-      patientInfo.name || "Patient"
-    }_${new Date().toISOString().split("T")[0]}.html`;
+    a.download = `${template.title.replace(/\s+/g, "_")}_${patientInfo.name || "Patient"
+      }_${new Date().toISOString().split("T")[0]}.html`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -597,21 +588,104 @@ const InitialAssessment = () => {
     );
   }
 
+  const handleTemplateUpload = async (e) => {
+    const file = e.target?.files?.[0];
+    if (!file) return;
+
+    if (!selectedTemplateType) {
+      toast.error("Please select a template type before uploading.");
+      // reset input so user can try again after selecting type
+      if (templateFileInputRef.current) templateFileInputRef.current.value = "";
+      return;
+    }
+
+    if (!templateName.trim()) {
+      toast.error("Please enter a template name before uploading.");
+      return;
+    }
+
+    setTemplateUploadLoading(true);
+    const reader = new FileReader();
+
+    reader.onloadend = async () => {
+      try {
+        const result = reader.result;
+        if (!result || typeof result !== "string" || !result.includes(",")) {
+          throw new Error("Invalid file data");
+        }
+        const base64String = result.split(",")[1];
+        const templateData = {
+          id: Date.now().toString(),
+          templateType: selectedTemplateType,
+          files: base64String,
+          originalFile: result,
+          fileName: file.name,
+          templateName: templateName,
+          size: file.size,
+          timestamp: new Date().toISOString(),
+          // uploadedAt: new Date().toISOString(),
+          specialty: selectedSpecialty,
+          practiceType: selectedPracticeType,
+        };
+        console.log("Uploading template data:", templateData);
+
+        // Prepare multipart form data and send to API
+        try {
+          const formDataToSend = new FormData();
+          // attach original File so backend can process binary
+          formDataToSend.append('files', file);
+          formDataToSend.append('templateTypeId', selectedTemplateType);
+          formDataToSend.append('templateName', templateName);
+          formDataToSend.append('doctorId', doctorId || '');
+          // formDataToSend.append('patientId', patientInfo.patientId || '');
+          formDataToSend.append('specialty', selectedSpecialty || '');
+          formDataToSend.append('practiceType', selectedPracticeType || '');
+          formDataToSend.append('fileName', file.name || '');
+
+          console.log("PROPS APPENDED:", formDataToSend,);
+          const response = await axiosInstance.post('/uploaded-templates', formDataToSend, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+          console.log("API upload response:", response.data);
+          // If API returns the saved template or success flag, refresh list
+          toast.success(`${templateName} template uploaded successfully!`);
+          const storedTemplates = JSON.parse(localStorage.getItem("uploadedTemplates") || "[]");
+          storedTemplates.push(templateData);
+          localStorage.setItem("uploadedTemplates", JSON.stringify(storedTemplates));
+          toast.success('Uploaded Successfully.');
+          await loadUploadedTemplates();
+        } catch (apiErr) {
+          console.error('API upload error:', apiErr);
+          // Fallback: save locally so user doesn't lose the file
+          const storedTemplates = JSON.parse(localStorage.getItem("uploadedTemplates") || "[]");
+          storedTemplates.push(templateData);
+          localStorage.setItem("uploadedTemplates", JSON.stringify(storedTemplates));
+          toast.warn('Upload failed - saved locally. You can retry later.');
+          await loadUploadedTemplates();
+        }
+      } catch (err) {
+        console.error("Template upload error:", err);
+        toast.error("Failed to upload template. Please try a different file.");
+      } finally {
+        setTemplateUploadLoading(false);
+        if (templateFileInputRef.current) templateFileInputRef.current.value = "";
+      }
+    };
+
+    reader.onerror = () => {
+      console.error("FileReader error while reading template file");
+      toast.error("Failed to read file. Please try again.");
+      setTemplateUploadLoading(false);
+      if (templateFileInputRef.current) templateFileInputRef.current.value = "";
+    };
+
+    reader.readAsDataURL(file);
+  };
+    const templateTypeName=templateTypes?.find(t => t.id === selectedTemplateType)?.title || 'Unnamed_Template';
   return (
     <div className="min-h-screen font-sans text-primary">
       <ToastContainer position="top-right" autoClose={2000} />
       <div className="container mx-auto px-4 py-8">
-        {error && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6 flex items-center">
-            <AlertCircle className="w-5 h-5 text-yellow-600 mr-3 flex-shrink-0" />
-            <div>
-              <p className="text-yellow-800">{error}</p>
-              <p className="text-yellow-600 text-sm mt-1">
-                The form is using fallback data to continue working.
-              </p>
-            </div>
-          </div>
-        )}
         {/* Header Section */}
         <div
           className="bg-white rounded-xl shadow-lg p-6 mb-8"
@@ -619,10 +693,11 @@ const InitialAssessment = () => {
             backgroundColor: "#01D48C",
             color: "white",
             textAlign: "left",
-            borderRadius: layoutStyles[prescriptionTemplates[selectedTemplate]?.layout]?.header.borderRadius || "12px",
-            borderLeft: layoutStyles[prescriptionTemplates[selectedTemplate]?.layout]?.header.borderLeft || "none",
-            border: layoutStyles[prescriptionTemplates[selectedTemplate]?.layout]?.header.border || "none",
-            borderBottom: layoutStyles[prescriptionTemplates[selectedTemplate]?.layout]?.header.borderBottom || "none",
+
+            // borderRadius: layoutStyles[prescriptionTemplates[selectedTemplate]?.layout]?.header.borderRadius || "12px",
+            // borderLeft: layoutStyles[prescriptionTemplates[selectedTemplate]?.layout]?.header.borderLeft || "none",
+            // border: layoutStyles[prescriptionTemplates[selectedTemplate]?.layout]?.header.border || "none",
+            // borderBottom: layoutStyles[prescriptionTemplates[selectedTemplate]?.layout]?.header.borderBottom || "none",
           }}
         >
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
@@ -649,7 +724,7 @@ const InitialAssessment = () => {
                 <span className="hidden md:inline">Templates</span>
               </button>
               <button
-                onClick={() => setShowTemplateUpload(!showTemplateUpload)}
+                onClick={() => handleShowTemplateUpload()}
                 className="btn btn-primary flex items-center gap-2 px-3 py-2"
                 type="button"
               >
@@ -719,8 +794,8 @@ const InitialAssessment = () => {
             )}
           </div>
           {/* Template Upload Section */}
-          {!showTemplateUpload && (
-            <div className="bg-white rounded-xl shadow-lg p-6">
+          {showTemplateUpload && (
+            <div ref={templateUploadRef} className="bg-white rounded-xl shadow-lg p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center">
                   <FileText className="w-6 h-6 text-blue-500 mr-3" />
@@ -744,11 +819,10 @@ const InitialAssessment = () => {
                       key={type.id}
                       type="button"
                       onClick={() => setSelectedTemplateType(type.id)}
-                      className={`p-3 rounded-lg border-2 transition-all text-sm font-medium ${
-                        selectedTemplateType === type.id
-                          ? 'border-blue-500 bg-blue-50 text-blue-700'
-                          : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                      }`}
+                      className={`p-3 rounded-lg border-2 transition-all text-sm font-medium ${selectedTemplateType === type.id
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                        }`}
                     >
                       <div
                         className="w-4 h-4 rounded-full mx-auto mb-2"
@@ -764,15 +838,28 @@ const InitialAssessment = () => {
                 <input
                   ref={templateFileInputRef}
                   type="file"
-                  accept="image/*"
-                  onChange={handleTemplateUpload}
+                  accept="files/*"
+                  onChange={(e) => handleTemplateUpload(e)}
                   className="hidden"
                 />
                 <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                {/* Template Name Input */}
+                <div className="mb-4 max-w-md mx-auto">
+                  <input
+                    type="text"
+                    placeholder="Enter template name"
+                    value={templateName}
+                    onChange={(e) => setTemplateName(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
+                  />
+                  {!templateName.trim() && (
+                    <p className="text-xs text-gray-500 mt-1">Template name is required</p>
+                  )}
+                </div>
                 <button
                   type="button"
-                  onClick={() => templateFileInputRef.current?.click()}
-                  disabled={templateUploadLoading}
+                  onClick={() => handleUploadTemplate()}
+                  disabled={templateUploadLoading || !selectedTemplateType || !templateName.trim()}
                   className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center mx-auto"
                 >
                   {templateUploadLoading ? (
@@ -783,12 +870,15 @@ const InitialAssessment = () => {
                   ) : (
                     <>
                       <Upload className="w-4 h-4 mr-2" />
-                      Upload {templateTypes?.find(t => t.id === selectedTemplateType)?.title} Template
+                      {!selectedTemplateType ? "Select Template Type" : "Upload " + (templateTypeName || "") + " Template"}
                     </>
                   )}
                 </button>
                 <p className="text-sm text-gray-500 mt-3">
-                  Upload {templateTypes?.find(t => t.id === selectedTemplateType)?.title.toLowerCase()} templates for future use
+                  {selectedTemplateType
+                    ? `Upload ${templateTypeName.toLowerCase()} templates for future use`
+                    : "Please select a template type above to enable upload"
+                  }
                 </p>
               </div>
               {/* Uploaded Templates Display */}
@@ -796,13 +886,13 @@ const InitialAssessment = () => {
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <h5 className="text-lg font-semibold text-gray-900">
-                      {templateTypes?.find(t => t.id === selectedTemplateType)?.title} Templates ({uploadedTemplates.length})
+                      {templateTypeName} Templates ({uploadedTemplates.length})
                     </h5>
                     <div
                       className="px-3 py-1 rounded-full text-xs font-medium text-white"
                       style={{ backgroundColor: templateTypes?.find(t => t.id === selectedTemplateType)?.bgColor }}
                     >
-                      {selectedTemplateType}
+                      {templateTypeName}
                     </div>
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -810,7 +900,7 @@ const InitialAssessment = () => {
                       <div key={template.id} className="border rounded-lg p-3 bg-gray-50 hover:shadow-md transition-shadow">
                         <div className="w-full h-32 bg-gray-200 rounded-lg mb-3 overflow-hidden">
                           <img
-                            src={template.originalFile || `data:image/jpeg;base64,${template.image}`}
+                            src={template.originalFile || `data:files/jpeg;base64,${template.files}`}
                             alt="Template"
                             className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
                             onClick={() => navigateToAnnotation(template)}

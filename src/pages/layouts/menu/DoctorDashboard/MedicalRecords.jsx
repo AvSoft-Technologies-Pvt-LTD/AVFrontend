@@ -25,7 +25,7 @@ const DrMedicalRecords = () => {
   const contextPatient = usePatientContext().patient;
   const user = useSelector((state) => state.auth.user);
   const { activeTab, handleTabChange } = usePatientContext();
-  const [medicalData, setMedicalData] = useState({ OPD: [], IPD: [], Virtual: [] });
+  const [medicalData, setMedicalData] = useState({ OPD: [], IPD: [], VIRTUAL: [] });
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
   const [hospitalOptions, setHospitalOptions] = useState([]);
@@ -108,13 +108,13 @@ const DrMedicalRecords = () => {
       console.log("API Response:", response.data);
       const opd = [];
       const ipd = [];
-      const virtual = [];
+      const VIRTUAL = [];
       response.data.forEach((rec) => {
         if (rec.context === "OPD") opd.push(rec);
         else if (rec.context === "IPD") ipd.push(rec);
-        else if (rec.context === "VIRTUAL") virtual.push(rec);
+        else if (rec.context === "VIRTUAL") VIRTUAL.push(rec);
       });
-      setMedicalData({ OPD: opd, IPD: ipd, Virtual: virtual });
+      setMedicalData({ OPD: opd, IPD: ipd, VIRTUAL: VIRTUAL });
     } catch (err) {
       setFetchError("Failed to fetch medical records.");
       console.error("Error fetching records:", err);
@@ -217,7 +217,7 @@ const DrMedicalRecords = () => {
     const baseFields = {
       OPD: ["hospitalName", "chiefComplaint", "dateOfVisit", "medicalStatusName"],
       IPD: ["hospitalName", "chiefComplaint", "dateOfAdmission", "dateOfDischarge", "medicalStatusName"],
-      Virtual: ["hospitalName", "chiefComplaint", "dateOfVisit", "medicalStatusName"],
+      VIRTUAL: ["hospitalName", "chiefComplaint", "dateOfVisit", "medicalStatusName"],
     };
     const fieldLabels = {
       hospitalName: "Hospital",
@@ -228,7 +228,7 @@ const DrMedicalRecords = () => {
       dateOfConsultation: "Date of Consultation",
       medicalStatusName: "Status",
     };
-    const typeColors = { OPD: "purple", IPD: "blue", Virtual: "indigo" };
+    const typeColors = { OPD: "purple", IPD: "blue", VIRTUAL: "indigo" };
     return [
       ...baseFields[type].map((key) => ({
         header: fieldLabels[key],
