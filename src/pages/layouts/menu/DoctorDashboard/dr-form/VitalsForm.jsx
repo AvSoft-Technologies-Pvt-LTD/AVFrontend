@@ -56,12 +56,13 @@ const VitalsForm = ({
   const [loading, setLoading] = useState(false);
   const [vitalsRecords, setVitalsRecords] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-
   useEffect(() => {
     const fetchVitalsRecords = async () => {
       setIsLoading(true);
       const validDoctorId = doctorId || 1;
       const patientId = patient?.patientId;
+
+console.log("patientId",patientId)
       const context = activeTab?.toUpperCase();
       if (!patientId || !validDoctorId || !context) {
         console.warn("Missing required parameters for getIpdVitals");
@@ -177,6 +178,7 @@ const VitalsForm = ({
       ).toISOString();
       const timeSlot = formData.timeOfDay?.toUpperCase() || "MORNING";
       const ipdVitalPayload = {
+        contextId:patient?.id,
         patientId: patient?.patientId || patient?.patientId,
         doctorId: doctorId || 1,
         context: activeTab.toUpperCase(),
@@ -190,6 +192,7 @@ const VitalsForm = ({
         spo2: +formData.spo2 || 0,
       };
       const res = await createDoctorIpdVital(ipdVitalPayload);
+      console.log("res",res)
       toast.success("✅ IPD Vitals saved successfully!");
       const newRecord = {
         ...formData,

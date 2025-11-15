@@ -303,12 +303,6 @@ export const getPharmaciesByCity = (city) =>
 export const getPharmacyByCityAndPincode = (city, pincode) =>
   axiosInstance.get("/pharmacy", { params: { city, pincode } });
 
-// Get OPD appointments by doctor ID
-export const getOpdAppointmentsByDoctor = (doctorId) =>
-  axiosInstance.get(`/v1/appointments/opd/doctor/${doctorId}`);
-// reason of visite
-export const getVisitReasons = () =>
-  axiosInstance.get("/master/visit-reasons");
 
 /* -----------------------------
    PATIENT NOTIFICATIONS APIs
@@ -332,3 +326,27 @@ export const markPatientNotificationRead = (notificationId, patientId) =>
 // POST mark all as read
 export const markAllPatientNotificationsRead = (patientId) =>
   axiosInstance.post(`/patient/notifications/mark-all-read`, null, { params: { patientId } });
+
+
+
+
+/* -----------------------------
+   PATIENT OPD  APIs IN DR DASHBAORD
+------------------------------ */
+// date in doctor dashboard in opd tab 
+
+export const getDoctorAvailabilityByDate = (doctorId, date) =>
+  axiosInstance.get(`/doctors/availability/${doctorId}/date/${date}`);
+
+// ➕ Create new OPD appointment
+export const createOpdAppointment = (data) =>
+  axiosInstance.post("/v1/appointments/opd", data);
+
+// Get OPD appointments by doctor ID
+export const getOpdAppointmentsByDoctor = (doctorId) =>
+  axiosInstance.get(`/v1/appointments/opd/doctor/${doctorId}`);
+// reason of visite
+export const getVisitReasons = () =>
+  axiosInstance.get("/master/visit-reasons");
+export const updateOpdAppointmentById = (id, data) =>
+  axiosInstance.put(`/v1/appointments/opd/${id}`, data);

@@ -72,7 +72,7 @@ const PrescriptionForm = ({
   const [drugSuggestions, setDrugSuggestions] = useState([]);
   const [activeInputIndex, setActiveInputIndex] = useState(null);
   const [isSaved, setIsSaved] = useState(!!data?.id);
-  const [prescriptionId, setPrescriptionId] = useState(data?.id || null);
+  const [prescriptionId, setPrescriptionId] = useState(data?.id );
   const [isEdit, setIsEdit] = useState(!data?.id);
   const [capturedImage, setCapturedImage] = useState(null);
   const [email, setEmail] = useState("");
@@ -82,6 +82,17 @@ const PrescriptionForm = ({
   const [intakes, setIntakes] = useState([]);
   const canvasRef = useRef(null);
   const [appointmentId, setAppointmentId] = useState(null);
+
+  // Helper to resolve option IDs from various possible name fields
+  const resolveId = (options, value, fallbackId = 0) => {
+    if (!value) return 0;
+    const v = String(value).trim().toLowerCase();
+    const match = (options || []).find((o) => {
+      const names = [o.name, o.unitName, o.dosageUnitName, o.label];
+      return names.some((n) => n && String(n).trim().toLowerCase() === v);
+    });
+    return match?.id ?? fallbackId;
+  };
 
   useEffect(() => {
     setEmail(propEmail || patient?.email || "");
@@ -94,7 +105,6 @@ const PrescriptionForm = ({
     const apptIdNum = apptIdRaw != null ? Number(apptIdRaw) : null;
     setAppointmentId(Number.isFinite(apptIdNum) ? apptIdNum : null);
     if (Number.isFinite(apptIdNum)) {
-      console.log("Using appointmentId (numeric):", apptIdNum);
     }
   }, [ctxPatient, patient]);
 
@@ -139,6 +149,38 @@ const PrescriptionForm = ({
     fetchFrequencies();
     fetchIntakes();
   }, []);
+
+  useEffect(() => {
+    setPrescriptions((prev) => {
+      let changed = false;
+      const mapped = (prev || []).map((p) => {
+        const n = { ...p };
+        if ((!n.dosageUnitId || Number(n.dosageUnitId) === 0) && n.dosageUnit) {
+          const u = (dosageUnits || []).find((x) => x.name === n.dosageUnit);
+          if (u) {
+            n.dosageUnitId = u.id;
+            changed = true;
+          }
+        }
+        if ((!n.frequencyId || Number(n.frequencyId) === 0) && n.frequency) {
+          const f = (frequencies || []).find((x) => x.name === n.frequency);
+          if (f) {
+            n.frequencyId = f.id;
+            changed = true;
+          }
+        }
+        if ((!n.intakeId || Number(n.intakeId) === 0) && n.intake) {
+          const t = (intakes || []).find((x) => x.name === n.intake);
+          if (t) {
+            n.intakeId = t.id;
+            changed = true;
+          }
+        }
+        return n;
+      });
+      return changed ? mapped : prev;
+    });
+  }, [dosageUnits, frequencies, intakes]);
 
   const handleChange = (i, field, val) => {
     setPrescriptions((prev) =>
@@ -199,16 +241,33 @@ const PrescriptionForm = ({
       };
     });
     console.log("Medicines payload:", medicines); // Debugging
-    const contextIdNum = appointmentId != null ? Number(appointmentId) : null;
+    // Validate required IDs to avoid backend errors like "Dosage unit not found"
+    for (let i = 0; i < medicines.length; i++) {
+      const m = medicines[i];
+      if (!Number.isFinite(m.dosageUnitId) || m.dosageUnitId <= 0) {
+        toast.error(`Please select a dosage unit for medicine #${i + 1}`);
+        return;
+      }
+      if (!Number.isFinite(m.frequencyId) || m.frequencyId <= 0) {
+        toast.error(`Please select a frequency for medicine #${i + 1}`);
+        return;
+      }
+      if (!Number.isFinite(m.intakeId) || m.intakeId <= 0) {
+        toast.error(`Please select an intake for medicine #${i + 1}`);
+        return;
+      }
+    }
+    const rawContextId = ctxPatient?.id ?? patient?.id ?? null;
+    const contextIdNum = rawContextId != null ? Number(rawContextId) : null;
     if (!Number.isFinite(contextIdNum)) {
       toast.error("Context ID is required");
       return;
     }
     const payload = {
       contextId: contextIdNum,
-      patientId: ctxPatient?.patientId ?? patient?.patientId,
+      patientId: ctxPatient?.id ?? patient?.id,
       doctorId: doctorIdFromRedux || doctorIdFromProps || 1,
-      context: (activeTab || "IPD").toUpperCase(),
+      context: (activeTab).toUpperCase(),
       medicines,
     };
     try {
@@ -251,25 +310,42 @@ const PrescriptionForm = ({
       medicineId: med.medicineId || 0,
       dosage: med.dosage.toString(),
       duration: med.duration.toString(),
-      dosageUnitId: med.dosageUnitId || 1,
+      dosageUnitId: med.dosageUnitId ,
       frequencyId: med.frequencyId || 0,
       intakeId: med.intakeId || 0,
     }));
-    console.log("Medicines payload:", medicines); // Debugging
-    const contextIdNum = appointmentId != null ? Number(appointmentId) : null;
+    // Validate required IDs to avoid backend errors like "Dosage unit not found"
+    for (let i = 0; i < medicines.length; i++) {
+      const m = medicines[i];
+      if (!Number.isFinite(m.dosageUnitId) || m.dosageUnitId <= 0) {
+        toast.error(`Please select a dosage unit for medicine #${i + 1}`);
+        return;
+      }
+      if (!Number.isFinite(m.frequencyId) || m.frequencyId <= 0) {
+        toast.error(`Please select a frequency for medicine #${i + 1}`);
+        return;
+      }
+      if (!Number.isFinite(m.intakeId) || m.intakeId <= 0) {
+        toast.error(`Please select an intake for medicine #${i + 1}`);
+        return;
+      }
+    }
+    const rawContextId = ctxPatient?.id ?? patient?.id ?? null;
+    const contextIdNum = rawContextId != null ? Number(rawContextId) : null;
     if (!Number.isFinite(contextIdNum)) {
       toast.error("Context ID is required");
       return;
     }
     const payload = {
-      contextId: 1,
-      patientId: ctxPatient?.id ?? patient?.id ?? 1,
+      contextId: contextIdNum,
+      patientId: ctxPatient?.id ?? patient?.id,
       doctorId: doctorIdFromRedux || doctorIdFromProps || 1,
       context: (activeTab).toUpperCase(),
       medicines,
     };
     try {
       const response = await updateDoctorPrescription(prescriptionId, payload);
+      
       if (response.status >= 200 && response.status < 300) {
         setIsEdit(false);
         if (onSave) {
@@ -584,17 +660,19 @@ const PrescriptionForm = ({
                             borderRadius: "0.5rem",
                             fontSize: "0.875rem",
                           }}
-                          value={med.dosageUnit}
+                          value={Number(med.dosageUnitId) || (dosageUnits.find((u) => u.name === med.dosageUnit)?.id || 0)}
                           onChange={(e) => {
-                            const selectedUnit = dosageUnits.find(unit => unit.name === e.target.value);
-                            handleChange(i, "dosageUnit", e.target.value);
-                            handleChange(i, "dosageUnitId", selectedUnit?.id || 0);
+                            const id = Number(e.target.value);
+                            const selectedUnit = dosageUnits.find(unit => unit.id === id);
+                            handleChange(i, "dosageUnitId", id || 0);
+                            handleChange(i, "dosageUnit", selectedUnit?.name || selectedUnit?.unitName || selectedUnit?.dosageUnitName || "");
                           }}
                           disabled={!isEdit}
                         >
+                          <option value={0}>Select unit</option>
                           {dosageUnits.map((unit) => (
-                            <option key={unit.id} value={unit.name}>
-                              {unit.name}
+                            <option key={unit.id} value={unit.id}>
+                              {unit.name || unit.unitName || unit.dosageUnitName}
                             </option>
                           ))}
                         </select>
@@ -609,18 +687,19 @@ const PrescriptionForm = ({
                           borderRadius: "0.5rem",
                           fontSize: "0.875rem",
                         }}
-                        value={med.frequency}
+                        value={Number(med.frequencyId) || (frequencies.find((f) => f.name === med.frequency)?.id || 0)}
                         onChange={(e) => {
-                          const selectedFrequency = frequencies.find(freq => freq.name === e.target.value);
-                          handleChange(i, "frequency", e.target.value);
-                          handleChange(i, "frequencyId", selectedFrequency?.id || 0);
+                          const id = Number(e.target.value);
+                          const selectedFrequency = frequencies.find(freq => freq.id === id);
+                          handleChange(i, "frequencyId", id || 0);
+                          handleChange(i, "frequency", selectedFrequency?.name || selectedFrequency?.frequencyName || selectedFrequency?.label || "");
                         }}
                         disabled={!isEdit}
                       >
-                        <option value="">Select frequency</option>
+                        <option value={0}>Select frequency</option>
                         {frequencies.map((freq) => (
-                          <option key={freq.id} value={freq.name}>
-                            {freq.name}
+                          <option key={freq.id} value={freq.id}>
+                            {freq.name || freq.frequencyName || freq.label}
                           </option>
                         ))}
                       </select>
@@ -634,18 +713,19 @@ const PrescriptionForm = ({
                           borderRadius: "0.5rem",
                           fontSize: "0.875rem",
                         }}
-                        value={med.intake}
+                        value={Number(med.intakeId) || (intakes.find((t) => t.name === med.intake)?.id || 0)}
                         onChange={(e) => {
-                          const selectedIntake = intakes.find(intake => intake.name === e.target.value);
-                          handleChange(i, "intake", e.target.value);
-                          handleChange(i, "intakeId", selectedIntake?.id || 0);
+                          const id = Number(e.target.value);
+                          const selectedIntake = intakes.find(intake => intake.id === id);
+                          handleChange(i, "intakeId", id || 0);
+                          handleChange(i, "intake", selectedIntake?.name || selectedIntake?.intakeName || selectedIntake?.label || "");
                         }}
                         disabled={!isEdit}
                       >
-                        <option value="">Select intake</option>
+                        <option value={0}>Select intake</option>
                         {intakes.map((intake) => (
-                          <option key={intake.id} value={intake.name}>
-                            {intake.name}
+                          <option key={intake.id} value={intake.id}>
+                            {intake.name || intake.intakeName || intake.label}
                           </option>
                         ))}
                       </select>
@@ -805,17 +885,19 @@ const PrescriptionForm = ({
                           borderRadius: "0.5rem",
                           fontSize: "0.875rem",
                         }}
-                        value={med.dosageUnit}
+                        value={Number(med.dosageUnitId) || (dosageUnits.find((u) => u.name === med.dosageUnit)?.id || 0)}
                         onChange={(e) => {
-                          const selectedUnit = dosageUnits.find(unit => unit.name === e.target.value);
-                          handleChange(i, "dosageUnit", e.target.value);
-                          handleChange(i, "dosageUnitId", selectedUnit?.id || 0);
+                          const id = Number(e.target.value);
+                          const selectedUnit = dosageUnits.find(unit => unit.id === id);
+                          handleChange(i, "dosageUnitId", id || 0);
+                          handleChange(i, "dosageUnit", selectedUnit?.name || selectedUnit?.unitName || selectedUnit?.dosageUnitName || selectedUnit?.unit || selectedUnit?.displayName || "");
                         }}
                         disabled={!isEdit}
                       >
+                        <option value={0}>Select unit</option>
                         {dosageUnits.map((unit) => (
-                          <option key={unit.id} value={unit.name}>
-                            {unit.name}
+                          <option key={unit.id} value={unit.id}>
+                            {unit.name || unit.unitName || unit.dosageUnitName || unit.unit || unit.displayName}
                           </option>
                         ))}
                       </select>
@@ -833,18 +915,19 @@ const PrescriptionForm = ({
                         borderRadius: "0.5rem",
                         fontSize: "0.875rem",
                       }}
-                      value={med.frequency}
+                      value={Number(med.frequencyId) || (frequencies.find((f) => f.name === med.frequency)?.id || 0)}
                       onChange={(e) => {
-                        const selectedFrequency = frequencies.find(freq => freq.name === e.target.value);
-                        handleChange(i, "frequency", e.target.value);
-                        handleChange(i, "frequencyId", selectedFrequency?.id || 0);
+                        const id = Number(e.target.value);
+                        const selectedFrequency = frequencies.find(freq => freq.id === id);
+                        handleChange(i, "frequencyId", id || 0);
+                        handleChange(i, "frequency", selectedFrequency?.name || selectedFrequency?.frequencyName || selectedFrequency?.label || "");
                       }}
                       disabled={!isEdit}
                     >
-                      <option value="">Select frequency</option>
+                      <option value={0}>Select frequency</option>
                       {frequencies.map((freq) => (
-                        <option key={freq.id} value={freq.name}>
-                          {freq.name}
+                        <option key={freq.id} value={freq.id}>
+                          {freq.name || freq.frequencyName || freq.label}
                         </option>
                       ))}
                     </select>
@@ -862,18 +945,19 @@ const PrescriptionForm = ({
                           borderRadius: "0.5rem",
                           fontSize: "0.875rem",
                         }}
-                        value={med.intake}
+                        value={Number(med.intakeId) || (intakes.find((t) => t.name === med.intake)?.id || 0)}
                         onChange={(e) => {
-                          const selectedIntake = intakes.find(intake => intake.name === e.target.value);
-                          handleChange(i, "intake", e.target.value);
-                          handleChange(i, "intakeId", selectedIntake?.id || 0);
+                          const id = Number(e.target.value);
+                          const selectedIntake = intakes.find(intake => intake.id === id);
+                          handleChange(i, "intakeId", id || 0);
+                          handleChange(i, "intake", selectedIntake?.name || selectedIntake?.intakeName || selectedIntake?.label || "");
                         }}
                         disabled={!isEdit}
                       >
-                        <option value="">Select intake</option>
+                        <option value={0}>Select intake</option>
                         {intakes.map((intake) => (
-                          <option key={intake.id} value={intake.name}>
-                            {intake.name}
+                          <option key={intake.id} value={intake.id}>
+                            {intake.name || intake.intakeName || intake.label}
                           </option>
                         ))}
                       </select>
