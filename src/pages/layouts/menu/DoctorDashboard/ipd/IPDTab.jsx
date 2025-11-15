@@ -6,7 +6,7 @@ import React, {
   forwardRef,
   useImperativeHandle,
 } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
 import { motion } from "framer-motion";
 import { FaVideo } from "react-icons/fa";
@@ -147,6 +147,7 @@ const IPDTab = forwardRef(
     ref
   ) => {
     const navigate = useNavigate();
+    const routerLocation = useLocation();
     const [ipdPatients, setIpdPatients] = useState([]);
     const [loading, setLoading] = useState(true);
     const [newPatientId, setNewPatientId] = useState(null);
@@ -174,7 +175,8 @@ const IPDTab = forwardRef(
 
     useImperativeHandle(ref, () => ({
       openAddPatientModal: () => {
-        openModal("ipdWizard");
+        setModals((prev) => ({ ...prev, ipdWizard: true }));
+        setIpdWizardStep(1);
       },
     }));
 
@@ -228,8 +230,8 @@ const IPDTab = forwardRef(
           });
           setWardData(formatted);
         }
-      } catch (err) {
-        console.error("[DEBUG] Error loading ward data:", err);
+      } catch (error) {
+        console.error("Error fetching ward data:", error);
       }
     }, []);
 
@@ -246,6 +248,18 @@ const IPDTab = forwardRef(
       window.addEventListener("storage", handleStorageChange);
       return () => window.removeEventListener("storage", handleStorageChange);
     }, [loadWardData]);
+
+    useEffect(() => {
+      const path = routerLocation?.pathname || "";
+      if (path.includes("/doctordashboard/patients/basic")) {
+        setModals((prev) => ({ ...prev, ipdWizard: true }));
+        setIpdWizardStep(1);
+      } else {
+        setModals((prev) =>
+          prev.ipdWizard ? { ...prev, ipdWizard: false } : prev
+        );
+      }
+    }, [routerLocation?.pathname]);
 
     const handlePhotoChange = async (e) => {
       const file = e?.target?.files?.[0];
@@ -1001,28 +1015,18 @@ const handleBedSelection = useCallback(
     const renderIpdWizardContent = useCallback(
       () => (
         <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-1 sm:p-4"
+          className="w-full max-w-6xl mx-auto p-1 sm:p-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
           <motion.div
-            className="flex flex-col relative w-full max-w-6xl h-[95vh] sm:h-[90vh] rounded-xl bg-white shadow-xl overflow-hidden"
-            initial={{ scale: 0.9, y: 20 }}
+            className="flex flex-col relative w-full h-auto rounded-xl bg-white shadow-xl overflow-hidden"
+            initial={{ scale: 0.98, y: 10 }}
             animate={{ scale: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <div className="flex-shrink-0 bg-gradient-to-r from-[#01B07A] to-[#004f3d] rounded-t-xl px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
-              <h2 className="text-sm sm:text-lg font-bold text-white">IPD Patient Admission</h2>
-              <button
-                onClick={() => closeModal("ipdWizard")}
-                className="flex h-6 w-6 sm:h-8 sm:w-8 items-center justify-center rounded-full border border-white text-white hover:bg-white hover:text-[#01B07A] transition-all duration-200"
-              >
-                <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+           
             <div className="flex-1 overflow-y-auto bg-gradient-to-br from-[#E6FBF5] to-[#C1F1E8]">
               <div className="flex-shrink-0 px-2 sm:px-6 py-3 sm:py-4">
                 <div className="flex items-center justify-center space-x-2 sm:space-x-4 min-w-max overflow-x-auto pb-2">
@@ -1121,7 +1125,9 @@ const handleBedSelection = useCallback(
 
     const tabActionsToUse = tabActions.length ? tabActions : [];
 
-    return (
+    return modals.ipdWizard ? (
+      renderIpdWizardContent()
+    ) : (
       <>
         <DynamicTable
           columns={columns}
@@ -1164,7 +1170,6 @@ const handleBedSelection = useCallback(
             </div>
           }
         />
-        {modals.ipdWizard && renderIpdWizardContent()}
       </>
     );
   }

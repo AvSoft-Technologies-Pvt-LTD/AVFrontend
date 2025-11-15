@@ -40,12 +40,14 @@ const IPDBed = ({
         const res = await getSpecializationsWardsSummaryForIpdAdmission();
         const data = Array.isArray(res?.data) ? res.data : [];
 
-        // Find the ward by name & specialization
-        const ward = data.find(
-          (w) =>
-            (w.wardName || "").toString() === (selectedWard.type || "").toString() &&
-            (w.specializationName || "").toString() === (selectedWard.department || "").toString()
-        );
+        // Prefer matching by wardId (selectedWard.id comes from item.wardId in IPDWard)
+        const ward =
+          data.find((w) => String(w.wardId ?? w.id) === String(selectedWard.id)) ||
+          data.find(
+            (w) =>
+              (w.wardName || "").toString() === (selectedWard.type || "").toString() &&
+              (w.specializationName || "").toString() === (selectedWard.department || "").toString()
+          );
 
         const roomObj = ward?.rooms?.find(
           (r) => (r.roomNumber || "").toString() === (selectedRoom || "").toString()
@@ -124,20 +126,28 @@ const IPDBed = ({
   };
 
   const getBedColors = (status, isSelected) => {
+    // Selected bed: always strong green highlight
     if (isSelected)
       return "border-green-500 bg-green-50 text-green-700 shadow-lg shadow-green-200";
+
+    // Color by status
     if (status === "occupied")
-      return "border-gray-400 bg-gray-100 text-gray-600";
+      return "border-red-500 bg-red-50 text-red-700"; // occupied -> red
     if (status === "maintenance")
-      return "border-gray-400 bg-gray-100 text-gray-500";
-    return "border-[var(--primary-color,#0E1630)] bg-white text-[var(--primary-color,#0E1630)] hover:border-[var(--primary-color,#0E1630)] hover:shadow-lg hover:shadow-blue-200";
+      return "border-yellow-500 bg-yellow-50 text-yellow-700"; // maintenance -> yellow
+    if (status === "blocked")
+      return "border-gray-400 bg-gray-100 text-gray-600"; // blocked -> gray
+
+    // available / default -> green-ish primary
+    return "border-green-500 bg-green-50 text-green-700 hover:shadow-lg hover:shadow-green-200";
   };
 
   const getBedIconClass = (status, isSelected) => {
-    if (isSelected) return "text-green-500";
-    if (status === "occupied") return "text-gray-500";
-    if (status === "maintenance") return "text-gray-400";
-    return "text-[var(--primary-color,#0E1630)]";
+    if (isSelected) return "text-green-600";
+    if (status === "occupied") return "text-red-500";
+    if (status === "maintenance") return "text-yellow-500";
+    if (status === "blocked") return "text-gray-400";
+    return "text-green-600"; // available
   };
 
   // Pagination (responsive)

@@ -43,7 +43,11 @@ const PatientList = () => {
       label: "Add Patient",
       onClick: () => {
         if (activeTab === "OPD") opdTabRef.current?.openAddPatientModal();
-        else if (activeTab === "IPD") ipdTabRef.current?.openAddPatientModal();
+        else if (activeTab === "IPD") {
+          navigate("/doctordashboard/patients/basic", {
+            state: { tab: "IPD", autoNavigated: true },
+          });
+        }
         else if (activeTab === "Virtual") virtualTabRef.current?.openScheduleConsultationModal();
       },
       className: "btn btn-primary",
@@ -129,6 +133,14 @@ const PatientList = () => {
   }, []);
 
   useEffect(() => {
+    const isBasicPath = location.pathname?.includes("/doctordashboard/patients/basic");
+    if (isBasicPath) {
+      setActiveTab("IPD");
+      setContextActiveTab("IPD");
+      localStorage.setItem("activeTab", "IPD");
+      return;
+    }
+
     const tabFromUrl = new URLSearchParams(location.search).get("tab");
     const tabFromState = location.state?.tab;
     const autoNavigated = location.state?.autoNavigated;
@@ -137,7 +149,7 @@ const PatientList = () => {
     } else if (tabFromUrl) {
       setActiveTab(tabFromUrl.charAt(0).toUpperCase() + tabFromUrl.slice(1));
     }
-  }, [location.search, location.state]);
+  }, [location.pathname, location.search, location.state]);
 
   if (masterData.loading) {
     return (

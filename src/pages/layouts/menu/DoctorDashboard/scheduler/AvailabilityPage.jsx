@@ -93,6 +93,23 @@ const AvailabilityPage = () => {
     }
   };
 
+
+  // Helper: derive active day count from date range minus unavailable dates
+  const getActiveDaysCount = (schedule) => {
+    if (!schedule?.fromDate || !schedule?.toDate) return 0;
+    const startDate = apiDateToJSDate(schedule.fromDate);
+    const endDate = apiDateToJSDate(schedule.toDate);
+    if (!startDate || !endDate) return 0;
+
+    const msPerDay = 1000 * 60 * 60 * 24;
+    const totalDays = Math.floor((endDate - startDate) / msPerDay) + 1;
+    const unavailableCount = Array.isArray(schedule.unavailableDates)
+      ? schedule.unavailableDates.length
+      : 0;
+
+    return Math.max(0, totalDays - unavailableCount);
+  };
+
   const loadSchedule = async () => {
     try {
       const response = await getAvailabilityScheduleById(scheduleId);
@@ -469,9 +486,14 @@ const AvailabilityPage = () => {
                     {renderCalendar()}
                     {activeDatesCount > 0 && (
                       <div className="mt-3 p-2 bg-emerald-50 border border-emerald-200 rounded-lg text-center text-xs">
-                        <span className="text-emerald-800 font-semibold">
-                          {activeDatesCount} day(s) selected
-                        </span>
+                        <p className="text-xs sm:text-sm font-semibold text-slate-900">
+                          {getActiveDaysCount({
+                            fromDate: startDate,
+                            toDate: endDate,
+                            unavailableDates: deselectedDates,
+                          })}
+                          day(s) selected
+                        </p>
                         {deselectedDates.length > 0 && (
                           <span className="text-amber-700 ml-2">
                             ({deselectedDates.length} unavailable)

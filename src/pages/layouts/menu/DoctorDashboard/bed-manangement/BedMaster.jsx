@@ -382,6 +382,11 @@ const BedMaster = () => {
 
   const deleteWard = async (wardId) => {
     try {
+      if (isEditMode) {
+        toast.warning("Ward cannot be deleted in edit mode.");
+        return;
+      }
+
       setBedMasterData((prev) => {
         const newWards = (prev.wards || []).filter((w) => String(w.id) !== String(wardId));
         const newRooms = (prev.rooms || []).filter((r) => String(r.wardId) !== String(wardId));
@@ -728,6 +733,7 @@ const BedMaster = () => {
             setEditingNameById={setEditingNameById}
             addWard={addWard}
             deleteWard={deleteWard}
+            isEditMode={isEditMode}
           />
         );
       case 2:

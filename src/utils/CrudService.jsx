@@ -556,3 +556,15 @@ export const getMasterQueueTokenById = (tokenId) =>
 // Create new master queue token
 export const createMasterQueueToken = (data) =>
   axiosInstance.post('/master-queue-tokens', data);
+
+// GET all IPD admissions for the entire post 
+export const getAllIpdAdmissions = () =>
+  axiosInstance.get("/ipd-admissions");
+
+// GET IPD admission by ID
+export const getIpdAdmissionById = (id) =>
+  axiosInstance.get(`/ipd-admissions/${id}`);
+
+// CREATE/POST new IPD admission
+export const createIpdAdmission = (data) =>
+  axiosInstance.post("/ipd-admissions", data);

@@ -104,7 +104,12 @@ const IPDBasic = ({
   const fetchPatientByAadhar = async () => {};
   const fetchPatientByPhone = async () => {};
   const sendOtp = async () => {};
-  const handleConfirm = () => setActiveSection("transfer");
+  const handleConfirm = () => {
+    if (typeof onNext === "function") {
+      onNext();
+    }
+    setActiveSection("transfer");
+  };
   const handleCancel = () => setActiveSection("transfer");
 
   const renderField = (field) => (
@@ -235,25 +240,33 @@ const IPDBasic = ({
 
   return (
     <div>
-    <div className="flex items-center justify-between mb-4">
-  <h3 className="text-base sm:text-lg font-semibold">
-    Basic Patient Details
-  </h3>
-  <div className="flex items-center gap-2">
-    <button 
-      className="view-btn"
-      onClick={() => setActiveSection("transfer")}
-    >
-      Transfer Patient
-    </button>
-    <button 
-      className="view-btn"
-      onClick={() => setActiveSection("add")}
-    >
-      Add Patient
-    </button>
-  </div>
-</div>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-base sm:text-lg font-semibold">
+          Basic Patient Details
+        </h3>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => setActiveSection("transfer")}
+            className={`relative cursor-pointer flex items-center gap-1 px-3 py-1.5 text-xs sm:text-sm font-medium ${
+              activeSection === "transfer"
+                ? "text-[var(--primary-color)] after:content-[''] after:absolute after:left-0 after:bottom-0 after:h-[2px] after:w-full after:bg-[var(--primary-color)]"
+                : "text-gray-500 hover:text-[var(--accent-color)]"
+            }`}
+          >
+            Transfer Patient
+          </button>
+          <button
+            onClick={() => setActiveSection("add")}
+            className={`relative cursor-pointer flex items-center gap-1 px-3 py-1.5 text-xs sm:text-sm font-medium ${
+              activeSection === "add"
+                ? "text-[var(--primary-color)] after:content-[''] after:absolute after:left-0 after:bottom-0 after:h-[2px] after:w-full after:bg-[var(--primary-color)]"
+                : "text-gray-500 hover:text-[var(--accent-color)]"
+            }`}
+          >
+            Add Patient
+          </button>
+        </div>
+      </div>
 
       {activeSection === "transfer" ? (
         <>
@@ -314,5 +327,4 @@ const IPDBasic = ({
     </div>
   );
 };
-
 export default IPDBasic;

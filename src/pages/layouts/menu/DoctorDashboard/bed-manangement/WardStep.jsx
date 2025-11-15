@@ -58,6 +58,7 @@ const WardStep = ({
   setEditingNameById,
   addWard: addWardProp,
   deleteWard: deleteWardProp,
+  isEditMode,
 }) => {
   const [localWardTypes, setLocalWardTypes] = useState((wardTypesProp || []).map(normalizeWardType));
   const [localAdding, setLocalAdding] = useState({});
@@ -403,15 +404,17 @@ const WardStep = ({
                               </div>
                             </div>
 
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteWard(ward.id);
-                              }}
-                              className="text-red-500 hover:text-red-600 p-1 rounded hover:bg-red-50 transition-colors flex-shrink-0"
-                            >
-                              <Trash2 size={12} />
-                            </button>
+                            {!isEditMode && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteWard(ward.id);
+                                }}
+                                className="text-red-500 hover:text-red-600 p-1 rounded hover:bg-red-50 transition-colors flex-shrink-0"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            )}
                           </motion.div>
                         );
                       })}

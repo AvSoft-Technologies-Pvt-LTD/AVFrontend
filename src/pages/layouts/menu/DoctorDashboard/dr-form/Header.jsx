@@ -2,7 +2,17 @@ import React, { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { usePatientContext } from "../../../../../context-api/PatientContext";
 import {
-  Heart, FileText, FlaskRound as Flask, Pill, Stethoscope, Eye, StickyNote, Printer, ChevronDown, ChevronUp,
+  Heart,
+  FileText,
+  FlaskRound as Flask,
+  Pill,
+  Stethoscope,
+  Eye,
+  StickyNote,
+  Printer,
+  ChevronDown,
+  ChevronUp,
+  MoreHorizontal,
 } from "lucide-react";
 
 const formTypes = {
@@ -33,6 +43,7 @@ const Header = ({
   const location = useLocation();
   const [showMoreForms, setShowMoreForms] = useState(false);
   const [localIsIPD, setLocalIsIPD] = useState(isIPDPatient || (String(activeTab).toUpperCase() === "IPD"));
+  const [quickLinksOpen, setQuickLinksOpen] = useState(false);
   const cameFromVisitPad = Boolean(location?.state?.openQuickLinks);
   const showQuickLinks = Boolean(localIsIPD || cameFromVisitPad);
 

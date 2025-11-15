@@ -28,6 +28,7 @@ const DrRoutes = () => {
       <Route index element={<Overview />} /> {/* renders at /doctordashboard */}
       <Route path="appointments" element={<Appointments />} />
       <Route path="patients" element={<PatientList />} />
+      <Route path="patients/basic" element={<PatientList />} />
         <Route path="/notifications" element={<NotificationPage />} />
        <Route path="form" element={<FormsPage />} />
        <Route path="second-opinion" element={<SecondOpinion/>} />

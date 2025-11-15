@@ -73,6 +73,23 @@ const AvailabilityOverviewPage = () => {
     })}`;
   };
 
+
+  // Helper: derive active day count from date range minus unavailable dates
+  const getActiveDaysCount = (schedule) => {
+    if (!schedule?.fromDate || !schedule?.toDate) return 0;
+    const startDate = apiDateToJSDate(schedule.fromDate);
+    const endDate = apiDateToJSDate(schedule.toDate);
+    if (!startDate || !endDate) return 0;
+
+    const msPerDay = 1000 * 60 * 60 * 24;
+    const totalDays = Math.floor((endDate - startDate) / msPerDay) + 1;
+    const unavailableCount = Array.isArray(schedule.unavailableDates)
+      ? schedule.unavailableDates.length
+      : 0;
+
+    return Math.max(0, totalDays - unavailableCount);
+  };
+
   // Helper: format unavailable dates from API ([y,m,d] arrays)
   const getUnavailableDates = (schedule) => {
     const src = Array.isArray(schedule.unavailableDates)
@@ -146,6 +163,7 @@ const AvailabilityOverviewPage = () => {
           <div className="space-y-3 sm:space-y-4">
             {schedules.map((schedule) => {
               const unavailableDates = getUnavailableDates(schedule);
+              const activeDays = getActiveDaysCount(schedule);
               return (
                 <div
                   key={schedule.id}
@@ -161,7 +179,7 @@ const AvailabilityOverviewPage = () => {
                           Dates
                         </p>
                         <p className="text-xs sm:text-sm font-semibold text-slate-900">
-                          {schedule.daySlots?.length || 0} day(s) selected
+                          {activeDays} day(s) selected
                         </p>
                         <p className="text-xs text-slate-500 mt-1 break-words">
                           {formatDateRange(schedule.fromDate, schedule.toDate)}

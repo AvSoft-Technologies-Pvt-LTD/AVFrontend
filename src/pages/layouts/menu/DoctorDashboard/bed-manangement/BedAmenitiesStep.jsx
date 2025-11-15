@@ -93,10 +93,21 @@ const BedAmenitiesStep = ({
     return icons[iconName] || Monitor;
   };
 
-  // ✅ FIXED: Map bedStatusId to color
+  // Map bedStatusId -> bg color using API names
   const statusColorsMapFromOptions = (bedStatusId) => {
     const found = bedStatusOptions.find((s) => Number(s.value) === Number(bedStatusId));
-    if (found?.color) return found.color.startsWith("bg-") ? found.color : undefined;
+
+    // If API already provides a bg-* class, prefer that
+    if (found?.color && typeof found.color === "string" && found.color.startsWith("bg-")) {
+      return found.color;
+    }
+
+    const name = (found?.name || found?.statusName || "").toLowerCase();
+
+    if (name === "available") return "bg-green-500";        // free beds
+    if (name === "maintanence" || name === "maintenance") return "bg-yellow-500"; // under maintenance
+    if (name === "occupied") return "bg-red-500";          // in use
+
     return "bg-gray-300";
   };
 
@@ -249,15 +260,18 @@ const BedAmenitiesStep = ({
                   className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm w-full sm:w-20"
                 />
                 <button
-                  onClick={async () => {
-                    if (!room.number) return;
+                  type="button"
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    if (!room?.id) return;
                     const countRaw = bedCountByRoom[room.id];
                     const count = parseInt(countRaw, 10);
                     if (isNaN(count) || count < 1) return;
                     setBedMasterData((prev) => ({ ...prev, selectedRoom: room, activeRoomId: room.id }));
                     await addBed(room.id, count);
+                    setBedCountByRoom((prev) => ({ ...prev, [room.id]: "" }));
                   }}
-                  disabled={!room.number || isNaN(parseInt(bedCountByRoom[room.id], 10)) || parseInt(bedCountByRoom[room.id], 10) < 1 || String(bedMasterData.activeRoomId) === String(room.id)}
+                  disabled={!room?.id || isNaN(parseInt(bedCountByRoom[room.id], 10)) || parseInt(bedCountByRoom[room.id], 10) < 1 || String(bedMasterData.activeRoomId) === String(room.id)}
                   className="btn view-btn text-sm flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Plus size={14} /> Add Beds
