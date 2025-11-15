@@ -7,7 +7,14 @@ import DynamicTable from '../../../../components/microcomponents/DynamicTable';
 import { useSelector } from 'react-redux';
 import ReusableModal from '../../../../components/microcomponents/Modal';
 import { Check, X, Calendar, Trash2 } from 'lucide-react';
-import { getAppointmentsByDoctorId } from '../../../../utils/CrudService';
+import {
+  getPendingAppointmentsByDoctorId,
+  getConfirmedAppointmentsByDoctorId,
+  getRejectedAppointmentsByDoctorId,
+  confirmAppointment,
+  rejectAppointment,
+  cancelAppointment,
+} from '../../../../utils/CrudService';
 
 const TABS = [
   { label: 'Pending', value: 'pending' },
@@ -137,26 +144,17 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
 
   useEffect(() => {
     const fetchDoctorName = async () => {
-      if (!user?.email) {
-        console.error("No user email found in Redux");
-        return;
-      }
-      try {
-        console.log("Fetching doctor name for email:", user.email);
-        const res = await axios.get(`https://6801242781c7e9fbcc41aacf.mockapi.io/api/AV1/users?email=${encodeURIComponent(user.email)}`);
-        const users = res.data;
-        if (users.length === 0) {
-          throw new Error('No user found with the provided email');
-        }
-        const doctor = users[0];
-        const fullName = `${doctor.firstName} ${doctor.lastName}`.trim();
-        const formattedDoctorName = `Dr. ${fullName}`;
-        console.log("Fetched Doctor Name:", formattedDoctorName);
-        setDoctorName(formattedDoctorName);
-      } catch (error) {
-        console.error('Error fetching doctor name:', error);
-        toast.error('Failed to fetch doctor name, using default.');
-      }
+      // Derive doctor name directly from Redux user instead of calling external MockAPI
+      if (!user) return;
+
+      // Prefer detailed name parts if available, otherwise fall back to user.name
+      const firstName = user.firstName || '';
+      const lastName = user.lastName || '';
+      const baseName = `${firstName} ${lastName}`.trim() || user.name || '';
+      if (!baseName) return;
+
+      const formattedDoctorName = baseName.startsWith('Dr.') ? baseName : `Dr. ${baseName}`;
+      setDoctorName(formattedDoctorName);
     };
     fetchDoctorName();
   }, [user]);
@@ -171,7 +169,15 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
       }
       try {
         setLoading(true);
-        const response = await getAppointmentsByDoctorId(doctorId);
+        let response;
+        if (tab === 'confirmed') {
+          response = await getConfirmedAppointmentsByDoctorId(doctorId);
+        } else if (tab === 'rejected') {
+          response = await getRejectedAppointmentsByDoctorId(doctorId);
+        } else {
+          // default to pending for 'pending' or any unknown tab
+          response = await getPendingAppointmentsByDoctorId(doctorId);
+        }
         const appointmentsData = Array.isArray(response.data)
           ? response.data
           : response.data?.data ?? [];
@@ -227,7 +233,7 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
             id: appointment.id ?? appointment.appointmentId ?? appointment.bookingId ?? `${Date.now()}-${Math.random()}`,
             name: appointment.patientName || patient.name || nameFromParts || 'Unknown',
             email: appointment.patientEmail ?? patient.email ?? '',
-            phone: appointment.patientPhone ?? patient.phone ?? 'N/A',
+            phone: appointment.patientPhoneNumber ?? patient.phone ?? 'N/A',
             date: formattedDate,
             time: formattedTime,
             reason: appointmentNotes,
@@ -238,7 +244,11 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
             status,
             prescription: appointment.prescription ?? '',
             link: appointment.link ?? appointment.meetingLink ?? '',
-            rejectReason: appointment.rejectReason ?? appointment.rejectionReason ?? '',
+            // Prefer explicit rejectReason fields, but fall back to generic "reason" if backend uses that
+            rejectReason: appointment.rejectReason
+              ?? appointment.rejectionReason
+              ?? appointment.reason
+              ?? '',
             linkSent: appointment.linkSent ?? false,
             rescheduleCount: appointment.rescheduleCount ?? 0,
             rawNotes: appointmentNotes,
@@ -262,7 +272,7 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
     };
 
     fetchAppointments();
-  }, [user?.doctorId, doctorName]);
+  }, [user?.doctorId, doctorName, tab]);
 
   useEffect(() => {
     localStorage.setItem('appointments', JSON.stringify(appointments));
@@ -308,7 +318,8 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
         isVisible: false
       };
       updateStatus(id, confirmed);
-      await axios.put(`https://67e3e1e42ae442db76d2035d.mockapi.io/register/book/${id}`, confirmed);
+      // Update status in backend
+      await confirmAppointment(id);
       await notify(
         appt.name,
         appt.phone,
@@ -374,7 +385,12 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
     try {
       const updates = { status: 'Rejected', rejectReason: reason };
       updateStatus(id, updates);
-      await axios.put(`https://67e3e1e42ae442db76d2035d.mockapi.io/register/book/${id}`, updates);
+      // Update status and reason in backend (send under multiple possible field names)
+      await rejectAppointment(id, {
+        rejectReason: reason,
+        rejectionReason: reason,
+        reason
+      });
       await notify(a.name, a.phone, `:x: Appointment rejected.\nReason: ${reason}`, false, doctorName);
       toast.success('Appointment rejected');
     } catch (error) {
@@ -399,7 +415,12 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
           rejectReason: 'Auto-cancelled after 2 reschedules'
         };
         updateStatus(id, updates);
-        await axios.put(`https://67e3e1e42ae442db76d2035d.mockapi.io/register/book/${id}`, updates);
+        // Auto-cancel in backend with reason (send under multiple possible field names)
+        await cancelAppointment(id, {
+          rejectReason: 'Auto-cancelled after 2 reschedules',
+          rejectionReason: 'Auto-cancelled after 2 reschedules',
+          reason: 'Auto-cancelled after 2 reschedules',
+        });
         await notify(a.name, a.phone, `:x: Appointment automatically cancelled after 2 reschedules.`, false, doctorName);
         toast.success('Appointment automatically cancelled after 2 reschedules');
       } else {

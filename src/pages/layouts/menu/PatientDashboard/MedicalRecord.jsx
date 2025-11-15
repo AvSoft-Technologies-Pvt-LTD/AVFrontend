@@ -184,18 +184,28 @@ const MedicalRecords = () => {
   };
 
   const handleViewDetails = (record) => {
-  localStorage.setItem("clickedHospitalRecord", JSON.stringify(record));
-  setClickedRecord(record);
-  navigate("/patientdashboard/medical-record-details", { state: { selectedRecord: record } });
-};
+    localStorage.setItem("clickedHospitalRecord", JSON.stringify(record));
+    setClickedRecord(record);
+    navigate("/patientdashboard/medical-record-details", { state: { selectedRecord: record } });
+  };
 
   const handleAddRecord = async (formData) => {
     try {
       const payload = {
         patientId,
         hospitalId: formData.hospitalName,
-       symptomIds: formData.symptoms,
-          medicalConditionIds: [formData.conditions[0]],
+        // Normalize symptoms to an array of primitive IDs/values
+        symptomIds: Array.isArray(formData.symptoms)
+          ? formData.symptoms.map((s) =>
+              typeof s === "object" ? s.value ?? s.id ?? s.label : s
+            )
+          : [],
+        // Normalize conditions to an array of primitive IDs/values
+        medicalConditionIds: Array.isArray(formData.conditions)
+          ? formData.conditions.map((c) =>
+              typeof c === "object" ? c.value ?? c.id ?? c.label : c
+            )
+          : [],
         medicalStatusId: formData.status,
         uploadedBy: "PATIENT", 
         doctorId: formData.doctorId, // Explicitly set to null for patient-created records

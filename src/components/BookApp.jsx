@@ -219,7 +219,10 @@ const MultiStepForm = () => {
     try {
       const response = await getAllSymptoms();
       const symptoms = Array.isArray(response.data)
-        ? response.data.map(item => item.name || item.label || item)
+        ? response.data.map(item => ({
+            id: item.id ?? item.symptomId ?? item.value ?? item.name ?? item.label,
+            name: item.name || item.label || item.symptomName || String(item),
+          }))
         : [];
       setAllSymptoms(symptoms);
     } catch (error) {
@@ -341,10 +344,12 @@ const MultiStepForm = () => {
     const slotId = state.selectedSlotId || 0;
 
     let symptomId = 0;
+    let symptomIds = [];
     if (state.symptoms) {
       const symptom = allSymptoms.find((s) => s.name === state.symptoms);
       if (symptom?.id) {
         symptomId = symptom.id;
+        symptomIds = [symptom.id];
       }
     }
 
@@ -367,6 +372,7 @@ const MultiStepForm = () => {
       hospitalId: hospitalId,
       slotId: slotId,
       symptomId: symptomId,
+      symptomIds: symptomIds,
       specialtyId: state.specialtyId || 0,
       appointmentDate: state.selectedDate,
       appointmentTime: appointmentTime,
@@ -406,7 +412,7 @@ const MultiStepForm = () => {
           hospitalName: "",
           hospitalId: "",
         });
-        navigate("/patientdashboard/app");
+        navigate("/patientdashboard/appointments");
       }, 2000);
     } catch (error) {
       console.error("Booking failed:", error);
@@ -833,24 +839,24 @@ const MultiStepForm = () => {
                     className="w-full px-3 py-2 text-sm border-b border-slate-100 outline-none"
                   />
                   {allSymptoms.filter(symptom =>
-                    symptom.toLowerCase().includes(symptomsSearch.toLowerCase())
+                    (symptom.name || "").toLowerCase().includes(symptomsSearch.toLowerCase())
                   ).length === 0 && (
                     <div className="px-4 py-2 text-sm text-slate-500">No results</div>
                   )}
                   {allSymptoms
                     .filter(symptom =>
-                      symptom.toLowerCase().includes(symptomsSearch.toLowerCase())
+                      (symptom.name || "").toLowerCase().includes(symptomsSearch.toLowerCase())
                     )
                     .map(symptom => (
                       <div
-                        key={symptom}
+                        key={symptom.id ?? symptom.name}
                         onClick={() => {
-                          updateState({ symptoms: symptom });
+                          updateState({ symptoms: symptom.name });
                           setSymptomsDropdownOpen(false);
                         }}
                         className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm"
                       >
-                        {symptom}
+                        {symptom.name}
                       </div>
                     ))}
                 </div>

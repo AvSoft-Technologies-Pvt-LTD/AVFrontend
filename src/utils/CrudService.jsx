@@ -531,7 +531,7 @@ export const createAppointment = (data) =>
 export const getLabAppointmentProgress = (bookingId) =>
   axiosInstance.get(`/lab/appointments/progress/tracking/track-appointment/${bookingId}`);
 
-// ===== Appointment APIs =====
+
 // Get appointments by patient ID
 export const getAppointmentsByPatientId = (patientId) =>
   axiosInstance.get(`/appointments/patient/${patientId}`);
@@ -540,10 +540,33 @@ export const getAppointmentsByPatientId = (patientId) =>
 export const getAppointmentsByDoctorId = (doctorId) =>
   axiosInstance.get(`/appointments/doctor/${doctorId}`);
 
-// Create new appointment
+// Get rejected appointments for a doctor
+export const getRejectedAppointmentsByDoctorId = (doctorId) =>
+  axiosInstance.get(`/appointments/doctor/${doctorId}/rejected`);
+
+// Get pending appointments for a doctor
+export const getPendingAppointmentsByDoctorId = (doctorId) =>
+  axiosInstance.get(`/appointments/doctor/${doctorId}/pending`);
+
+// Get confirmed appointments for a doctor
+export const getConfirmedAppointmentsByDoctorId = (doctorId) =>
+  axiosInstance.get(`/appointments/doctor/${doctorId}/confirmed`);
+
+// Create a new appointment
 export const createAppointments = (data) =>
   axiosInstance.post('/appointments', data);
 
+// Doctor rejects an appointment (optionally send body, e.g. rejectReason)
+export const rejectAppointment = (appointmentId, data) =>
+  axiosInstance.put(`/appointments/${appointmentId}/reject`, data);
+
+// Doctor confirms an appointment
+export const confirmAppointment = (appointmentId) =>
+  axiosInstance.put(`/appointments/${appointmentId}/confirm`);
+
+// Patient cancels an appointment (optionally send body, e.g. rejectReason)
+export const cancelAppointment = (appointmentId, data) =>
+  axiosInstance.put(`/appointments/${appointmentId}/cancel`, data);
 
 // Get all master queue tokens
 export const getAllMasterQueueTokens = () =>

@@ -86,7 +86,7 @@ const mapDoctorAppointment = (appointment) => {
     appointment?.consultationMode ||
     appointment?.appointmentType ||
     appointment?.type;
-  const status =
+  const rawStatus =
     appointment?.status ||
     appointment?.appointmentStatus ||
     appointment?.state;
@@ -106,6 +106,26 @@ const mapDoctorAppointment = (appointment) => {
     appointment?.notes ||
     appointment?.chiefComplaint;
 
+  // Normalize status so CONFIRMED / REJECTED etc. display correctly and
+  // work with getStatusBadge (Confirmed + Pay, Rejected + Reason, etc.)
+  let normalizedStatus = "PENDING";
+  if (typeof rawStatus === "string") {
+    const lower = rawStatus.toLowerCase();
+    if (lower === "confirmed") normalizedStatus = "Confirmed";
+    else if (lower === "rejected") normalizedStatus = "Rejected";
+    else if (lower === "paid") normalizedStatus = "Paid";
+    else if (lower === "pending" || lower === "upcoming") normalizedStatus = "Pending";
+    else normalizedStatus = rawStatus;
+  }
+
+  // Map rejection reason from all possible backend field names
+  const rejectReason =
+    appointment?.rejectReason ??
+    appointment?.rejectionReason ??
+    appointment?.reason ??
+    appointment?.notes ??
+    null;
+
   return {
     ...appointment,
     doctorName: doctorName || "-",
@@ -116,10 +136,11 @@ const mapDoctorAppointment = (appointment) => {
     rawDate,
     rawTime,
     consultationType: consultationType || "-",
-    status: status || "PENDING",
+    status: normalizedStatus,
     location: location || "-",
     fees: fees ?? "-",
     symptoms: symptoms || "-",
+    rejectReason: rejectReason || undefined,
   };
 };
 

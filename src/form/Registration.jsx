@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { registerUser, sendOTP } from "../context-api/authSlice";
 import { Eye, EyeOff, Upload, FileText, X, Camera, ChevronDown } from 'lucide-react';
 import Navbar from "../components/Navbar";
+import Footer from "../components/Footer";
 import {
   getAvailableTests,
   getCenterTypes,
@@ -13,8 +14,9 @@ import {
   getScanServices,
   getSpecialServices,
   getGenders,
-  getAllHospitals
+  getHospitalDropdown
 } from '../utils/masterService';
+
 import PatientRegistration from "./PatientRegistration";
 
 // File Upload Component
@@ -110,7 +112,6 @@ const PhotoUpload = ({ photoPreview, onPhotoChange, onPreviewClick }) => (
     </label>
   </div>
 );
-
 
 // Compact Dropdown Checkbox Component
 const CompactDropdownCheckbox = ({
@@ -284,7 +285,8 @@ const RegisterForm = () => {
     // Associated with clinic/hospital fields
     isAssociatedWithClinicHospital: '',
     associatedClinic: '',
-    associatedHospital: ''
+    associatedHospital: '',
+    associatedHospitalId: ''
   });
 
   // API Data State
@@ -300,6 +302,7 @@ const RegisterForm = () => {
     genders: [],
     practiceTypeMapping: {},
     specializationMapping: {},
+    hospitalMapping: {},
     genderIdMapping: {},
     loading: {
       availableTests: false,
@@ -375,208 +378,212 @@ const RegisterForm = () => {
   };
 
   // Load API Data
- useEffect(() => {
-  const loadApiData = async () => {
-    // ---------------- PATIENT & DOCTOR (Genders) ----------------
-    if (userType === "patient" || userType === "doctor") {
-      setApiData(prev => ({
-        ...prev,
-        loading: { ...prev.loading, genders: true }
-      }));
-
-      try {
-        const response = await getGenders();
-        const { options: genders, mapping: genderIdMapping } =
-          extractApiDataWithId(response, "genderName", "id");
-
+  useEffect(() => {
+    const loadApiData = async () => {
+      // ---------------- PATIENT & DOCTOR (Genders) ----------------
+      if (userType === "patient" || userType === "doctor") {
         setApiData(prev => ({
           ...prev,
-          genders,
-          genderIdMapping,
-          loading: { ...prev.loading, genders: false }
+          loading: { ...prev.loading, genders: true }
         }));
-      } catch (err) {
-        setApiData(prev => ({
-          ...prev,
-          genders: [],
-          genderIdMapping: {},
-          loading: { ...prev.loading, genders: false }
-        }));
-      }
-    }
 
-    // ---------------- LAB MODULE ----------------
-    if (userType === "lab") {
-      // ✅ Tests
-      setApiData(prev => ({
-        ...prev,
-        loading: { ...prev.loading, availableTests: true }
-      }));
-      try {
-        const res = await getAvailableTests();
-        const tests = extractApiData(res, "testName");
+        try {
+          const response = await getGenders();
+          const { options: genders, mapping: genderIdMapping } =
+            extractApiDataWithId(response, "genderName", "id");
 
-        setApiData(prev => ({
-          ...prev,
-          availableTests: tests,
-          loading: { ...prev.loading, availableTests: false }
-        }));
-      } catch {
-        setApiData(prev => ({
-          ...prev,
-          availableTests: [],
-          loading: { ...prev.loading, availableTests: false }
-        }));
+          setApiData(prev => ({
+            ...prev,
+            genders,
+            genderIdMapping,
+            loading: { ...prev.loading, genders: false }
+          }));
+        } catch (err) {
+          setApiData(prev => ({
+            ...prev,
+            genders: [],
+            genderIdMapping: {},
+            loading: { ...prev.loading, genders: false }
+          }));
+        }
       }
 
-      // ✅ Center Types
-      setApiData(prev => ({
-        ...prev,
-        loading: { ...prev.loading, centerTypes: true }
-      }));
-      try {
-        const res = await getCenterTypes();
-        const centerTypes = extractApiData(res, "centerTypeName");
+      // ---------------- LAB MODULE ----------------
+      if (userType === "lab") {
+        // Tests
+        setApiData(prev => ({
+          ...prev,
+          loading: { ...prev.loading, availableTests: true }
+        }));
+        try {
+          const res = await getAvailableTests();
+          const tests = extractApiData(res, "testName");
 
+          setApiData(prev => ({
+            ...prev,
+            availableTests: tests,
+            loading: { ...prev.loading, availableTests: false }
+          }));
+        } catch {
+          setApiData(prev => ({
+            ...prev,
+            availableTests: [],
+            loading: { ...prev.loading, availableTests: false }
+          }));
+        }
+
+        // Center Types
         setApiData(prev => ({
           ...prev,
-          centerTypes,
-          loading: { ...prev.loading, centerTypes: false }
+          loading: { ...prev.loading, centerTypes: true }
         }));
-      } catch {
+        try {
+          const res = await getCenterTypes();
+          const centerTypes = extractApiData(res, "centerTypeName");
+
+          setApiData(prev => ({
+            ...prev,
+            centerTypes,
+            loading: { ...prev.loading, centerTypes: false }
+          }));
+        } catch {
+          setApiData(prev => ({
+            ...prev,
+            centerTypes: [],
+            loading: { ...prev.loading, centerTypes: false }
+          }));
+        }
+
+        // Scan Services
         setApiData(prev => ({
           ...prev,
-          centerTypes: [],
-          loading: { ...prev.loading, centerTypes: false }
+          loading: { ...prev.loading, scanServices: true }
         }));
+        try {
+          const res = await getScanServices();
+          const scanServices = extractApiData(res, "scanName");
+
+          setApiData(prev => ({
+            ...prev,
+            scanServices,
+            loading: { ...prev.loading, scanServices: false }
+          }));
+        } catch {
+          setApiData(prev => ({
+            ...prev,
+            scanServices: [],
+            loading: { ...prev.loading, scanServices: false }
+          }));
+        }
+
+        // Special Services
+        setApiData(prev => ({
+          ...prev,
+          loading: { ...prev.loading, specialServices: true }
+        }));
+        try {
+          const res = await getSpecialServices();
+          const specialServices = extractApiData(res, "serviceName");
+
+          setApiData(prev => ({
+            ...prev,
+            specialServices,
+            loading: { ...prev.loading, specialServices: false }
+          }));
+        } catch {
+          setApiData(prev => ({
+            ...prev,
+            specialServices: [],
+            loading: { ...prev.loading, specialServices: false }
+          }));
+        }
       }
 
-      // ✅ Scan Services
-      setApiData(prev => ({
-        ...prev,
-        loading: { ...prev.loading, scanServices: true }
-      }));
-      try {
-        const res = await getScanServices();
-        const scanServices = extractApiData(res, "scanName");
+      // ---------------- HOSPITAL MODULE ----------------
+      if (userType === "hospital") {
+        setApiData(prev => ({
+          ...prev,
+          loading: { ...prev.loading, hospitalTypes: true }
+        }));
 
-        setApiData(prev => ({
-          ...prev,
-          scanServices,
-          loading: { ...prev.loading, scanServices: false }
-        }));
-      } catch {
-        setApiData(prev => ({
-          ...prev,
-          scanServices: [],
-          loading: { ...prev.loading, scanServices: false }
-        }));
+        try {
+          const res = await getHospitalTypes();
+          const hospitalTypes = extractApiData(res, "hospitalTypeName");
+
+          setApiData(prev => ({
+            ...prev,
+            hospitalTypes,
+            loading: { ...prev.loading, hospitalTypes: false }
+          }));
+        } catch {
+          setApiData(prev => ({
+            ...prev,
+            hospitalTypes: [],
+            loading: { ...prev.loading, hospitalTypes: false }
+          }));
+        }
       }
 
-      // ✅ Special Services
-      setApiData(prev => ({
-        ...prev,
-        loading: { ...prev.loading, specialServices: true }
-      }));
-      try {
-        const res = await getSpecialServices();
-        const specialServices = extractApiData(res, "serviceName");
+      // ---------------- DOCTOR MODULE ----------------
+      if (userType === "doctor") {
+        // Practice Types
+        setApiData(prev => ({
+          ...prev,
+          loading: { ...prev.loading, practiceTypes: true }
+        }));
 
+        try {
+          const res = await getPracticeTypes();
+          const { options, mapping } =
+            extractApiDataWithId(res, "practiceName", "id");
+
+          setApiData(prev => ({
+            ...prev,
+            practiceTypes: options,
+            practiceTypeMapping: mapping,
+            loading: { ...prev.loading, practiceTypes: false }
+          }));
+        } catch {
+          setApiData(prev => ({
+            ...prev,
+            practiceTypes: [],
+            practiceTypeMapping: {},
+            loading: { ...prev.loading, practiceTypes: false }
+          }));
+        }
+
+        // Hospitals List
         setApiData(prev => ({
           ...prev,
-          specialServices,
-          loading: { ...prev.loading, specialServices: false }
+          loading: { ...prev.loading, hospitals: true }
         }));
-      } catch {
-        setApiData(prev => ({
-          ...prev,
-          specialServices: [],
-          loading: { ...prev.loading, specialServices: false }
-        }));
+
+        try {
+          // Use dedicated hospital dropdown API so IDs match backend expectations
+          const res = await getHospitalDropdown();
+          // Assuming API returns objects like { id, hospitalName }
+          const { options: hospitals, mapping: hospitalMapping } =
+            extractApiDataWithId(res, "hospitalName", "id");
+
+          setApiData(prev => ({
+            ...prev,
+            hospitals,
+            hospitalMapping,
+            loading: { ...prev.loading, hospitals: false }
+          }));
+        } catch {
+          setApiData(prev => ({
+            ...prev,
+            hospitals: [],
+            hospitalMapping: {},
+            loading: { ...prev.loading, hospitals: false }
+          }));
+        }
       }
-    }
+    };
 
-    // ---------------- HOSPITAL MODULE ----------------
-    if (userType === "hospital") {
-      setApiData(prev => ({
-        ...prev,
-        loading: { ...prev.loading, hospitalTypes: true }
-      }));
-
-      try {
-        const res = await getHospitalTypes();
-        const hospitalTypes = extractApiData(res, "hospitalTypeName");
-
-        setApiData(prev => ({
-          ...prev,
-          hospitalTypes,
-          loading: { ...prev.loading, hospitalTypes: false }
-        }));
-      } catch {
-        setApiData(prev => ({
-          ...prev,
-          hospitalTypes: [],
-          loading: { ...prev.loading, hospitalTypes: false }
-        }));
-      }
-    }
-
-    // ---------------- DOCTOR MODULE ----------------
-    if (userType === "doctor") {
-      // ✅ Practice Types
-      setApiData(prev => ({
-        ...prev,
-        loading: { ...prev.loading, practiceTypes: true }
-      }));
-
-      try {
-        const res = await getPracticeTypes();
-        const { options, mapping } =
-          extractApiDataWithId(res, "practiceName", "id");
-
-        setApiData(prev => ({
-          ...prev,
-          practiceTypes: options,
-          practiceTypeMapping: mapping,
-          loading: { ...prev.loading, practiceTypes: false }
-        }));
-      } catch {
-        setApiData(prev => ({
-          ...prev,
-          practiceTypes: [],
-          practiceTypeMapping: {},
-          loading: { ...prev.loading, practiceTypes: false }
-        }));
-      }
-
-      // ✅ Hospitals List
-      setApiData(prev => ({
-        ...prev,
-        loading: { ...prev.loading, hospitals: true }
-      }));
-
-      try {
-        const res = await getAllHospitals();
-        const hospitals = extractApiData(res, "hospitalName");
-
-        setApiData(prev => ({
-          ...prev,
-          hospitals,
-          loading: { ...prev.loading, hospitals: false }
-        }));
-      } catch {
-        setApiData(prev => ({
-          ...prev,
-          hospitals: [],
-          loading: { ...prev.loading, hospitals: false }
-        }));
-      }
-    }
-  };
-
-  loadApiData();
-}, [userType]);
-
+    loadApiData();
+  }, [userType]);
 
   // Load specializations when practice type changes
   useEffect(() => {
@@ -631,7 +638,20 @@ const RegisterForm = () => {
     if (type === "checkbox") {
       setFormData(prev => ({ ...prev, [name]: checked }));
     } else if (type === "radio") {
+      // When toggling association type, clear previous association values
+      if (name === "isAssociatedWithClinicHospital") {
+        setFormData(prev => ({
+          ...prev,
+          isAssociatedWithClinicHospital: value,
+          associatedClinic: "",
+          associatedHospital: "",
+          associatedHospitalId: ""
+        }));
+        setErrors(prev => ({ ...prev, associationType: "", associatedClinic: "", associatedHospital: "" }));
+        return;
+      }
       setFormData(prev => ({ ...prev, [name]: value }));
+
     } else {
       if (name === "phone") {
         const formatted = value.replace(/\D/g, "").slice(0, 10);
@@ -656,6 +676,17 @@ const RegisterForm = () => {
           gender_id: genderId
         }));
         setErrors(prev => ({ ...prev, gender: "" }));
+        return;
+      }
+      
+      if (name === "associatedHospital") {
+        const hospitalId = apiData.hospitalMapping?.[value] || "";
+        setFormData(prev => ({
+          ...prev,
+          associatedHospital: value,
+          associatedHospitalId: hospitalId
+        }));
+        setErrors(prev => ({ ...prev, associatedHospital: "" }));
         return;
       }
       
@@ -771,92 +802,136 @@ const RegisterForm = () => {
     }
   };
 
-  // Validate form
-  const validateForm = () => {
-    const newErrors = {};
-    const emailRegex = /^\S+@\S+\.\S+$/;
-    const phoneRegex = /^\d{10}$/;
-    const passwordRegex = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@#$%^&+=!]).{8,}$/;
+const validateForm = () => {
+  const newErrors = {};
+  const emailRegex = /^\S+@\S+\.\S+$/;
+  const phoneRegex = /^\d{10}$/;
 
-    // Common validations
-    if (!formData.firstName?.trim()) newErrors.firstName = "First name is required";
-    if (!formData.lastName?.trim()) newErrors.lastName = "Last name is required";
-    if (!formData.phone?.match(phoneRegex)) newErrors.phone = "Phone must be 10 digits";
-    if (!formData.email || !emailRegex.test(formData.email)) newErrors.email = "Enter a valid email";
-    if (!passwordRegex.test(formData.password)) {
-      newErrors.password = "Password must include capital letters, numbers, and special characters";
-    }
-    if (formData.password.trim() !== formData.confirmPassword.trim()) {
-      newErrors.confirmPassword = "Passwords do not match";
-    }
-    if (!formData.dob) newErrors.dob = "Date of birth is required";
-    if (!formData.pinCode || formData.pinCode.length !== 6) newErrors.pinCode = "Pincode must be 6 digits";
-    if (!formData.city?.trim()) newErrors.city = "City is required";
-    if (!formData.photo) newErrors.photo = "Photo is required";
+  // Define password variables BEFORE using them
+  const passwordValue = formData.password || "";
+  const confirmPasswordValue = formData.confirmPassword || "";
 
-    // User type specific validations
-    if (userType === "patient") {
-      if (!formData.aadhaar || formData.aadhaar.replace(/-/g, '').length !== 12) newErrors.aadhaar = "Aadhaar must be 12 digits";
-      if (!formData.gender_id) newErrors.gender = "Gender is required";
-      if (!formData.occupation?.trim()) newErrors.occupation = "Occupation is required";
-      if (!formData.agreeDeclaration) newErrors.agreeDeclaration = "Please accept the declaration";
-    }
+  // Common validations
+  if (!formData.firstName?.trim()) newErrors.firstName = "First name is required";
+  if (!formData.lastName?.trim()) newErrors.lastName = "Last name is required";
+  if (!formData.phone?.match(phoneRegex)) newErrors.phone = "Phone must be 10 digits";
+  if (!formData.email || !emailRegex.test(formData.email)) newErrors.email = "Enter a valid email";
 
-    // Doctor-specific validations
-    if (userType === "doctor") {
-      if (!formData.aadhaar || formData.aadhaar.replace(/-/g, '').length !== 12) newErrors.aadhaar = "Aadhaar must be 12 digits";
-      if (!formData.gender_id) newErrors.gender = "Gender is required";
-      if (!formData.roleSpecificData.registrationNumber?.trim()) {
-        newErrors.registrationNumber = "Registration number is required";
-      }
-      if (!formData.roleSpecificData.practiceType) newErrors.practiceType = "Practice type is required";
-      if (!formData.roleSpecificData.specialization) newErrors.specialization = "Specialization is required";
-      if (!formData.roleSpecificData.qualification?.trim()) newErrors.qualification = "Qualification is required";
-      if (formData.isAssociatedWithClinicHospital === 'clinic' && !formData.associatedClinic?.trim()) {
-        newErrors.associatedClinic = "Clinic name is required";
-      }
-      if (formData.isAssociatedWithClinicHospital === 'hospital' && !formData.associatedHospital?.trim()) {
-        newErrors.associatedHospital = "Hospital is required";
-      }
-      if (!formData.roleSpecificData.agreeDeclaration) {
-        newErrors.agreeDeclaration = "Please accept the declaration";
-      }
-    }
+  // Simple password required checks (no regex)
+  if (!passwordValue) {
+    newErrors.password = "Password is required";
+  }
+  if (!confirmPasswordValue) {
+    newErrors.confirmPassword = "Confirm password is required";
+  } else if (passwordValue !== confirmPasswordValue) {
+    newErrors.confirmPassword = "Passwords do not match";
+  }
 
-    // Hospital-specific validations
-    if (userType === "hospital") {
-      if (!formData.hospitalName?.trim()) newErrors.hospitalName = "Hospital name is required";
-      if (!formData.headCeoName?.trim()) newErrors.headCeoName = "Head/CEO name is required";
-      if (!formData.registrationNumber?.trim()) newErrors.registrationNumber = "Registration number is required";
-      if (!formData.gstNumber?.trim()) newErrors.gstNumber = "GST number is required";
-      if (!formData.hospitalType?.length) newErrors.hospitalType = "Hospital type is required";
-      if (!formData.inHouseLab) newErrors.inHouseLab = "Please select in-house lab option";
-      if (!formData.inHousePharmacy) newErrors.inHousePharmacy = "Please select in-house pharmacy option";
-      if (formData.inHouseLab === "yes" && !formData.labLicenseNo?.trim()) {
-        newErrors.labLicenseNo = "Lab license number is required";
-      }
-      if (formData.inHousePharmacy === "yes" && !formData.pharmacyLicenseNo?.trim()) {
-        newErrors.pharmacyLicenseNo = "Pharmacy license number is required";
-      }
-      if (!formData.agreeDeclaration) newErrors.agreeDeclaration = "Please accept the declaration";
-    }
+  if (!formData.dob) newErrors.dob = "Date of birth is required";
+  if (!formData.pinCode || String(formData.pinCode).length !== 6)
+    newErrors.pinCode = "Pincode must be 6 digits";
+  if (!formData.city?.trim()) newErrors.city = "City is required";
+  if (!formData.photo) newErrors.photo = "Photo is required";
 
-    // Lab-specific validations
-    if (userType === "lab") {
-      if (!formData.centerType?.trim()) newErrors.centerType = "Center type is required";
-      if (!formData.centerName?.trim()) newErrors.centerName = "Center name is required";
-      if (!formData.ownerFullName?.trim()) newErrors.ownerFullName = "Owner's full name is required";
-      if (!formData.registrationNumber?.trim()) newErrors.registrationNumber = "Registration number is required";
-      if (!formData.gstNumber?.trim()) newErrors.gstNumber = "GST number is required";
-      if (!formData.licenseNumber?.trim()) newErrors.licenseNumber = "License number is required";
-      if (!formData.availableTests?.length) newErrors.availableTests = "Available tests are required";
-      if (!formData.scanServices?.length) newErrors.scanServices = "Scan services are required";
-      if (!formData.agreeDeclaration) newErrors.agreeDeclaration = "Please accept the declaration";
-    }
+  // Patient-specific validations
+  if (userType === "patient") {
+    if (!formData.aadhaar || formData.aadhaar.replace(/-/g, "").length !== 12)
+      newErrors.aadhaar = "Aadhaar must be 12 digits";
+    if (!formData.gender_id) newErrors.gender = "Gender is required";
+    if (!formData.occupation?.trim())
+      newErrors.occupation = "Occupation is required";
+    if (!formData.agreeDeclaration)
+      newErrors.agreeDeclaration = "Please accept the declaration";
+  }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+  // Doctor-specific validations
+  if (userType === "doctor") {
+    if (!formData.aadhaar || formData.aadhaar.replace(/-/g, "").length !== 12)
+      newErrors.aadhaar = "Aadhaar must be 12 digits";
+    if (!formData.gender_id) newErrors.gender = "Gender is required";
+    if (!formData.roleSpecificData?.registrationNumber?.trim()) {
+      newErrors.registrationNumber = "Registration number is required";
+    }
+    if (!formData.roleSpecificData?.practiceType)
+      newErrors.practiceType = "Practice type is required";
+    if (!formData.roleSpecificData?.specialization)
+      newErrors.specialization = "Specialization is required";
+    if (!formData.roleSpecificData?.qualification?.trim())
+      newErrors.qualification = "Qualification is required";
+    if (
+      formData.isAssociatedWithClinicHospital === "clinic" &&
+      !formData.associatedClinic?.trim()
+    ) {
+      newErrors.associatedClinic = "Clinic name is required";
+    }
+    if (
+      formData.isAssociatedWithClinicHospital === "hospital" &&
+      !formData.associatedHospital?.trim()
+    ) {
+      newErrors.associatedHospital = "Hospital is required";
+    }
+    if (!formData.isAssociatedWithClinicHospital) {
+      newErrors.associationType = "Association type is required";
+    }
+    if (!formData.agreeDeclaration) {
+      newErrors.agreeDeclaration = "Please accept the declaration";
+    }
+  }
+
+  // Hospital-specific validations
+  if (userType === "hospital") {
+    if (!formData.hospitalName?.trim())
+      newErrors.hospitalName = "Hospital name is required";
+    if (!formData.headCeoName?.trim())
+      newErrors.headCeoName = "Head/CEO name is required";
+    if (!formData.registrationNumber?.trim())
+      newErrors.registrationNumber = "Registration number is required";
+    if (!formData.gstNumber?.trim())
+      newErrors.gstNumber = "GST number is required";
+    if (!formData.hospitalType?.length)
+      newErrors.hospitalType = "Hospital type is required";
+    if (!formData.inHouseLab)
+      newErrors.inHouseLab = "Please select in-house lab option";
+    if (!formData.inHousePharmacy)
+      newErrors.inHousePharmacy = "Please select in-house pharmacy option";
+    if (formData.inHouseLab === "yes" && !formData.labLicenseNo?.trim()) {
+      newErrors.labLicenseNo = "Lab license number is required";
+    }
+    if (
+      formData.inHousePharmacy === "yes" &&
+      !formData.pharmacyLicenseNo?.trim()
+    ) {
+      newErrors.pharmacyLicenseNo = "Pharmacy license number is required";
+    }
+    if (!formData.agreeDeclaration)
+      newErrors.agreeDeclaration = "Please accept the declaration";
+  }
+
+  // Lab-specific validations
+  if (userType === "lab") {
+    if (!formData.centerType?.trim())
+      newErrors.centerType = "Center type is required";
+    if (!formData.centerName?.trim())
+      newErrors.centerName = "Center name is required";
+    if (!formData.ownerFullName?.trim())
+      newErrors.ownerFullName = "Owner's full name is required";
+    if (!formData.registrationNumber?.trim())
+      newErrors.registrationNumber = "Registration number is required";
+    if (!formData.gstNumber?.trim())
+      newErrors.gstNumber = "GST number is required";
+    if (!formData.licenseNumber?.trim())
+      newErrors.licenseNumber = "License number is required";
+    if (!formData.availableTests?.length)
+      newErrors.availableTests = "Available tests are required";
+    if (!formData.scanServices?.length)
+      newErrors.scanServices = "Scan services are required";
+    if (!formData.agreeDeclaration)
+      newErrors.agreeDeclaration = "Please accept the declaration";
+  }
+
+  setErrors(newErrors);
+  return Object.keys(newErrors).length === 0;
+};
 
   // Handle form submission
   const handleSubmit = async (e) => {
@@ -874,13 +949,14 @@ const RegisterForm = () => {
       formDataToSubmit.append('lastName', formData.lastName);
       formDataToSubmit.append('phone', formData.phone);
       formDataToSubmit.append('email', formData.email);
-      formDataToSubmit.append('password', formData.password);
-      formDataToSubmit.append('confirmPassword', formData.confirmPassword);
+      formDataToSubmit.append('password', (formData.password || '').trim());
+      formDataToSubmit.append('confirmPassword', (formData.confirmPassword || '').trim());
       formDataToSubmit.append('dob', formData.dob);
-      formDataToSubmit.append('pinCode', formData.pinCode);
+      formDataToSubmit.append('pincode', formData.pinCode);
       formDataToSubmit.append('city', formData.city);
       formDataToSubmit.append('district', formData.district);
       formDataToSubmit.append('state', formData.state);
+
       
       if (formData.photo) {
         formDataToSubmit.append('photo', formData.photo);
@@ -891,8 +967,6 @@ const RegisterForm = () => {
         formDataToSubmit.append('aadhaar', formData.aadhaar);
         formDataToSubmit.append('genderId', formData.gender_id);
         formDataToSubmit.append('occupation', formData.occupation);
-        formDataToSubmit.append('password', formData.password);
-        formDataToSubmit.append('confirmPassword', formData.confirmPassword);
         formDataToSubmit.append('agreeDeclaration', formData.agreeDeclaration);
       }
 
@@ -927,20 +1001,28 @@ const RegisterForm = () => {
       }
 
       if (userType === "doctor") {
+        const associationType =
+          formData.isAssociatedWithClinicHospital === 'clinic'
+            ? 'CLINIC'
+            : formData.isAssociatedWithClinicHospital === 'hospital'
+              ? 'HOSPITAL'
+              : '';
+
         formDataToSubmit.append('aadhaar', formData.aadhaar);
         formDataToSubmit.append('genderId', formData.gender_id);
         formDataToSubmit.append('registrationNumber', formData.roleSpecificData.registrationNumber);
         formDataToSubmit.append('practiceTypeId', formData.roleSpecificData.practiceTypeId);
         formDataToSubmit.append('specializationId', formData.roleSpecificData.specializationId);
         formDataToSubmit.append('qualification', formData.roleSpecificData.qualification);
-        formDataToSubmit.append('password', formData.password);
-        formDataToSubmit.append('confirmPassword', formData.confirmPassword);
-        formDataToSubmit.append('agreeDeclaration', formData.roleSpecificData.agreeDeclaration);
-        formDataToSubmit.append('isAssociatedWithClinicHospital', formData.isAssociatedWithClinicHospital);
+        formDataToSubmit.append('agreeDeclaration', formData.agreeDeclaration);
+        formDataToSubmit.append('associationType', associationType);
+
         if (formData.isAssociatedWithClinicHospital === 'clinic') {
           formDataToSubmit.append('associatedClinic', formData.associatedClinic);
         }
+
         if (formData.isAssociatedWithClinicHospital === 'hospital') {
+          // Only send associatedHospital name; skip hospitalId to avoid backend ID mismatch errors
           formDataToSubmit.append('associatedHospital', formData.associatedHospital);
         }
       }
@@ -1401,6 +1483,9 @@ const RegisterForm = () => {
               </div>
             )}
           </div>
+          {errors.associationType && (
+            <p className="error-text">{errors.associationType}</p>
+          )}
         </div>
       </>
     );
@@ -1410,7 +1495,7 @@ const RegisterForm = () => {
      <>
         <Navbar/>
     <div className="bg-gray-50 flex items-center justify-center p-4 sm:p-8">
-      <div className="w-full max-w-5xl bg-white p-8 sm:p-10 shadow-lg border rounded-xl">
+      <div className="w-full max-w-5xl bg-white p-8 sm:p-10 shadow-xl border border-gray-200  rounded-xl">
         <h2 className="text-3xl font-bold text-center mb-1">{`Register as ${displayUserType}`}</h2>
 
         <p className="text-gray-600 text-center mb-6">Please fill in your details to create an account.</p>
@@ -1608,6 +1693,7 @@ const RegisterForm = () => {
         )}
       </div>
     </div>
+      <Footer/>
     </>
   );
 };
