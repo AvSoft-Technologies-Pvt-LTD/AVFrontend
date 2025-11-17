@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import axios from "axios";
+import { getLabAppointmentProgress } from "../../../../../utils/CrudService";
 import {
   MapPin,
   Phone,
@@ -36,14 +36,19 @@ const TrackAppointment = () => {
 
   const fetchAppointment = async () => {
     try {
-      const res = await axios.get("https://680b3642d5075a76d98a3658.mockapi.io/Lab/payment");
-      const found = res.data.find((item) => item.bookingId === bookingId);
-      if (!found) throw new Error("Appointment not found");
-      setAppointment(found);
+      const res = await getLabAppointmentProgress(bookingId);
+      const data = res?.data;
+
+      if (!data) {
+        throw new Error("Appointment not found");
+      }
+
+      setAppointment(data);
       setLoading(false);
     } catch (error) {
       console.error("Error fetching appointment:", error);
       alert("Failed to fetch appointment details. Please try again later.");
+      setLoading(false);
     }
   };
 

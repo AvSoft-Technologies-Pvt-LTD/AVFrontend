@@ -12,6 +12,7 @@ const PaymentGateway = ({
   onPay,
   currency = "₹",
   bookingDetails = null,
+  asPage = false,
 }) => {
   // Navigation hook
   const navigate = useNavigate();
@@ -194,10 +195,16 @@ const PaymentGateway = ({
   const displayBookingDetails = bookingDetails || defaultBookingDetails;
 
   // Render
-  if (!isOpen) return null;
+  if (!isOpen && !asPage) return null;
 
   return (
-    <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-50 p-2 sm:p-4">
+    <div
+      className={
+        asPage
+          ? "min-h-screen bg-white flex items-center justify-center p-2 sm:p-4"
+          : "fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-50 p-2 sm:p-4"
+      }
+    >
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[95vh] max-h-[95vh] overflow-hidden flex flex-col">
         {/* Mobile Layout: Single Column with Combined Scroll */}
         {isMobile ? (

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSelector } from "react-redux";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Clock, MapPin, Home, TestTube, User, DollarSign, FileText, CheckCircle, Circle } from "lucide-react";
 import { createAppointment } from "../../../../../utils/CrudService";
@@ -7,7 +8,7 @@ import { useSelector } from "react-redux";
 const BookLab = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const patientId = useSelector((state) => state.auth.patientId);
+  const { patientId } = useSelector((state) => state.auth);
   const { lab: labFromState, cart: cartFromState } = location.state || {};
   const [form, setForm] = useState({
     location: "Home Collection",
@@ -21,6 +22,7 @@ const BookLab = () => {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const lab = labFromState || { labName: "-", location: "-" };
+  const labId = lab?.labId ?? lab?.id ?? null;
   const labAvailableId = lab?.labAvailableId ?? null; // strictly require actual labAvailableId
   const cart = Array.isArray(cartFromState) ? cartFromState : [];
   const totalPrice = cart.reduce((sum, t) => sum + (Number(t.price) || 0) * (t.quantity || 1), 0);
@@ -77,6 +79,10 @@ const BookLab = () => {
 
   const handleProceed = async () => {
     if (!validateForm()) return;
+    if (!patientId) {
+      setErrors((prev) => ({ ...prev, patient: "Missing patient id. Please login again." }));
+      return;
+    }
     const visitLocation =
       form.location === "Home Collection" && form.address
         ? form.address
@@ -93,14 +99,14 @@ const BookLab = () => {
         patientid: patientId,
         phone: form.phone,
         email: form.email,
-        labAvailableId: String(labAvailableId),
+        labcenterId: labId,
         appointmentDate: form.date,
         appointmentTime: form.time,
         homeCollection: form.location === "Home Collection",
         address: form.location === "Home Collection" ? form.address : "",
       };
-      // Use the correct function from CrudService
       const { data } = await createAppointment(payload);
+      console.log("labs data",data);
       navigate("/patientdashboard/payment1", {
         state: {
           name: form.fullName,

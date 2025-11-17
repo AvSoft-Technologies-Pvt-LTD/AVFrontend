@@ -526,11 +526,16 @@ export const deleteStaff = (id) =>
   axiosInstance.delete(`/dashboard/staff/${id}`);
 
 export const createAppointment = (data) =>
-  axiosInstance.post('labs/appointments/create', data);
+  axiosInstance.post('/labs/appointments/create', data);
 
 export const getLabAppointmentProgress = (bookingId) =>
   axiosInstance.get(`/lab/appointments/progress/tracking/track-appointment/${bookingId}`);
+// lab payment
+export const createLabPayment = (paymentData) =>
+  axiosInstance.post(`/lab/appoinment/api/payments`, paymentData);
 
+export const getLabPaymentsByPatient = (patientId) =>
+  axiosInstance.get(`/lab/appoinment/api/payments/appointments/${patientId}`);
 
 // Get appointments by patient ID
 export const getAppointmentsByPatientId = (patientId) =>
