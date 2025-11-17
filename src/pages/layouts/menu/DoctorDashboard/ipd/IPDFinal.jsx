@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 
 import { Bed } from "lucide-react";
 import {
@@ -10,7 +10,8 @@ import {
   Stethoscope,
   Activity,
 } from "lucide-react";
-import { getAllSymptoms } from "../../../../../utils/masterService";
+import { getAllSymptoms, getAllSpecializations } from "../../../../../utils/masterService";
+import { getAllInsurance } from "../../../../../utils/CrudService";
 
 const WARD_ICONS = {
   "General Ward": Users,
@@ -82,17 +83,14 @@ export const generateAdmissionFields = (masterData, staticData) => {
       label: "Department",
       type: "select",
       required: true,
-      options: masterData.departments.map((d, i) => ({
-        ...d,
-        key: `dept-${i}`,
-      })),
+      options: [], // Will be populated from getAllSpecializations API
     },
     {
       name: "insuranceType",
       label: "Insurance Type",
       type: "select",
       required: true,
-      options: staticData.insurance,
+      options: [], // Will be populated from getAllInsurance API
     },
     {
       name: "surgeryRequired",
@@ -101,12 +99,12 @@ export const generateAdmissionFields = (masterData, staticData) => {
       options: staticData.surgery,
     },
     { name: "dischargeDate", label: "Discharge Date", type: "date" },
-    { 
-      name: "diagnosis", 
-      label: "Diagnosis", 
-      type: "select", 
+    {
+      name: "symptoms",
+      label: "Symptoms",
+      type: "select",
       required: true,
-      options: [], // Will be populated from API
+      options: [], // Will be populated from getAllSymptoms API
     },
     {
       name: "reasonForAdmission",
@@ -120,18 +118,27 @@ export const generateAdmissionFields = (masterData, staticData) => {
 const IPDFinal = ({ data, selectedWard, selectedRoom, selectedBed, fields, onChange }) => {
   const [symptomsList, setSymptomsList] = useState([]);
   const [loadingSymptoms, setLoadingSymptoms] = useState(false);
+  const [specializations, setSpecializations] = useState([]);
+  const [loadingSpecializations, setLoadingSpecializations] = useState(false);
+  const [insuranceList, setInsuranceList] = useState([]);
+  const [loadingInsurance, setLoadingInsurance] = useState(false);
 
   // Fetch symptoms from API
   useEffect(() => {
     const fetchSymptoms = async () => {
       try {
         setLoadingSymptoms(true);
-        const symptoms = await getAllSymptoms();
-        // Assuming API returns array of symptoms with id and name
-        const formattedSymptoms = symptoms.map((symptom, index) => ({
+        const response = await getAllSymptoms();
+        const raw = Array.isArray(response)
+          ? response
+          : Array.isArray(response?.data)
+          ? response.data
+          : [];
+        // API example: [{"symptomId":1,"name":"headache","description":"string"}]
+        const formattedSymptoms = raw.map((symptom, index) => ({
           key: `symptom-${index}`,
-          value: symptom.id || symptom.value || symptom._id,
-          label: symptom.name || symptom.label || symptom.symptomName
+          value: symptom.symptomId || symptom.id || symptom.value || symptom._id,
+          label: symptom.name || symptom.label || symptom.symptomName,
         }));
         setSymptomsList(formattedSymptoms);
       } catch (error) {
@@ -146,13 +153,104 @@ const IPDFinal = ({ data, selectedWard, selectedRoom, selectedBed, fields, onCha
     fetchSymptoms();
   }, []);
 
-  // Update diagnosis field options
+  // Fetch insurance list for Insurance Type select
   useEffect(() => {
-    const diagnosisField = fields.find(field => field.name === 'diagnosis');
-    if (diagnosisField) {
-      diagnosisField.options = symptomsList;
-    }
-  }, [symptomsList, fields]);
+    const fetchInsurance = async () => {
+      try {
+        setLoadingInsurance(true);
+        const response = await getAllInsurance();
+        const list = Array.isArray(response)
+          ? response
+          : Array.isArray(response?.data)
+          ? response.data
+          : [];
+        // API example: [{ id, mobileNumber, insuranceProvider, policyNumber, coverageType, status }]
+        const formatted = list.map((ins, index) => ({
+          key: `ins-${index}`,
+          value: ins.id,
+          label: ins.insuranceProvider,
+        }));
+        setInsuranceList(formatted);
+      } catch (error) {
+        console.error("Error fetching insurance list:", error);
+        setInsuranceList([]);
+      } finally {
+        setLoadingInsurance(false);
+      }
+    };
+
+    fetchInsurance();
+  }, []);
+
+  // Fetch specializations for Department select
+  useEffect(() => {
+    const fetchSpecializations = async () => {
+      try {
+        setLoadingSpecializations(true);
+        const response = await getAllSpecializations();
+        const specs = Array.isArray(response)
+          ? response
+          : Array.isArray(response?.data)
+          ? response.data
+          : [];
+        const formattedSpecs = specs.map((spec, index) => ({
+          key: `dept-${index}`,
+          value: spec.specializationId || spec.id || spec.value,
+          label: spec.name || spec.specializationName || spec.label,
+        }));
+        setSpecializations(formattedSpecs);
+      } catch (error) {
+        console.error("Error fetching specializations:", error);
+        setSpecializations([]);
+      } finally {
+        setLoadingSpecializations(false);
+      }
+    };
+
+    fetchSpecializations();
+  }, []);
+
+  // Build a derived field array with API-driven options
+  const computedFields = useMemo(
+    () =>
+      (fields || []).map((field) => {
+        if (field.name === "symptoms") {
+          return { ...field, options: symptomsList };
+        }
+        if (field.name === "department") {
+          return { ...field, options: specializations };
+        }
+        if (field.name === "insuranceType") {
+          return { ...field, options: insuranceList };
+        }
+        if (field.name === "surgeryRequired") {
+          // Map human labels to boolean values expected as surgeryReq
+          return {
+            ...field,
+            options: [
+              { key: "surg-no", value: false, label: "No" },
+              { key: "surg-yes", value: true, label: "Yes" },
+            ],
+          };
+        }
+        if (field.name === "status") {
+          // Ensure status is a string as per API spec
+          return {
+            ...field,
+            options:
+              field.options && field.options.length
+                ? field.options
+                : [
+                    { key: "status-admitted", value: "Admitted", label: "Admitted" },
+                    { key: "status-discharged", value: "Discharged", label: "Discharged" },
+                  ],
+          };
+        }
+        return field;
+      }),
+    [fields, symptomsList, specializations, insuranceList]
+  );
+
   const renderField = (field) => (
     <div
       key={field.name}
@@ -172,23 +270,32 @@ const IPDFinal = ({ data, selectedWard, selectedRoom, selectedBed, fields, onCha
             <select
               value={data[field.name] || ""}
               onChange={(e) => onChange(field.name, e.target.value)}
-              disabled={field.disabled || (field.name === 'diagnosis' && loadingSymptoms)}
+              disabled={
+                field.disabled ||
+                (field.name === "symptoms" && loadingSymptoms) ||
+                (field.name === "department" && loadingSpecializations) ||
+                (field.name === "insuranceType" && loadingInsurance)
+              }
               className={`w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#01B07A] peer pt-4 pb-1 ${
-                field.disabled || (field.name === 'diagnosis' && loadingSymptoms) ? "bg-gray-100 cursor-not-allowed" : ""
+                field.disabled ||
+                (field.name === "symptoms" && loadingSymptoms) ||
+                (field.name === "department" && loadingSpecializations) ||
+                (field.name === "insuranceType" && loadingInsurance)
+                  ? "bg-gray-100 cursor-not-allowed"
+                  : ""
               }`}
             >
               <option value="">
-                {field.name === 'diagnosis' && loadingSymptoms 
-                  ? "Loading symptoms..." 
+                {field.name === "symptoms" && loadingSymptoms
+                  ? "Loading symptoms..."
+                  : field.name === "department" && loadingSpecializations
+                  ? "Loading departments..."
+                  : field.name === "insuranceType" && loadingInsurance
+                  ? "Loading insurance..."
                   : `Select ${field.label}`
                 }
               </option>
-              {field.name === 'diagnosis' && !loadingSymptoms && field.options?.map((opt) => (
-                <option key={opt.key || opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-              {field.name !== 'diagnosis' && field.options?.map((opt) => (
+              {field.options?.map((opt) => (
                 <option key={opt.key || opt.value} value={opt.value}>
                   {opt.label}
                 </option>
@@ -304,7 +411,7 @@ const IPDFinal = ({ data, selectedWard, selectedRoom, selectedBed, fields, onCha
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-        {fields.map(renderField)}
+        {computedFields.map(renderField)}
       </div>
     </div>
   );

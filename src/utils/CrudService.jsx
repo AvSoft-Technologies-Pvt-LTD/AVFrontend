@@ -591,3 +591,33 @@ export const getIpdAdmissionById = (id) =>
 // CREATE/POST new IPD admission
 export const createIpdAdmission = (data) =>
   axiosInstance.post("/ipd-admissions", data);
+
+
+// =======================
+// INSURANCE CRUD SERVICES
+// =======================
+
+// Get all insurance list
+export const getAllInsurance = () => axiosInstance.get('/insurance/all');
+
+// Get insurance by ID
+export const getInsuranceById = (id) => axiosInstance.get(`/insurance/${id}`);
+
+// Create new insurance
+export const createInsurance = (data) => axiosInstance.post('/insurance', data);
+
+// Update insurance
+export const updateInsurance = (id, data) =>
+  axiosInstance.put(`/insurance/${id}`, data);
+
+// Delete insurance
+export const deleteInsurance = (id) =>
+  axiosInstance.delete(`/insurance/${id}`);
+
+//ipd entire post
+
+export const fetchIPDAdmissions = () => axiosInstance.get('/ipd-admissions');
+export const fetchIPDAdmission = (id) => axiosInstance.get(`/ipd-admissions/${id}`);
+export const addIPDAdmission = (data) => axiosInstance.post('/ipd-admissions', data);
+export const editIPDAdmission = (id, data) => axiosInstance.put(`/ipd-admissions/${id}`, data);
+export const removeIPDAdmission = (id) => axiosInstance.delete(`/ipd-admissions/${id}`);

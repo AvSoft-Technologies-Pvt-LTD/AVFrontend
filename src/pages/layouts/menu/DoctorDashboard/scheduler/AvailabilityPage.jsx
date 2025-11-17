@@ -209,9 +209,9 @@ const AvailabilityPage = () => {
   };
 
   const formatTimeWithAMPM = (hours, minutes) => {
-    const period = hours >= 12 ? "PM" : "AM";
-    const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-    return `${displayHours}:${String(minutes).padStart(2, "0")} ${period}`;
+    const hh = String(hours).padStart(2, "0");
+    const mm = String(minutes).padStart(2, "0");
+    return `${hh}:${mm}`;
   };
 
   const generateSlotsArray = () => {
@@ -520,9 +520,10 @@ const AvailabilityPage = () => {
                           className="sm:w-[18px] sm:h-[18px] text-slate-400 flex-shrink-0"
                         />
                         <input
-                          type="time"
+                          type="text"
                           value={startTime}
                           onChange={(e) => setStartTime(e.target.value)}
+                          placeholder="HH:MM"
                           className="flex-1 outline-none font-semibold text-slate-800 text-sm min-w-0"
                         />
                       </div>
@@ -537,9 +538,10 @@ const AvailabilityPage = () => {
                           className="sm:w-[18px] sm:h-[18px] text-slate-400 flex-shrink-0"
                         />
                         <input
-                          type="time"
+                          type="text"
                           value={endTime}
                           onChange={(e) => setEndTime(e.target.value)}
+                          placeholder="HH:MM"
                           className="flex-1 outline-none font-semibold text-slate-800 text-sm min-w-0"
                         />
                       </div>

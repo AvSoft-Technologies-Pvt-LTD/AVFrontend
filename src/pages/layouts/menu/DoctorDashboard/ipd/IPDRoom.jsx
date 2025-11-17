@@ -29,6 +29,13 @@ const getWardIcon = (wardType) => {
   return <IconComponent className="w-4 h-4 sm:w-5 sm:h-5" />;
 };
 
+// Backend mapping: 1 = Maintenance, 2 = Available, 3 = Occupied
+const BED_STATUS = {
+  MAINTENANCE: 1,
+  AVAILABLE: 2,
+  OCCUPIED: 3,
+};
+
 const IPDRoom = ({ wardData, selectedWard, selectedRoom, onSelectRoom }) => {
   if (!selectedWard) return null;
 
@@ -54,13 +61,13 @@ const IPDRoom = ({ wardData, selectedWard, selectedRoom, onSelectRoom }) => {
                 ? "border-[#01B07A] bg-[#E6FBF5] shadow-lg"
                 : "border-gray-200 hover:border-gray-300"
             } ${
-              room.beds.filter(bed => bed.bedStatusId === 1).length === 0
+              room.beds.filter((bed) => bed.bedStatusId === BED_STATUS.AVAILABLE).length === 0
                 ? "opacity-50 cursor-not-allowed"
                 : ""
             }`}
             onClick={() =>
-              room.beds.filter(bed => bed.bedStatusId === 1).length > 0 &&
-              onSelectRoom(room.roomNumber)
+              room.beds.filter((bed) => bed.bedStatusId === BED_STATUS.AVAILABLE).length > 0 &&
+              onSelectRoom(room)
             }
           >
             <div className="flex items-center justify-between mb-2">
@@ -92,7 +99,7 @@ const IPDRoom = ({ wardData, selectedWard, selectedRoom, onSelectRoom }) => {
                   Available
                 </p>
                 <p className="text-green-600 font-bold text-sm">
-                  {room.beds.filter(bed => bed.bedStatusId === 1).length}
+                  {room.beds.filter((bed) => bed.bedStatusId === BED_STATUS.AVAILABLE).length}
                 </p>
               </div>
               <div className="bg-red-50 rounded-xl p-2 text-center shadow-sm flex flex-col items-center">
@@ -101,7 +108,7 @@ const IPDRoom = ({ wardData, selectedWard, selectedRoom, onSelectRoom }) => {
                   Occupied
                 </p>
                 <p className="text-red-600 font-bold text-sm">
-                  {room.beds.filter(bed => bed.bedStatusId !== 1).length}
+                  {room.beds.filter((bed) => bed.bedStatusId === BED_STATUS.OCCUPIED).length}
                 </p>
               </div>
             </div>
@@ -110,7 +117,11 @@ const IPDRoom = ({ wardData, selectedWard, selectedRoom, onSelectRoom }) => {
                 className="bg-red-500 h-2 rounded-full transition-all duration-300"
                 style={{
                   width: `${
-                    (room.beds.filter(bed => bed.bedStatusId !== 1).length / room.beds.length) * 100
+                    (room.beds.filter((bed) =>
+                      bed.bedStatusId === BED_STATUS.OCCUPIED ||
+                      bed.bedStatusId === BED_STATUS.MAINTENANCE
+                    ).length /
+                      room.beds.length) * 100
                   }%`,
                 }}
               ></div>

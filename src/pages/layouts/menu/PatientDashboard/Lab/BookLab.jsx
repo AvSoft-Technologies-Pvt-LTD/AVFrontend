@@ -2,10 +2,12 @@ import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Clock, MapPin, Home, TestTube, User, DollarSign, FileText, CheckCircle, Circle } from "lucide-react";
 import { createAppointment } from "../../../../../utils/CrudService";
+import { useSelector } from "react-redux";
 
 const BookLab = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const patientId = useSelector((state) => state.auth.patientId);
   const { lab: labFromState, cart: cartFromState } = location.state || {};
   const [form, setForm] = useState({
     location: "Home Collection",
@@ -88,6 +90,7 @@ const BookLab = () => {
       }
       const payload = {
         patientName: form.fullName,
+        patientid: patientId,
         phone: form.phone,
         email: form.email,
         labAvailableId: String(labAvailableId),
