@@ -300,7 +300,13 @@ const TokenGenerator = () => {
     }
     setIsVerifying(true);
     try {
-      const departmentId = Number(selectedSpecialization?.id || selectedSpecialization?.specialtyId || 0);
+      const specializationId = Number(
+        selectedSpecialization?.id ||
+        selectedSpecialization?.specializationId ||
+        selectedSpecialization?.specialityId ||
+        selectedSpecialization?.specialtyId ||
+        0
+      );
       const doctorIdentifier = Number(selectedDoctor?.doctorId || selectedDoctor?.id || 0);
       const slotIdentifier = Number(selectedSlotId);
       const waitMinutes = consultationType === 'virtual'
@@ -313,10 +319,13 @@ const TokenGenerator = () => {
       const currentTime24 = `${hours24}:${minutes24}`;
 
       const requestBody = {
-        patientId:1,
+        patientId,
         patientName: patientData.fullName,
         phoneNumber: patientData.phoneNumber,
-        departmentId,
+        departmentId: specializationId,
+        specialtyId: specializationId,
+        specializationId,
+        specialityId: specializationId,
         slotId: slotIdentifier,
         doctorId: doctorIdentifier,
         priorityLevel: priority.toUpperCase(),
@@ -328,6 +337,8 @@ const TokenGenerator = () => {
       if (appointmentDate) requestBody.appointmentDate = appointmentDate;
       requestBody.appointmentTime = currentTime24;
       if (consultationType) requestBody.consultationType = consultationType.toUpperCase();
+
+      console.log('Queue token payload being sent:', requestBody);
 
       const response = await createQueueToken(requestBody);
       console.log('Queue token created:', response?.data || response);
