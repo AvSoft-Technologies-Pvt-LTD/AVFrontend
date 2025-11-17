@@ -107,8 +107,8 @@ export const menuItemsMap = {
           path: "/superadmindashboard/manage-doctors",
         },
         {
-          label: "DigiHealth Doctors",
-          path: "/superadmindashboard/manage-doctors/avswasthya",
+          label: "PocketClinic Doctors",
+          path: "/superadmindashboard/manage-doctors/PocketClinic",
         },
       ],
     },
@@ -313,13 +313,13 @@ const getUserInitials = (user) => {
       <div className="w-10 h-10 rounded-lg flex items-center justify-center shadow-md overflow-hidden">
         <img
           src={logo}
-          alt="DigiHealth Logo"
+          alt="PocketClinic Logo"
           className="w-full h-full object-cover rounded-lg"
         />
       </div>
       {(!isCollapsed || !isDesktop) && (
         <h3 className="font-bold text-lg text-white hidden md:block">
-          DigiHealth
+          PocketClinic
         </h3>
       )}
     </div>

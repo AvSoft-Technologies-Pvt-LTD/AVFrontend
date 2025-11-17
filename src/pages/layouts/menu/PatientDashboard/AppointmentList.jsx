@@ -533,7 +533,7 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
           onClose={() => setState((prev) => ({ ...prev, showPaymentGateway: false }))}
           amount={state.selectedAppointment.fees}
           bookingId={state.selectedAppointment.id}
-          merchantName="DigiHealth"
+          merchantName="PocketClinic"
           methods={["upi", "card", "netbanking", "wallet", "paylater"]}
           onPay={handlePaymentSuccess}
           onPaymentFailure={handlePaymentFailure}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   Camera, Eye, EyeOff, Edit2, Check, Save, X, User, Lock, MapPin,
-  Award, MailCheck, ShieldCheck
+  Award, MailCheck, ShieldCheck, PhoneCall
 } from "lucide-react";
 import { useSelector, useDispatch } from "react-redux";
 import { updateDoctor } from "../../../../context-api/authSlice";
@@ -22,7 +22,7 @@ const formFields = {
     { id: "lastName", label: "Last Name", type: "text" },
     { id: "gender", label: "Gender", type: "select", options: ["Male", "Female", "Other"] },
     { id: "dob", label: "Date of Birth", type: "date" },
-    { id: "phone", label: "Phone", type: "text" },
+    { id: "phone", label: "Phone", type: "text", verify: true },
     { id: "email", label: "Email", type: "email", verify: true },
     { id: "aadhaar", label: "Aadhaar Number", type: "text" },
   ],
@@ -256,7 +256,7 @@ console.log("Calling API!");
                 onClick={handleVerifyEmail}
                 className="absolute right-4 top-1/2 -translate-y-1/2 text-[#01B07A]"
               >
-                <MailCheck size={18} />
+                {id === "email" ? <MailCheck size={18} /> : <PhoneCall size={18} />}
               </button>
             )}
             {id === "email" && isVerified && (

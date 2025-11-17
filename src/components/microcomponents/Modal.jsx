@@ -102,7 +102,7 @@ useEffect(() => {
     const initial = {};
     fields.forEach((f) => {
       if (f.type === "checkboxWithInput" || f.durationField) {
-        initial[f.name] = data?.[f.name] ?? false;
+        initial[f.name] = data?.[f.name] ?? [];
         initial[f.inputName] = data?.[f.inputName] ?? "";
       } else {
         initial[f.name] = data?.[f.name] ?? "";

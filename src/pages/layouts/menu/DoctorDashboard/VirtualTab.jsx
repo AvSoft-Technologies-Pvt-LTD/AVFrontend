@@ -44,7 +44,6 @@ const VirtualTab = forwardRef(
   ({ doctorName, location, setTabActions, tabActions = [], tabs = [], activeTab, onTabChange }, ref) => {
     const navigate = useNavigate();
     const { patientId, doctorId } = useSelector((s) => s.auth);
-    console.log("Current doctorId from auth:", doctorId);
     const [virtualPatients, setVirtualPatients] = useState([]);
     const [loading, setLoading] = useState(true);
     const [newPatientId, setNewPatientId] = useState(null);
@@ -79,44 +78,13 @@ const VirtualTab = forwardRef(
 
     // ✅ Fetch all virtual consultations
     const fetchAllPatients = async () => {
+       console.log("fetchAllPatients called");
       setLoading(true);
       try {
-        console.log("Fetching appointments for doctorId:", doctorId);
-        
-        // Test function to manually check different doctorIds
-        const testDoctorIds = [doctorId, "1", "2", "3"];
-        let all = [];
-        
-        for (const testId of testDoctorIds) {
-          if (!testId) continue;
-          
-          try {
-            console.log(`Testing with doctorId: ${testId}`);
-            const r = await getVirtualAppointmentById(testId);
-            console.log(`Response for doctorId ${testId}:`, r);
-            
-            const testData = r.data || [];
-            console.log(`Data for doctorId ${testId}:`, testData);
-            
-            if (testData && testData.length > 0) {
-              console.log(`Found ${testData.length} appointments for doctorId ${testId}`);
-              all = testData;
-              break; // Use the first doctorId that has data
-            }
-          } catch (error) {
-            console.log(`Error with doctorId ${testId}:`, error.response?.status, error.response?.data);
-          }
-        }
-        
-        // If still no data from any doctor, try general endpoint
-        if (!all || all.length === 0) {
-          console.log("No data from any doctor endpoint, trying general endpoint...");
-          const r = await getAllVirtualAppointments();
-          console.log("General API response:", r);
-          all = r.data || [];
-          console.log("General appointments data:", all);
-        }
-        
+        const r = await getVirtualAppointmentById(doctorId);
+         console.log("Raw GET Response:", r);
+        const all = r.data || [];
+         console.log("Fetched Appointments:", all); 
         const formatted = all.map((p) => {
           const d = p.scheduledDate ? new Date(p.scheduledDate) : null;
           const date = d && !isNaN(d) ? d.toISOString().split("T")[0] : "N/A";
@@ -132,11 +100,10 @@ const VirtualTab = forwardRef(
             scheduledTime: time,
           };
         });
-        console.log("Final formatted appointments:", formatted);
         setVirtualPatients(formatted.reverse());
         setPatient(formatted);
       } catch (e) {
-        console.error("Main error fetching appointments:", e);
+        console.error(e);
       } finally {
         setLoading(false);
       }
@@ -157,7 +124,7 @@ const handleSelected = (r) => {
     console.log("this is",{ state: { patient: r } })
     localStorage.setItem("selectedThisPatient", JSON.stringify(r));
      setPatient(r);
-     navigate("/doctordashboard/medical-record", { state: { patient: r } });
+    navigate("/doctordashboard/form", { state: { patient: r } });
   } catch (error) {
     console.error("Error saving patient:", error);
   }
@@ -302,20 +269,13 @@ const handleSelected = (r) => {
               patientEmail={r.email}
               hospitalName={r.hospitalName || "AV Hospital"}
             /> */}
-            {/* <button
+            <button
               title="View Medical Record"
               onClick={() => {
                 console.log("Navigating to medical record with patient:", r);
                 setPatient(r); // ✅ ensure the correct patient is in context
                 navigate("/doctordashboard/medical-record", { state: { patient: r } });
               }}
-              className="p-1 text-base text-[var(--primary-color)]"
-            >
-              <FiExternalLink />
-            </button> */}
-             <button
-              title="View Medical Record"
-             onClick={() => handleSelected(r)}
               className="p-1 text-base text-[var(--primary-color)]"
             >
               <FiExternalLink />

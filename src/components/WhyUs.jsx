@@ -50,13 +50,13 @@ const WhyAndHowSection = () => {
         <div className="text-center mb-6 md:mb-6">
           <h2 className="text-lg md:text-xl font-semibold mb-2" style={{ color: "var(--primary-color)" }}>Why & How</h2>
           <h1 className="text-2xl md:text-3xl font-semibold mt-1 overflow-hidden" style={{ color: "var(--primary-color)" }}>
-            <span ref={headingRef} className={`inline-block text-[var(--accent-color)] transition-all duration-700 ease-out ${inView ? "heading-fade-up-inview" : "heading-opacity-0"}`}>DigiHealth Works?</span>
+            <span ref={headingRef} className={`inline-block text-[var(--accent-color)] transition-all duration-700 ease-out ${inView ? "heading-fade-up-inview" : "heading-opacity-0"}`}>PocketClinic Works?</span>
           </h1>
-          <p className="text-sm md:text-base text-[var(--primary-color)]/70 max-w-xl md:max-w-2xl mx-auto mt-3">DigiHealth is your one-stop digital healthcare solution, ensuring seamless access to doctors, hospitals, pharmacies, and labs with AI-driven insights and exclusive benefits.</p>
+          <p className="text-sm md:text-base text-[var(--primary-color)]/70 max-w-xl md:max-w-2xl mx-auto mt-3">PocketClinic is your one-stop digital healthcare solution, ensuring seamless access to doctors, hospitals, pharmacies, and labs with AI-driven insights and exclusive benefits.</p>
         </div>
         <div className="flex flex-col md:flex-row items-center gap-6 md:gap-10 mb-8 md:mb-14">
           <div className="w-full md:w-1/2">
-            <h3 className="text-lg md:text-xl font-semibold mb-4 text-left" style={{ color: "var(--primary-color)" }}>Why Choose DigiHealth?</h3>
+            <h3 className="text-lg md:text-xl font-semibold mb-4 text-left" style={{ color: "var(--primary-color)" }}>Why Choose PocketClinic?</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
               {features.map(({ icon, title, description }, i) => (
                 <div key={i} className="flex items-start p-3 md:p-4 bg-white rounded-lg shadow-sm transition-transform duration-300 hover:scale-[1.02]">

@@ -31,7 +31,7 @@ const RegisterSelect = () => {
       image: "https://img.freepik.com/free-vector/doctors-concept-illustration_114360-1515.jpg"
     },
     {
-      label: "Pharmacy",
+      label: "Lab",
       value: "lab",
       icon: FlaskConical,
       description: "Real-time access to your store's Sales, Purchases, Inventory, Deliveries, Customers & Finances.",
@@ -51,7 +51,7 @@ const RegisterSelect = () => {
           {/* Header */}
           <div className="text-center ">
             <h1 className="text-2xl sm:text-2xl font-bold text-gray-900 mb-2">
-              Welcome to <span className="text-[var(--primary-color)]">AVSwasthya!</span>
+              Welcome to <span className="text-[var(--primary-color)]">PocketClinic!</span>
             </h1>
             <p className="text-lg sm:text-xl text-gray-600">
               Get started as a <span className="font-semibold text-[var(--primary-color)]">{currentSelection.label}</span>

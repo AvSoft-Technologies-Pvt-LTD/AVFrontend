@@ -55,11 +55,11 @@ const AVCard = () => {
 
       {/* Card content */}
       <div className="relative h-full p-4 flex flex-col">
-        {/* Header: Logo & DigiHealth (right-aligned) */}
+        {/* Header: Logo & PocketClinic (right-aligned) */}
         <div className="flex justify-end items-center">
           <div className="flex items-center gap-2">
                   <img src={logo} alt="AV Logo" className="w-12 h-12" />
-            <h1 className="text-lg font-extrabold text-[#01D48C]">DigiHealth</h1>
+            <h1 className="text-lg font-extrabold text-[#01D48C]">PocketClinic</h1>
       
           </div>
         </div>

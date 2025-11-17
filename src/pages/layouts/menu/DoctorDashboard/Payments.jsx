@@ -333,7 +333,7 @@ const Payments = () => {
     if (!sharePayment) return { subject: "", body: "" };
     return {
       subject: `Payment Receipt ${sharePayment.invoiceNo} - ${sharePayment.doctorName}`,
-      body: `PAYMENT RECEIPT\n\nPayment Details:\n• Receipt ID: ${sharePayment.invoiceNo}\n• Date: ${sharePayment.date}\n• Doctor: ${sharePayment.doctorName}\n• Service: ${sharePayment.serviceType}\n• Amount Paid: ₹${sharePayment.amount}\n• Payment Method: ${sharePayment.method}\n• Status: Paid\n\nPatient: ${sharePayment.patientName}\nAppointment: ${sharePayment.appointmentDate} at ${sharePayment.appointmentTime}\n\nGenerated on: ${new Date().toLocaleString()}\n\nFor any queries, please contact us at billing@digihealth.com`
+      body: `PAYMENT RECEIPT\n\nPayment Details:\n• Receipt ID: ${sharePayment.invoiceNo}\n• Date: ${sharePayment.date}\n• Doctor: ${sharePayment.doctorName}\n• Service: ${sharePayment.serviceType}\n• Amount Paid: ₹${sharePayment.amount}\n• Payment Method: ${sharePayment.method}\n• Status: Paid\n\nPatient: ${sharePayment.patientName}\nAppointment: ${sharePayment.appointmentDate} at ${sharePayment.appointmentTime}\n\nGenerated on: ${new Date().toLocaleString()}\n\nFor any queries, please contact us at billing@PocketClinic.com`
     };
   };
 
@@ -786,7 +786,7 @@ const InvoiceTemplate = React.memo(({ invoice, showActions }) => {
                 <Stethoscope className="text-white" size={20} />
               </div>
               <div>
-                <div className="text-lg font-semibold text-blue-600">DigiHealth</div>
+                <div className="text-lg font-semibold text-blue-600">PocketClinic</div>
                 <div className="text-xs text-gray-500">Healthcare Solutions</div>
               </div>
             </div>
@@ -901,14 +901,14 @@ const InvoiceTemplate = React.memo(({ invoice, showActions }) => {
               <p className="text-xs text-gray-600 leading-relaxed">
                 This receipt confirms successful payment for medical services rendered by {invoice.doctorName}.
                 For any queries regarding this payment receipt, please contact us at
-                billing@digihealth.com or call our support team.
+                billing@PocketClinic.com or call our support team.
               </p>
             </div>
             <div className="text-center">
               <p className="text-sm font-medium text-green-600 mb-1">
                 Thank you for your payment and for choosing {invoice.doctorName}
               </p>
-              <p className="text-xs text-gray-500">contact@digihealth.com | +91 98765 43210</p>
+              <p className="text-xs text-gray-500">contact@PocketClinic.com | +91 98765 43210</p>
             </div>
           </div>
           {showActions && (

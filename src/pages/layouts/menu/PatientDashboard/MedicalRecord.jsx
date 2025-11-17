@@ -19,11 +19,11 @@ import {
   createVirtualRecord,
 } from "../../../../utils/CrudService";
 import { CheckCircle } from "lucide-react";
+
 const MedicalRecords = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { activeTab, setActiveTab, setClickedRecord } = useMedicalRecords();
-
+  const { activeTab: contextActiveTab, setActiveTab, setClickedRecord } = useMedicalRecords();
   const patientId = useSelector((state) => state.auth.patientId);
   const [state, setState] = useState({
     activeTab: "OPD",
@@ -57,6 +57,7 @@ const MedicalRecords = () => {
           .filter((opt) => opt.label)
           .sort(byLabelAsc);
         setHospitalOptions(hospitalsList);
+
         const conditionsResponse = await getAllMedicalConditions();
         const conditionsList = (conditionsResponse?.data ?? [])
           .map((c) => ({
@@ -66,6 +67,7 @@ const MedicalRecords = () => {
           .filter((opt) => opt.label)
           .sort(byLabelAsc);
         setMedicalConditions(conditionsList);
+
         const statusResponse = await getAllMedicalStatus();
         const statusList = (statusResponse?.data ?? [])
           .map((s) => ({
@@ -75,11 +77,12 @@ const MedicalRecords = () => {
           .filter((opt) => opt.label)
           .sort(byLabelAsc);
         setStatusTypes(statusList);
+
         const symptomsResponse = await getAllSymptoms();
         const symptomsList = (symptomsResponse?.data ?? [])
           .map((s) => ({
-            label: s?.name || s?.symptomName || s?.label || "",
-            value: s?.id || s?.name || "",
+            label: s?.name ?? "",
+            value: Number(s?.symptomId),
           }))
           .filter((opt) => opt.label)
           .sort(byLabelAsc);
@@ -102,11 +105,19 @@ const MedicalRecords = () => {
           getIPDRecordsByPatientId(patientId),
           getVirtualRecordsByPatientId(patientId),
         ]);
+
+        const normalizeRecord = (r) => ({
+          ...r,
+          symptomIds: r.symptomIds || [],
+          symptomNames: getLabelsByIds(symptoms, r.symptomIds).split(", "),
+        });
+
         const newData = {
-          OPD: opdResponse.data || [],
-          IPD: ipdResponse.data || [],
-          Virtual: virtualResponse.data || [],
+          OPD: (opdResponse.data || []).map(normalizeRecord),
+          IPD: (ipdResponse.data || []).map(normalizeRecord),
+          Virtual: (virtualResponse.data || []).map(normalizeRecord),
         };
+
         // Merge with localStorage states
         const localData = JSON.parse(localStorage.getItem("recordActiveState"));
         if (localData) {
@@ -128,8 +139,9 @@ const MedicalRecords = () => {
       }
     };
     if (patientId) fetchAllRecords();
-  }, [patientId]);
-  // ✅ ADDED normalizeTab
+  }, [patientId, symptoms]);
+
+  // Normalize tab
   const normalizeTab = (tab) => {
     if (!tab) return "OPD";
     const formatted = tab.toLowerCase();
@@ -138,11 +150,14 @@ const MedicalRecords = () => {
     if (formatted === "virtual") return "Virtual";
     return "OPD";
   };
-  // ✅ READ ACTIVE TAB FROM STORAGE (initial load)
+
+  // Read active tab from storage (initial load)
   useEffect(() => {
     const storedTab = localStorage.getItem("activeMedicalTab");
     if (storedTab) {
-      setActiveTab(normalizeTab(storedTab));
+      const tab = normalizeTab(storedTab);
+      setActiveTab(tab);
+      setState((prev) => ({ ...prev, activeTab: tab }));
     }
   }, [setActiveTab]);
 
@@ -168,11 +183,13 @@ const MedicalRecords = () => {
     });
   };
 
+  // Helper: Get label by ID
   const getLabelById = (options, value) => {
     const option = options.find((opt) => String(opt.value) === String(value));
     return option ? option.label : value;
   };
 
+  // Helper: Get labels by IDs
   const getLabelsByIds = (options, values) => {
     if (!values || !Array.isArray(values)) return "";
     return values
@@ -183,32 +200,32 @@ const MedicalRecords = () => {
       .join(", ");
   };
 
+  // View details
   const handleViewDetails = (record) => {
     localStorage.setItem("clickedHospitalRecord", JSON.stringify(record));
     setClickedRecord(record);
     navigate("/patientdashboard/medical-record-details", { state: { selectedRecord: record } });
   };
 
+  // Add record
   const handleAddRecord = async (formData) => {
     try {
       const payload = {
         patientId,
         hospitalId: formData.hospitalName,
-        // Normalize symptoms to an array of primitive IDs/values
         symptomIds: Array.isArray(formData.symptoms)
           ? formData.symptoms.map((s) =>
-              typeof s === "object" ? s.value ?? s.id ?? s.label : s
+              typeof s === "object" ? Number(s.value) : Number(s)
             )
           : [],
-        // Normalize conditions to an array of primitive IDs/values
         medicalConditionIds: Array.isArray(formData.conditions)
           ? formData.conditions.map((c) =>
               typeof c === "object" ? c.value ?? c.id ?? c.label : c
             )
           : [],
         medicalStatusId: formData.status,
-        uploadedBy: "PATIENT", 
-        doctorId: formData.doctorId, // Explicitly set to null for patient-created records
+        uploadedBy: "PATIENT",
+        doctorId: formData.doctorId,
         ...(state.activeTab === "OPD" && { dateOfVisit: formData.dateOfVisit }),
         ...(state.activeTab === "IPD" && {
           dateOfAdmission: formData.dateOfAdmission,
@@ -218,17 +235,19 @@ const MedicalRecords = () => {
           dateOfConsultation: formData.dateOfConsultation,
         }),
       };
+
       let response;
       if (state.activeTab === "OPD") response = await createOPDRecord(payload);
-      else if (state.activeTab === "IPD")
-        response = await createIPDRecord(payload);
+      else if (state.activeTab === "IPD") response = await createIPDRecord(payload);
       else response = await createVirtualRecord(payload);
+
       const mappedResponse = {
         recordId: response.data.recordId,
         patientId: response.data.patientId,
         hospitalId: response.data.hospitalId,
         hospitalName: getLabelById(hospitalOptions, response.data.hospitalId),
-        symptoms: response.data.symptoms,
+        symptomIds: response.data.symptomIds || [],
+        symptomNames: getLabelsByIds(symptoms, response.data.symptomIds).split(", "),
         medicalConditionId: response.data.medicalConditionId,
         medicalConditionName: getLabelById(
           medicalConditions,
@@ -252,6 +271,7 @@ const MedicalRecords = () => {
         }),
         isActive: true,
       };
+
       setMedicalData((prev) => ({
         ...prev,
         [state.activeTab]: [...prev[state.activeTab], mappedResponse],
@@ -262,6 +282,7 @@ const MedicalRecords = () => {
     }
   };
 
+  // Create columns for DynamicTable
   const createColumns = (type) => {
     const baseFields = {
       OPD: [
@@ -284,6 +305,7 @@ const MedicalRecords = () => {
         "medicalStatusName",
       ],
     };
+
     const fieldLabels = {
       hospitalName: "Hospital",
       symptoms: "Symptoms",
@@ -293,6 +315,7 @@ const MedicalRecords = () => {
       dateOfConsultation: "Date of Consultation",
       medicalStatusName: "Status",
     };
+
     return [
       ...baseFields[type].map((key) => ({
         header: fieldLabels[key],
@@ -322,8 +345,10 @@ const MedicalRecords = () => {
                 month: "short",
                 year: "numeric",
               })
+            : key === "symptoms"
+            ? getLabelsByIds(symptoms, row.symptomIds)
             : Array.isArray(value)
-            ? getLabelsByIds(symptoms, value)
+            ? value.join(", ")
             : value;
           return <span className={hiddenClass}>{formattedValue}</span>;
         },
@@ -366,6 +391,14 @@ const MedicalRecords = () => {
     { key: "medicalStatusName", label: "Status", options: statusTypes },
   ];
 
+  // Handle tab change
+  const handleTabChange = (tab) => {
+    const normalizedTab = normalizeTab(tab);
+    setActiveTab(normalizedTab);
+    setState((prev) => ({ ...prev, activeTab: normalizedTab }));
+    localStorage.setItem("activeMedicalTab", normalizedTab);
+  };
+
   if (loading)
     return (
       <div className="text-center py-8">
@@ -396,8 +429,8 @@ const MedicalRecords = () => {
         data={medicalData[state.activeTab] || []}
         filters={filters}
         tabs={tabs}
-         activeTab={normalizeTab(activeTab)}
-        onTabChange={(tab) => setState((prev) => ({ ...prev, activeTab: tab }))}
+        activeTab={state.activeTab}
+        onTabChange={handleTabChange}
         tabActions={[
           {
             label: "Add Record",

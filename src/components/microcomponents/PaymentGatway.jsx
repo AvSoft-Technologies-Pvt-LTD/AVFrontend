@@ -7,7 +7,7 @@ const PaymentGateway = ({
   onClose,
   amount,
   bookingId,
-  merchantName = "DigiHealth",
+  merchantName = "PocketClinic",
   methods = ["upi", "card", "netbanking", "wallet"],
   onPay,
   currency = "₹",

@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
+import Navbar from '../Navbar';
+import Footer from '../Footer';
 
 const VerifyOTP = ({
   title = "Verify OTP",
@@ -31,6 +33,8 @@ const VerifyOTP = ({
   };
 
   return (
+    <>
+    <Navbar/>
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-4 animate-fade-in">
       <div className="w-full max-w-4xl flex flex-row items-center bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
         {/* Left Side: OTP Form */}
@@ -92,6 +96,8 @@ const VerifyOTP = ({
         </div>
       </div>
     </div>
+    <Footer/>
+    </>
   );
 };
 
