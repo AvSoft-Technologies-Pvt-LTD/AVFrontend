@@ -3,7 +3,6 @@ import { useSelector } from "react-redux";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Clock, MapPin, Home, TestTube, User, DollarSign, FileText, CheckCircle, Circle } from "lucide-react";
 import { createAppointment } from "../../../../../utils/CrudService";
-import { useSelector } from "react-redux";
 
 const BookLab = () => {
   const navigate = useNavigate();
