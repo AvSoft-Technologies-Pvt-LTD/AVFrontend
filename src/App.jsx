@@ -269,11 +269,22 @@ const App = () => {
           </Route>
         </Route>
         
-        {/* ✅ Fallback Route */}
+        {/* Fallback Route */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
-      
-    <ToastContainer position={"top-right"}autoClose={3000} hideProgressBar={false} theme="colored" className="custom-toast-container"/>
+
+      <ToastContainer
+        position="top-right"
+        autoClose={2000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        pauseOnHover={false}
+        pauseOnFocusLoss={false}
+        draggable
+        theme="colored"
+        className="custom-toast-container"
+      />
     </Router>
           </PatientProvider>
 

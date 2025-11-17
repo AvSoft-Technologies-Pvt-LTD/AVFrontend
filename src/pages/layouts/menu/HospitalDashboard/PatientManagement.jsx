@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
@@ -527,7 +525,6 @@ export default function PatientList() {
         confirmPassword: true,
         department: true,
       });
-      toast.dismiss();
       toast.error("Please fill all required fields correctly.", {
         position: "top-right",
       });
@@ -539,8 +536,9 @@ export default function PatientList() {
         "https://6801242781c7e9fbcc41aacf.mockapi.io/api/AV1/users",
         payload
       );
-      toast.dismiss();
-      toast.success("Patient added successfully!", { position: "top-right" });
+      toast.success("Patient added successfully!", {
+        position: "top-right",
+      });
       setAppointment({
         date: getCurrentDate(),
         time: getCurrentTime(),
@@ -550,7 +548,6 @@ export default function PatientList() {
       setAppointmentModal(true);
       setModalOpen(false);
     } catch (error) {
-      toast.dismiss();
       toast.error("Failed to create appointment. Please try again.", {
         position: "top-right",
       });

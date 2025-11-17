@@ -38,6 +38,7 @@ const VitalsForm = ({
   setChartVital,
 }) => {
   const { patient, activeTab } = usePatientContext();
+  const contextId = patient?.id;
   const doctorId = useSelector((state) => state.auth.doctorId);
   const emptyVitals = {
     heartRate: "",
@@ -50,27 +51,29 @@ const VitalsForm = ({
     respiratoryRate: "",
     timeOfDay: "morning",
   };
+
   const [formData, setFormData] = useState({ ...emptyVitals, ...data });
   const [headerRecordIdx, setHeaderRecordIdx] = useState(null);
   const [warnings, setWarnings] = useState({});
   const [loading, setLoading] = useState(false);
   const [vitalsRecords, setVitalsRecords] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+
   useEffect(() => {
     const fetchVitalsRecords = async () => {
       setIsLoading(true);
       const validDoctorId = doctorId || 1;
       const patientId = patient?.patientId;
-
-console.log("patientId",patientId)
       const context = activeTab?.toUpperCase();
+
       if (!patientId || !validDoctorId || !context) {
         console.warn("Missing required parameters for getIpdVitals");
         setIsLoading(false);
         return;
       }
+
       try {
-        const response = await getIpdVitals(validDoctorId, patientId, context);
+        const response = await getIpdVitals(context, contextId, validDoctorId, patientId);
         const records = Array.isArray(response.data) ? response.data : response.data?.content || [];
         const formattedRecords = records.map((r, index) => {
           let recDate;
@@ -90,6 +93,7 @@ console.log("patientId",patientId)
               timeSlot: "Unknown",
             };
           }
+
           const istString = recDate.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
           const istDate = new Date(istString);
           const formattedDate = istDate.toLocaleDateString("en-IN", {
@@ -109,6 +113,7 @@ console.log("patientId",patientId)
           if (istHour < 12) timeSlot = "Morning";
           else if (istHour < 17) timeSlot = "Afternoon";
           else timeSlot = "Evening";
+
           return {
             ...r,
             formattedDate,
@@ -116,25 +121,28 @@ console.log("patientId",patientId)
             timeSlot,
           };
         });
+
         setVitalsRecords(formattedRecords);
       } catch (error) {
         console.error("Failed to fetch vitals records:", error);
-        toast.error("Failed to fetch IPD vitals");
+        toast.error("Failed to fetch IPD vitals", {
+          position: "top-right",
+          autoClose: 2000,
+        });
       } finally {
         setIsLoading(false);
       }
     };
+
     fetchVitalsRecords();
   }, [patient, doctorId, activeTab]);
 
-  // Reset headerRecordIdx when vitalsRecords changes
   useEffect(() => {
-    if (vitalsRecords.length > 0) {
+    if (vitalsRecords.length === 0) {
       setHeaderRecordIdx(null);
     }
   }, [vitalsRecords]);
 
-  // Populate formData when headerRecordIdx changes
   useEffect(() => {
     if (headerRecordIdx !== null && vitalsRecords[headerRecordIdx]) {
       const selectedRecord = vitalsRecords[headerRecordIdx];
@@ -150,6 +158,7 @@ console.log("patientId",patientId)
   const validate = (field, value) => {
     const range = vitalRanges[field];
     if (!range) return "";
+
     if (field === "bloodPressure") {
       const [systolic, diastolic] = value.split("/").map(Number);
       if (!systolic || !diastolic) return "Enter as systolic/diastolic";
@@ -157,6 +166,7 @@ console.log("patientId",patientId)
         return "Out of normal range";
       return "";
     }
+
     if (value === "") return "";
     const num = +value;
     if (isNaN(num)) return "Enter a number";
@@ -177,23 +187,30 @@ console.log("patientId",patientId)
         ist.getTime() - ist.getTimezoneOffset() * 60000
       ).toISOString();
       const timeSlot = formData.timeOfDay?.toUpperCase() || "MORNING";
+
       const ipdVitalPayload = {
-        contextId:patient?.id,
-        patientId: patient?.patientId || patient?.patientId,
-        doctorId: doctorId || 1,
+        contextId,
+        patientId: patient?.patientId,
+        doctorId: doctorId,
         context: activeTab.toUpperCase(),
         timeSlot,
         recordedAt,
-        heartRate: +formData.heartRate || 0,
-        temperature: +formData.temperature || 0.1,
-        bloodSugar: +formData.bloodSugar || 0.1,
-        bloodPressure: formData.bloodPressure || "0/0",
-        respiratoryRate: +formData.respiratoryRate || 0,
-        spo2: +formData.spo2 || 0,
+        heartRate: +formData.heartRate,
+        temperature: +formData.temperature,
+        bloodSugar: +formData.bloodSugar,
+        bloodPressure: formData.bloodPressure,
+        respiratoryRate: +formData.respiratoryRate,
+        spo2: +formData.spo2,
+        height: +formData.height,
+        weight: +formData.weight,
       };
+
       const res = await createDoctorIpdVital(ipdVitalPayload);
-      console.log("res",res)
-      toast.success("✅ IPD Vitals saved successfully!");
+      toast.success("Vitals saved successfully!", {
+        position: "top-right",
+        autoClose: 2000,
+      });
+
       const newRecord = {
         ...formData,
         recordedAt: recordedAt,
@@ -211,13 +228,18 @@ console.log("patientId",patientId)
         }),
         timeSlot: timeSlot,
       };
+
       const updatedVitalsRecords = [...vitalsRecords, newRecord];
       setVitalsRecords(updatedVitalsRecords);
+      setHeaderRecordIdx(updatedVitalsRecords.length - 1);
       onSave("vitals", { ...formData, vitalsRecords: updatedVitalsRecords });
       setFormData({ ...emptyVitals });
     } catch (error) {
-      console.error("❌ Full error response:", error);
-      toast.error(`❌ Failed: ${error.response?.data?.message || error.message}`);
+      console.error(" Full error response:", error);
+      toast.error(`Failed: ${error.response?.data?.message || error.message}`, {
+        position: "top-right",
+        autoClose: 2000,
+      });
     } finally {
       setLoading(false);
     }
@@ -226,13 +248,16 @@ console.log("patientId",patientId)
   const handleChange = (e) => {
     const { name, value } = e.target;
     let processedValue = value;
+
     if (name === "timeOfDay") {
       setFormData((p) => ({ ...p, timeOfDay: value }));
       return;
     }
+
     if (name !== "bloodPressure") {
       processedValue = value.replace(/[^0-9.]/g, "");
     }
+
     setFormData((p) => ({ ...p, [name]: processedValue }));
     setWarnings((p) => ({ ...p, [name]: validate(name, processedValue) }));
   };
@@ -275,7 +300,19 @@ console.log("patientId",patientId)
                 <Save className="w-3.5 h-3.5" />
               </button>
               <button
-                onClick={() => onPrint("vitals")}
+                onClick={() => {
+                  if (headerRecordIdx === null) {
+                    toast.info("Please save the vitals first, then print.", {
+                      position: "top-right",
+                      autoClose: 2000,
+                    });
+                    return;
+                  }
+                  onPrint("vitals", {
+                    ...formData,
+                    vitalsRecords,
+                  });
+                }}
                 className="hover:bg-[var(--primary-color)] hover:bg-opacity-20 p-1 rounded-lg transition-colors"
               >
                 <Printer className="w-3.5 h-3.5" />
@@ -314,7 +351,19 @@ console.log("patientId",patientId)
                 <Save className="w-5 h-5" />
               </button>
               <button
-                onClick={() => onPrint("vitals")}
+                onClick={() => {
+                  if (headerRecordIdx === null) {
+                    toast.info("Please save the vitals first, then print.", {
+                      position: "top-right",
+                      autoClose: 2000,
+                    });
+                    return;
+                  }
+                  onPrint("vitals", {
+                    ...formData,
+                    vitalsRecords,
+                  });
+                }}
                 className="hover:bg-[var(--primary-color)] hover:bg-opacity-20 p-1.5 rounded-lg transition-colors"
               >
                 <Printer className="w-5 h-5" />
@@ -355,7 +404,7 @@ console.log("patientId",patientId)
                 <option value="">{isLoading ? "Loading..." : "Select Record"}</option>
                 {vitalsRecords.map((rec, idx) => (
                   <option
-                    key={rec.id || idx}
+                    key={`${rec.id ?? 'rec'}-${idx}`}
                     value={idx}
                     className="text-[8px] sm:text-[12px]"
                   >
@@ -388,6 +437,7 @@ console.log("patientId",patientId)
           </div>
         </div>
       </div>
+
       {/* Vitals Input Grid */}
       <div className="p-3 sm:p-4 md:p-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
         {Object.keys(vitalRanges).map((field) => (
@@ -423,6 +473,7 @@ console.log("patientId",patientId)
           </div>
         ))}
       </div>
+
       {/* Voice Transcript */}
       {transcript && (
         <div className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">

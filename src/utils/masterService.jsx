@@ -228,10 +228,16 @@ export const getDoctorPrescriptions = () => axiosInstance.get("/doctor/prescript
 export const createDoctorPrescription = data => axiosInstance.post("/doctor/prescriptions", data);
 export const updateDoctorPrescription = (id, data) => axiosInstance.put(`/doctor/prescriptions/${id}`, data);
 export const deleteDoctorPrescription = id => axiosInstance.delete(`/doctor/prescriptions/${id}`);
-
+export const getPrescriptionsByContextDoctorPatient = (context, contextId, doctorId, patientId) =>
+  axiosInstance.get("/doctor/prescriptions/by-context-doctor-patient", {
+    params: { context, contextId, doctorId, patientId }
+  });
 // vitals form in dr dashboard
 export const createDoctorIpdVital = data => axiosInstance.post("/doctor/ipd-vitals", data);
-export const getIpdVitals = (doctorId, patientId, context) => axiosInstance.get(`/doctor/ipd-vitals/doctor/${doctorId}/patient/${patientId}/context/${context}`);
+export const getIpdVitals = (context, contextId, doctorId, patientId) =>
+  axiosInstance.get(
+    `/doctor/ipd-vitals/context/${context}/contextId/${contextId}/doctor/${doctorId}/patient/${patientId}`
+  );
 
 // digital signature api in dr dashboard
 export const getDoctorSignatures = () => axiosInstance.get("/v1/doctor-signature");
