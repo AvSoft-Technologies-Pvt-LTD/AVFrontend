@@ -94,6 +94,25 @@ const MedicalRecords = () => {
     fetchMasterData();
   }, []);
 
+  // Update symptomNames whenever symptoms or medicalData changes
+  useEffect(() => {
+    if (symptoms.length > 0 && medicalData) {
+      setMedicalData((prevData) => {
+        const updateSymptomNames = (records) =>
+          records.map((record) => ({
+            ...record,
+            symptomNames: getLabelsByIds(symptoms, record.symptomIds).split(", "),
+          }));
+
+        return {
+          OPD: updateSymptomNames(prevData.OPD),
+          IPD: updateSymptomNames(prevData.IPD),
+          Virtual: updateSymptomNames(prevData.Virtual),
+        };
+      });
+    }
+  }, [symptoms]);
+
   // Fetch all records
   useEffect(() => {
     const fetchAllRecords = async () => {
@@ -109,7 +128,7 @@ const MedicalRecords = () => {
         const normalizeRecord = (r) => ({
           ...r,
           symptomIds: r.symptomIds || [],
-          symptomNames: getLabelsByIds(symptoms, r.symptomIds).split(", "),
+          symptomNames: [],
         });
 
         const newData = {
@@ -139,7 +158,7 @@ const MedicalRecords = () => {
       }
     };
     if (patientId) fetchAllRecords();
-  }, [patientId, symptoms]);
+  }, [patientId]);
 
   // Normalize tab
   const normalizeTab = (tab) => {
@@ -305,7 +324,6 @@ const MedicalRecords = () => {
         "medicalStatusName",
       ],
     };
-
     const fieldLabels = {
       hospitalName: "Hospital",
       symptoms: "Symptoms",
@@ -315,7 +333,6 @@ const MedicalRecords = () => {
       dateOfConsultation: "Date of Consultation",
       medicalStatusName: "Status",
     };
-
     return [
       ...baseFields[type].map((key) => ({
         header: fieldLabels[key],

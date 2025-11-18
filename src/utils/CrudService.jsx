@@ -344,8 +344,7 @@ export const getAllVirtualAppointments = () =>
  
 // Get virtual appointment by ID
 export const getVirtualAppointmentById = (doctorId) => {
-  console.log("Making request to:", `/doc-virtual-appointments/${doctorId}`);
-  return axiosInstance.get(`/doc-virtual-appointments/${doctorId}`);
+  return axiosInstance.get(`/doc-virtual-appointments/doctorId/${doctorId}`);
 };
 
 // Create a new virtual appointment
