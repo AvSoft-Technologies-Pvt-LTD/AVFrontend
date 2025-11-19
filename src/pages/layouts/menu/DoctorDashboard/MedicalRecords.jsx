@@ -3,7 +3,6 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { FaNotesMedical } from "react-icons/fa";
 import TeleConsultFlow from "../../../../components/microcomponents/Call";
-import { usePatientContext } from "../../../../context-api/PatientContext";
 import {
   getAllMedicalRecords,
   createMedicalRecord,
@@ -23,9 +22,8 @@ import {
 const DrMedicalRecords = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const contextPatient = usePatientContext().patient;
   const user = useSelector((state) => state.auth.user);
-  const { activeTab, handleTabChange } = usePatientContext();
+  const [activeTab, setActiveTab] = useState("OPD");
   const [medicalData, setMedicalData] = useState({ OPD: [], IPD: [], VIRTUAL: [] });
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
@@ -40,9 +38,13 @@ const DrMedicalRecords = () => {
     symptoms: false,
   });
   const [state, setState] = useState({ showAddModal: false });
-  const selectedPatient = (location.state && location.state.patient && location.state.patient.patientId)
+  const selectedPatient = (location.state && location.state.patient && (location.state.patient.patientId || location.state.patient.id))
     ? location.state.patient
-    : contextPatient;
+    : null;
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+  };
 
   const hospitalMap = useMemo(() => {
     const m = {};
@@ -412,9 +414,14 @@ const DrMedicalRecords = () => {
   ];
 
   useEffect(() => {
-    fetchAllRecords();
+    if (selectedPatient) {
+      fetchAllRecords();
+    }
+  }, [user?.doctorId, selectedPatient, activeTab]);
+
+  useEffect(() => {
     fetchMasterData();
-  }, [user?.doctorId, selectedPatient?.id, activeTab]);
+  }, []);
 
   return (
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">

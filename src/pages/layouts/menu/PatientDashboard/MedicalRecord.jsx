@@ -20,6 +20,7 @@ import {
 } from "../../../../utils/CrudService";
 import { CheckCircle } from "lucide-react";
 
+
 const MedicalRecords = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -58,6 +59,7 @@ const MedicalRecords = () => {
           .sort(byLabelAsc);
         setHospitalOptions(hospitalsList);
 
+
         const conditionsResponse = await getAllMedicalConditions();
         const conditionsList = (conditionsResponse?.data ?? [])
           .map((c) => ({
@@ -68,6 +70,7 @@ const MedicalRecords = () => {
           .sort(byLabelAsc);
         setMedicalConditions(conditionsList);
 
+
         const statusResponse = await getAllMedicalStatus();
         const statusList = (statusResponse?.data ?? [])
           .map((s) => ({
@@ -77,6 +80,7 @@ const MedicalRecords = () => {
           .filter((opt) => opt.label)
           .sort(byLabelAsc);
         setStatusTypes(statusList);
+
 
         const symptomsResponse = await getAllSymptoms();
         const symptomsList = (symptomsResponse?.data ?? [])
@@ -137,6 +141,7 @@ const MedicalRecords = () => {
           Virtual: (virtualResponse.data || []).map(normalizeRecord),
         };
 
+
         // Merge with localStorage states
         const localData = JSON.parse(localStorage.getItem("recordActiveState"));
         if (localData) {
@@ -180,7 +185,6 @@ const MedicalRecords = () => {
     }
   }, [setActiveTab]);
 
-  // Save active states to localStorage on toggle
   const handleToggleActive = (recordId, type) => {
     setMedicalData((prev) => {
       const updated = { ...prev };
@@ -189,7 +193,6 @@ const MedicalRecords = () => {
           ? { ...record, isActive: !record.isActive }
           : record
       );
-      // Save only active state map
       const activeStateMap = {};
       Object.keys(updated).forEach((tab) => {
         activeStateMap[tab] = updated[tab].map((r) => ({
@@ -531,3 +534,4 @@ const MedicalRecords = () => {
 };
 
 export default MedicalRecords;
+
