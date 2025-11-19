@@ -216,7 +216,7 @@ const Billing = () => {
     if (!shareInvoice) return { subject: "", body: "" };
     return {
       subject: `Invoice ${shareInvoice.invoiceId} - ${shareInvoice.doctorName}`,
-      body: `MEDICAL INVOICE\n\nInvoice Details:\n• Invoice ID: ${shareInvoice.invoiceId}\n• Date: ${shareInvoice.date}\n• Doctor: ${shareInvoice.doctorName}\n• Service: ${shareInvoice.serviceType}\n• Total Amount: ₹${shareInvoice.billedAmount}\n• Paid Amount: ₹${shareInvoice.paidAmount}\n• Balance: ₹${shareInvoice.balance}\n• Status: ${shareInvoice.status === 'Paid' ? 'Paid' : 'Pending'}\n\nPatient: ${shareInvoice.patientName}\nGenerated on: ${new Date().toLocaleString()}\n\nFor any queries, please contact us at billing@digihealth.com`
+      body: `MEDICAL INVOICE\n\nInvoice Details:\n• Invoice ID: ${shareInvoice.invoiceId}\n• Date: ${shareInvoice.date}\n• Doctor: ${shareInvoice.doctorName}\n• Service: ${shareInvoice.serviceType}\n• Total Amount: ₹${shareInvoice.billedAmount}\n• Paid Amount: ₹${shareInvoice.paidAmount}\n• Balance: ₹${shareInvoice.balance}\n• Status: ${shareInvoice.status === 'Paid' ? 'Paid' : 'Pending'}\n\nPatient: ${shareInvoice.patientName}\nGenerated on: ${new Date().toLocaleString()}\n\nFor any queries, please contact us at billing@PocketClinic.com`
     };
   };
 
@@ -544,13 +544,13 @@ const Billing = () => {
           }}
           amount={paymentInvoice.balance}
           bookingId={paymentInvoice.invoiceId}
-          merchantName="DigiHealth"
+          merchantName="PocketClinic"
           methods={["card", "upi", "wallet", "netbanking"]}
           onPay={handlePaymentSuccess}
           bookingDetails={{
             serviceType: paymentInvoice.serviceType,
             doctorName: paymentInvoice.doctorName,
-            hospitalName: "DigiHealth Hospital",
+            hospitalName: "PocketClinic Hospital",
             appointmentDate: paymentInvoice.date,
             appointmentTime: "10:30 AM",
             patient: [

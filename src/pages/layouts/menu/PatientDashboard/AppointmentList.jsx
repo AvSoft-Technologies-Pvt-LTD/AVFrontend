@@ -5,7 +5,7 @@ import DynamicTable from "../../../../components/microcomponents/DynamicTable";
 import PaymentGateway from "../../../../components/microcomponents/PaymentGatway";
 import ReusableModal from "../../../../components/microcomponents/Modal";
 import { usePatientContext } from "../../../../context-api/PatientContext";
-import { getAppointmentsByPatientId } from "../../../../utils/CrudService";
+import { getAppointmentsByPatientId, getLabPaymentsByPatient } from "../../../../utils/CrudService";
 
 const toDateObject = (value) => {
   if (!value) return null;
@@ -228,6 +228,7 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
     showPaymentGateway: false,
     showModal: false,
     modalMode: "view",
+    labPayments: [],
   });
   const storedPatientId = useMemo(() => {
     try {
@@ -298,6 +299,43 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
       isMounted = false;
     };
   }, [data, patientId]);
+
+  useEffect(() => {
+    if (!patientId) {
+      return;
+    }
+
+    let isMounted = true;
+
+    const fetchLabPayments = async () => {
+      try {
+        const res = await getLabPaymentsByPatient(patientId);
+        const payments = res?.data || [];
+
+        if (!isMounted) return;
+
+        setState((prev) => ({
+          ...prev,
+          labPayments: payments,
+          l: payments.map((p) => ({
+            ...p,
+            bookingId: p.bookingId || "-",
+            testTitle: p.testNames || p.testTitle || "-",
+            labName: p.labName || "-",
+            status: p.status || "-",
+          })),
+        }));
+      } catch (error) {
+        console.error("Failed to load lab payments by patient:", error);
+      }
+    };
+
+    fetchLabPayments();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [patientId]);
 
   const handleTabChange = (tab) => {
     setState((prev) => ({ ...prev, t: tab }));
@@ -533,7 +571,7 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
           onClose={() => setState((prev) => ({ ...prev, showPaymentGateway: false }))}
           amount={state.selectedAppointment.fees}
           bookingId={state.selectedAppointment.id}
-          merchantName="DigiHealth"
+          merchantName="PocketClinic"
           methods={["upi", "card", "netbanking", "wallet", "paylater"]}
           onPay={handlePaymentSuccess}
           onPaymentFailure={handlePaymentFailure}

@@ -28,7 +28,7 @@ const AdminRoute = () => {
       {/* Nested Routes for Doctors */}
       <Route path="manage-doctors">
         <Route index element={<ManageDoctors />} />
-        <Route path="avswasthya" element={<DoctorManagement />} />
+        <Route path="PocketClinic" element={<DoctorManagement />} />
       </Route>
     </Routes>
   );

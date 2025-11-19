@@ -9,6 +9,7 @@ import {
 import DynamicTable from "../../components/microcomponents/DynamicTable";
 import { getOPDRecordsByPatientId, getIPDRecordsByPatientId, getVirtualRecordsByPatientId } from "../../utils/CrudService";
 import { CheckCircle } from "lucide-react";
+import Navbar from "../../components/Navbar";
 
 const MedicalRecordHC = () => {
   const location = useLocation();
@@ -249,6 +250,8 @@ const MedicalRecordHC = () => {
   }
 
   return (
+    <>
+    <Navbar/>
     <div className="p-4">
       <DynamicTable
         columns={createColumns(state.activeTab)}
@@ -266,6 +269,7 @@ const MedicalRecordHC = () => {
         ]}
       />
     </div>
+    </>
   );
 };
 

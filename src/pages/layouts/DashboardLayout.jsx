@@ -25,7 +25,7 @@ const DashboardLayout = () => {
   useEffect(() => {
     // Only show loader for actual navigation, not for save operations
     const currentPath = location.pathname;
-    
+
     // Only show loader if the path actually changed (real navigation)
     if (currentPath !== previousPath) {
       setLoading(true);
@@ -83,7 +83,6 @@ const DashboardLayout = () => {
     return matchedItem ? matchedItem.label : "Dashboard";
   }, [location.pathname, userType]);
 
-
   if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />;
   }
@@ -114,28 +113,61 @@ const DashboardLayout = () => {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar
-        isMobileDrawerOpen={sidebarOpen}
-        closeMobileDrawer={() => setSidebarOpen(false)}
-      />
-      <div className="flex flex-col flex-1 overflow-hidden">
-        <HeaderWithNotifications
-          toggleSidebar={toggleSidebar}
-          currentPageName={currentPageName}
+    <div className="flex h-screen overflow-hidden bg-gray-50">
+      {/* Sidebar - Responsive behavior */}
+      <div className="hidden lg:flex lg:flex-shrink-0">
+        <Sidebar
+          isMobileDrawerOpen={false}
+          closeMobileDrawer={() => setSidebarOpen(false)}
         />
-        <main className="flex-1 overflow-y-auto relative">
+      </div>
+
+      {/* Mobile/Tablet Sidebar Drawer */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black bg-opacity-50"
+            onClick={() => setSidebarOpen(false)}
+          />
+          {/* Sidebar */}
+          <div className="relative flex">
+            <Sidebar
+              isMobileDrawerOpen={true}
+              closeMobileDrawer={() => setSidebarOpen(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Main content area */}
+      <div className="flex flex-col flex-1 overflow-hidden min-w-0">
+        {/* Header */}
+        <div className="flex-shrink-0">
+          <HeaderWithNotifications
+            toggleSidebar={toggleSidebar}
+            currentPageName={currentPageName}
+          />
+        </div>
+
+        {/* Main content */}
+        <main className="flex-1 overflow-y-auto relative bg-gray-50">
+          {/* Loading overlay */}
           {loading && (
             <div className="absolute inset-0 z-40 flex items-center justify-center bg-white bg-opacity-70">
               <Loader />
             </div>
           )}
+
+          {/* Content with fade transition */}
           <div
-            className={`transition-opacity duration-500 ${
+            className={`transition-opacity duration-500 min-h-full ${
               loading ? "opacity-0 pointer-events-none" : "opacity-100"
             }`}
           >
-            <Outlet />
+            <div className="h-full">
+              <Outlet />
+            </div>
           </div>
         </main>
       </div>

@@ -221,8 +221,8 @@ const Form = () => {
     }
   };
 
-  const handlePrintForm = (formType) => {
-    const data = formsData[formType];
+  const handlePrintForm = (formType, overrideData) => {
+    const data = overrideData || formsData[formType];
     if (!data) return;
     const doctor = {
       name: "Dr. Sheetal S. Shelke",

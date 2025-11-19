@@ -28,7 +28,7 @@ const formFields = {
     { id: "dob", label: "Date of Birth", type: "date" },
     { id: "gender", label: "Gender", type: "text", readOnly: true },
     { id: "email", label: "Email", type: "email", verify: true },
-    { id: "phone", label: "Phone Number", type: "tel", verified: true },
+    { id: "phone", label: "Phone Number", type: "tel", verified: true, verify: true },
     { id: "alternatePhone", label: "Alternate Phone Number", type: "tel" },
     { id: "occupation", label: "Occupation", type: "text", readOnly: true },
     { id: "permanentAddress", label: "Permanent Address", type: "textarea", readOnly: true },
@@ -77,8 +77,7 @@ const Settings = () => {
         const formattedDob = Array.isArray(patient.dob)
           ? new Date(patient.dob[0], patient.dob[1] - 1, patient.dob[2]).toISOString().split("T")[0]
           : "";
-        const permanentAddress = `${patient.pinCode || ""}, ${patient.city || ""}, ${
-            patient.district || ""
+        const permanentAddress = `${patient.pinCode || ""}, ${patient.city || ""}, ${patient.district || ""
           }, ${patient.state || ""}`.trim();
         setFormData({
           ...patient,
@@ -155,9 +154,8 @@ const Settings = () => {
       const formattedDob = Array.isArray(patient.dob)
         ? new Date(patient.dob[0], patient.dob[1] - 1, patient.dob[2]).toISOString().split("T")[0]
         : "";
-      const permanentAddress = `${patient.pinCode || ""}, ${patient.city || ""}, ${
-        patient.district || ""
-      }, ${patient.state || ""}`.trim();
+      const permanentAddress = `${patient.pinCode || ""}, ${patient.city || ""}, ${patient.district || ""
+        }, ${patient.state || ""}`.trim();
       setFormData({
         ...patient,
         dob: formattedDob,
@@ -180,7 +178,14 @@ const Settings = () => {
   };
 
   const handleVerifyEmail = () => {
-    navigate("/healthcard-otp");
+    navigate("/verification", {
+      state: {
+        userType: "patient",       // Because user is patient
+        phone: formData.phone,     // Send phone number
+        email: formData.email,     // Send email
+        registrationData: formData // You can send full user data
+      }
+    });
   };
 
   const renderField = ({ id, label, type, readOnly, options, toggleVisibility, verify, verified }) => {
@@ -258,11 +263,20 @@ const Settings = () => {
             {verify && isEditMode && (
               <button
                 type="button"
-                onClick={handleVerifyEmail}
+                onClick={() =>
+                  navigate("/verification", {
+                    state: {
+                      userType: "patient",
+                      phone: formData.phone,
+                      email: formData.email,
+                      registrationData: formData
+                    },
+                  })
+                }
                 className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--accent-color)] hover:text-[var(--accent-color)] transition-colors duration-200 focus:outline-none"
-                title="Verify email"
+                title={`Verify ${id}`}
               >
-                <MailCheck size={18} />
+                {id === "email" ? <MailCheck size={18} /> : <PhoneCall size={18} />}
               </button>
             )}
             {id === "email" && isVerified && (
@@ -371,11 +385,10 @@ const Settings = () => {
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
-                    className={`inline-flex items-center gap-3 px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${
-                      isActive
+                    className={`inline-flex items-center gap-3 px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${isActive
                         ? "bg-[var(--primary-color)] text-white shadow-lg"
                         : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                    }`}
+                      }`}
                     disabled={!isEditMode && tab === "password"}
                   >
                     {getTabIcon(tab)}
@@ -391,9 +404,8 @@ const Settings = () => {
             {["personal", "password"].map((tab) => (
               <div
                 key={tab}
-                className={`transition-all duration-300 ${
-                  activeTab === tab ? "opacity-100 block" : "opacity-0 hidden"
-                }`}
+                className={`transition-all duration-300 ${activeTab === tab ? "opacity-100 block" : "opacity-0 hidden"
+                  }`}
               >
                 <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
                   <div className="px-6 py-5 border-b border-gray-200 bg-gray-50">
@@ -441,7 +453,7 @@ const Settings = () => {
             )}
           </form>
         </div>
-        </div>
+      </div>
       {isEditMode && <div className="h-24 lg:hidden"></div>}
     </div>
   );

@@ -336,7 +336,7 @@ const Help = ({ onBackToPayment }) => {
                 Email Support
               </h3>
               <p className="text-green-100 text-xs sm:text-sm mb-2">
-                support@avswasthya.com
+                support@PocketClinic.com
               </p>
               <button className="bg-white text-[var(--primary-color)] hover:bg-green-50 px-3 py-1.5 sm:px-4 sm:py-2 rounded-md text-xs sm:text-sm font-medium">
                 Send Email

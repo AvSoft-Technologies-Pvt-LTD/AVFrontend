@@ -8,7 +8,7 @@ import doctorsign2 from "../../../../assets/doctorsign2.jpg";
 import pharmasist from "../../../../assets/pharmasist.jpg";
 import SeniorNurse from "../../../../assets/SeniorNurse.jpg";
 import labtech from "../../../../assets/labTech.jpg";
-import adminimg from "../../../../assets/adminimg.jpg";
+// import adminimg from "../../../../assets/adminimg.jpg";
 // Add combined filter options for EmployeeList
 const employeeFilters = [
   {

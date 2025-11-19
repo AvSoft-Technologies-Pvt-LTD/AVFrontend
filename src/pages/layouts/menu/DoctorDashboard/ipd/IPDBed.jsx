@@ -11,9 +11,9 @@ import { getSpecializationsWardsSummaryForIpdAdmission } from "../../../../../ut
 
 // Map backend bedStatusId -> UI status
 const STATUS_MAP = {
-  1: "available",
-  2: "occupied",
-  3: "maintenance",
+  1: "maintenance", // Backend: 1 = Maintenance
+  2: "available",   // Backend: 2 = Available
+  3: "occupied",    // Backend: 3 = Occupied
   4: "blocked",
 };
 
@@ -203,7 +203,7 @@ const IPDBed = ({
               return (
                 <div
                   key={bed.bedId}
-                  onClick={() => !isDisabled && onSelectBed?.(bed.bedNumber)}
+                  onClick={() => !isDisabled && onSelectBed?.(bed)}
                   className={`relative p-1.5 sm:p-2 rounded-lg border-2 transition-all duration-300 ${
                     getBedColors(status, isSelected)
                   } ${isDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}

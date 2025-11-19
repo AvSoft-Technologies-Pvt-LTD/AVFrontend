@@ -15,7 +15,7 @@ const Login = () => {
   const [loginMode, setLoginMode] = useState("password");
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
-  const [otp, setOtp] = useState("");
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [otpSent, setOtpSent] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -78,7 +78,7 @@ const Login = () => {
         }
       } else {
         const resultAction = await dispatch(
-          verifyOTP({ identifier, otp, type: "login" })
+          verifyOTP({ identifier, otp: getOtpValue(), type: "login" })
         );
         if (verifyOTP.fulfilled.match(resultAction)) {
           routeToDashboard(resultAction.payload.userType);
@@ -105,27 +105,58 @@ const Login = () => {
   const handleModeChange = (mode) => {
     setLoginMode(mode);
     setOtpSent(false);
-    setOtp("");
+    setOtp(["", "", "", "", "", ""]);
     dispatch(clearError());
   };
+
+  const handleOtpChange = (index, value) => {
+    if (value.length > 1) return; // Only allow single digits
+
+    const newOtp = [...otp];
+    newOtp[index] = value;
+    setOtp(newOtp);
+
+    // Auto-focus to next input if digit entered
+    if (value && index < 5) {
+      const nextInput = document.getElementById(`otp-${index + 1}`);
+      if (nextInput) nextInput.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index, e) => {
+    if (e.key === 'Backspace' && !otp[index] && index > 0) {
+      // Move to previous input on backspace if current is empty
+      const prevInput = document.getElementById(`otp-${index - 1}`);
+      if (prevInput) prevInput.focus();
+    }
+  };
+
+  const getOtpValue = () => otp.join('');
 
   const handleForgotPassword = () => {
     navigate("/password-reset");
   };
 
-  // ------------------ UI ------------------
   return (
   <>
     <Navbar/>
-    <div className="flex items-center justify-center  bg-gray-50 p-4">
-      <div className="flex flex-col md:flex-row items-center w-full max-w-4xl bg-white p-6 md:p-8 rounded-2xl shadow-md border border-gray-200">
-        
+    <div className="min-h-screen flex items-center justify-start bg-cover bg-center bg-no-repeat relative"
+         style={{
+           backgroundImage: `url('/src/assets/login.jpg')`
+         }}>
+      {/* Overlay for better text readability */}
+      <div className="absolute inset-0 bg-opacity-50"></div>
+
+      {/* Form Container */}
+      <div className="relative z-10 w-full max-w-md ml-22 md:ml-40 lg:ml-50">
+        <div className="bg-white/95 backdrop-blur-sm p-6 md:p-8 rounded-2xl shadow-2xl shadow-black/50 border border-white/20">
+
         {/* Form Section */}
-        <div className="w-full md:w-1/2 mb-6 md:mb-0 md:pr-4">
-          <h2 className="h2-heading text-center mb-6">Login to Your Account</h2>
+        <div className="w-full">
+          <h2 className="h2-heading text-center mb-6 text-gray-800">Login to Your Account</h2>
 
           {/* Login Mode Toggle */}
-          <div className="flex justify-center mb-6 p-1">
+         <div className="flex justify-center mb-6 p-1">
             <button
               type="button"
               className={`px-4 py-2 md:px-6 font-semibold transition-all border-b-2 ${
@@ -232,16 +263,21 @@ const Login = () => {
               )}
               {otpSent && (
                 <form onSubmit={handleLogin}>
-                  <div className="relative w-full mb-6">
-                    <input
-                      type="text"
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value)}
-                      className="input-field"
-                      maxLength={6}
-                      placeholder="Enter OTP"
-                      required
-                    />
+                  {/* OTP Input Boxes */}
+                  <div className="flex justify-center gap-2 mb-6">
+                    {otp.map((digit, index) => (
+                      <input
+                        key={index}
+                        id={`otp-${index}`}
+                        type="text"
+                        value={digit}
+                        onChange={(e) => handleOtpChange(index, e.target.value.replace(/\D/g, ''))}
+                        onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                        className="w-12 h-12 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:border-[#01D48C] focus:outline-none transition-colors"
+                        maxLength={1}
+                        required
+                      />
+                    ))}
                   </div>
                   {error && <p className="error-text">{error}</p>}
                   <div className="flex items-center justify-between mb-6">
@@ -265,8 +301,8 @@ const Login = () => {
                   </div>
                   <button
                     type="submit"
-                    className={`btn btn-primary w-full ${loading || !otp ? "btn-disabled" : ""}`}
-                    disabled={loading || !otp}
+                    className={`btn btn-primary w-full ${loading || getOtpValue().length !== 6 ? "btn-disabled" : ""}`}
+                    disabled={loading || getOtpValue().length !== 6}
                   >
                     {loading ? "Verifying..." : "Verify OTP & Login"}
                   </button>
@@ -278,21 +314,13 @@ const Login = () => {
           <p className="text-sm text-gray-600 text-center mt-6">
             Don't have an account?{" "}
             <span
-              className="text-[var(--accent-color)] hover:underline cursor-pointer font-semibold"
+              className="text-[#01D48C] hover:underline cursor-pointer font-semibold"
               onClick={() => navigate("/register")}
             >
               Register
             </span>
           </p>
         </div>
-
-        {/* Image Section */}
-        <div className="w-full md:w-1/2 md:pl-4 hidden md:block">
-          <img
-            src="https://img.freepik.com/premium-vector/doctor-examines-report-disease-medical-checkup-annual-doctor-health-test-appointment-tiny-person-concept-preventive-examination-patient-consults-hospital-specialist-vector-illustration_419010-581.jpg"
-            alt="Login illustration"
-            className="w-full h-auto rounded-xl"
-          />
         </div>
       </div>
     </div>

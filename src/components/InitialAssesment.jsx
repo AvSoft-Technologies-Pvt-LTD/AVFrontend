@@ -488,7 +488,7 @@ const InitialAssessment = () => {
       </head>
       <body>
         <div class="header">
-          <div class="hospital-name">AVSwasthya Hospital System</div>
+          <div class="hospital-name">PocketClinic Hospital System</div>
           <div class="doctor-name">${patientInfo.consultingDoctor || "Dr. Sample Name"}</div>
           <div class="hospital-address">123 Medical Street, Healthcare City, HC 12345</div>
           <div class="form-title">${template.title}</div>

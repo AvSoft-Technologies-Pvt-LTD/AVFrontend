@@ -105,7 +105,6 @@ const OpdTab = forwardRef(
     const dispatch = useDispatch();
     const { doctorId: authDoctorId, name: authDoctorName } = useSelector((state) => state.auth || {});
     const effectiveDoctorId = authDoctorId;
-   console.log("Doctor ID:", authDoctorId);
     const effectiveDoctorName = doctorName || authDoctorName;
     const [patients, setPatients] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -130,7 +129,6 @@ const OpdTab = forwardRef(
 
     const handleSelected = (r) => {
       try {
-        console.log("[OPD] navigating with patient", { state: { patient: r } });
         localStorage.setItem("selectedThisPatient", JSON.stringify(r));
         setPatient(r);
         navigate("/doctordashboard/medical-record", { state: { patient: r } });
@@ -210,9 +208,7 @@ const OpdTab = forwardRef(
           slotId,
           symptomIds,
         };
-        console.log("[Edit Appointment] API request:", body);
         const res = await updateOpdAppointmentById(id, body);
-        console.log("[Edit Appointment] API response:", res?.status, res?.data);
         toast.success("Appointment updated successfully!");
         closeModal("editPatient");
         fetchAllPatients();
@@ -239,16 +235,8 @@ const OpdTab = forwardRef(
       };
       fetchGenders();
     }, []);
-// Log on mount and whenever it changes
-useEffect(() => {
-  console.log("OPDTab mounted/doctorId changed -> doctorId:", authDoctorId);
-  console.log("Auth name:", authDoctorName);
-}, [authDoctorId, authDoctorName]);
 
-// Log once on first mount to confirm component renders
-useEffect(() => {
-  console.log("OPDTab mounted");
-}, []);
+
     useEffect(() => {
       const fetchSymptoms = async () => {
         try {
@@ -444,7 +432,6 @@ useEffect(() => {
       try {
         const apiDate = toYMD(dateStr);
         const res = await getDoctorAvailabilityByDate(effectiveDoctorId, apiDate);
-        console.log("res++++++++++++++++++",res.data)
         const data = res?.data;
         const gen = Array.isArray(data?.generatedSlots)
           ? data.generatedSlots
@@ -537,7 +524,7 @@ useEffect(() => {
     
     try {
       const { data } = await getOpdAppointmentsByDoctor(effectiveDoctorId);
-      console.log("data", data);
+      
       const rows = (data || []).map((a) => ({
         id:a.id,
         sequentialId: a.appointmentUid,
@@ -644,7 +631,6 @@ useEffect(() => {
     }, [modals.editPatient, selectedPatient, symptomsOptions, visitReasonsOptions]);
 
     const handleAppointmentNext = async () => {
-      console.log("[Appointment] Next clicked", { step: appointmentStep, data: appointmentFormData });
       const selDate = appointmentFormData?.date;
       if (selDate) await fetchAvailabilitySlots(selDate);
       setAppointmentStep(2);
@@ -656,7 +642,6 @@ useEffect(() => {
         return;
       }
       try {
-        console.log("[Appointment] Proceed to schedule with:", appointmentFormData);
         const patientId = 1;
         const visitReasonId =
           appointmentFormData?.reason && typeof appointmentFormData.reason === "object"
@@ -696,7 +681,6 @@ useEffect(() => {
           appointmentTime: time24WithSeconds,
           time: time24WithSeconds,
         };
-        console.log("[Appointment] Using time (HH:mm:ss):", time24WithSeconds, "from", appointmentFormData.time);
         if (!effectiveDoctorId) {
           toast.error("Missing doctorId");
           return;
@@ -714,7 +698,6 @@ useEffect(() => {
           return;
         }
         const res = await createOpdAppointment(body);
-        console.log("[Appointment] API response:", res?.status, res?.data);
         toast.success("Appointment scheduled successfully!");
         closeModal("appointment");
         fetchAllPatients();
@@ -860,7 +843,6 @@ useEffect(() => {
           return;
         }
         const createdId = response?.payload?.patientId || response?.payload?.id || response?.payload?.data?.patientId;
-        console.log("[Register] Created patientId:", createdId, "payload:", response?.payload);
         if (createdId) setNewPatientId(createdId);
         toast.success("Patient details saved!");
         closeModal("addPatient");
@@ -875,7 +857,6 @@ useEffect(() => {
 
     const handleScheduleAppointment = async (formData) => {
       try {
-        console.log("[Appointment] handleScheduleAppointment called", formData);
         const patientId = selectedPatient?.id || selectedPatient?.patientId || newPatientId || formData?.id || formData?.patientId || appointmentFormData?.patientId;
         if (!patientId) {
           toast.error("Missing patientId");
@@ -917,9 +898,7 @@ useEffect(() => {
           slotId,
           symptomIds,
         };
-        console.log("[Appointment] POST body:", body);
         const response = await createOpdAppointment(body);
-        console.log("[Appointment] API response::::::::::::::::::::::::::::::", response?.data);
         if (!response?.data?.success) throw new Error("Failed to schedule appointment");
         toast.success("Appointment scheduled successfully!");
         closeModal("appointment");
@@ -933,10 +912,7 @@ useEffect(() => {
     const handleAddRecord = (patient) => navigate("/doctordashboard/form", { state: { patient } });
 
     const handlePatientVerificationConfirm = (patientData) => {
-      // Here, you can pre-fill the form or proceed to the next step
-      // For now, just log and close the modal
-      console.log("Verified patient:", patientData);
-      toast.success(`Patient verified: ${patientData.fullName}`);
+    toast.success(`Patient verified: ${patientData.fullName}`);
       closeModal("addPatient");
       openModal("appointment");
     };

@@ -300,7 +300,7 @@ const TokenGenerator = () => {
     }
     setIsVerifying(true);
     try {
-      const specializationId = Number(
+      const rawSpecializationId = Number(
         selectedSpecialization?.id ||
         selectedSpecialization?.specializationId ||
         selectedSpecialization?.specialityId ||
@@ -312,33 +312,32 @@ const TokenGenerator = () => {
       const waitMinutes = consultationType === 'virtual'
         ? (priority === 'emergency' ? 2 : 15)
         : (priority === 'emergency' ? 5 : 30);
-      const appointmentDate = getTodayDate();
-      const now = new Date();
-      const hours24 = now.getHours().toString().padStart(2, '0');
-      const minutes24 = now.getMinutes().toString().padStart(2, '0');
-      const currentTime24 = `${hours24}:${minutes24}`;
+      // const appointmentDate = selectedDate || getTodayDate();
+      // const appointmentTime24 = to24HourTime(selectedTime) || to24HourTime(`${new Date().getHours()}:${new Date().getMinutes()}`);
+      const departmentId = Number(selectedDoctor?.departmentId || rawSpecializationId || 0);
 
       const requestBody = {
-        patientId,
-        patientName: patientData.fullName,
+        patientName: (patientData.fullName || '').trim(),
         phoneNumber: patientData.phoneNumber,
-        departmentId: specializationId,
-        specialtyId: specializationId,
-        specializationId,
-        specialityId: specializationId,
+        departmentId,
         slotId: slotIdentifier,
         doctorId: doctorIdentifier,
+        patientId: Number(patientId),
         priorityLevel: priority.toUpperCase(),
-        reasonForVisit: symptoms || 'General Consultation',
+        reasonForVisit: (symptoms || 'General Consultation').trim(),
         status: 'WAITING',
         estimatedWaitMinutes: waitMinutes,
       };
 
-      if (appointmentDate) requestBody.appointmentDate = appointmentDate;
-      requestBody.appointmentTime = currentTime24;
-      if (consultationType) requestBody.consultationType = consultationType.toUpperCase();
-
-      console.log('Queue token payload being sent:', requestBody);
+      // if (appointmentDate) {
+      //   requestBody.appointmentDate = appointmentDate;
+      // }
+      // if (appointmentTime24) {
+      //   requestBody.appointmentTime = appointmentTime24;
+      // }
+      // if (consultationType) {
+      //   requestBody.consultationType = consultationType.toUpperCase();
+      // }
 
       const response = await createQueueToken(requestBody);
       console.log('Queue token created:', response?.data || response);

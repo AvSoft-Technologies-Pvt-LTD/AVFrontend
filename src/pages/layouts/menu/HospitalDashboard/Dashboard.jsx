@@ -54,7 +54,7 @@ export default function Dashboard() {
           <h4 className="h4-heading">AV Swasthya Health Center</h4>
           <p className="flex items-center"><MapPin className="w-5 h-5 mr-2 text-[var(--accent-color)]" />123 Medical Plaza</p>
           <p className="flex items-center"><Phone className="w-5 h-5 mr-2 text-[var(--accent-color)]" />+91-1234567890</p>
-          <p className="flex items-center"><Mail className="w-5 h-5 mr-2 text-[var(--accent-color)]" />contact@avswasthya.com</p>
+          <p className="flex items-center"><Mail className="w-5 h-5 mr-2 text-[var(--accent-color)]" />contact@PocketClinic.com</p>
         </div>
       </motion.div>
 

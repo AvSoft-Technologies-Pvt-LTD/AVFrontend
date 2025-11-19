@@ -16,6 +16,8 @@ import DynamicTable from "../../../../../components/microcomponents/DynamicTable
 import ReusableModal from "../../../../../components/microcomponents/Modal";
 import {
   getSpecializationsWardsSummaryForIpdAdmission,
+  addIPDAdmission,
+  fetchIPDAdmissions,
 } from "../../../../../utils/CrudService";
 import IPDBasic, {
   fileToBase64,
@@ -26,10 +28,6 @@ import IPDWard from "./IPDWard";
 import IPDRoom from "./IPDRoom";
 import IPDBed from "./IPDBed";
 import IPDFinal, { generateAdmissionFields } from "./IPDFinal";
-
-const API = {
-  FORM: "https://681f2dfb72e59f922ef5774c.mockapi.io/addpatient",
-};
 
 const STATIC_DATA = {
   insurance: ["None", "CGHS", "ESIC", "Private Insurance", "Other"].map(
@@ -329,51 +327,30 @@ const IPDTab = forwardRef(
     const fetchAllPatients = useCallback(async () => {
       setLoading(true);
       try {
-        const res = await fetch(API.FORM);
-        const allPatients = await res.json();
-        const processedPatients = (Array.isArray(allPatients) ? allPatients : [])
-          .map((p) => ({
-            ...p,
-            name:
-              p.name ||
-              [p.firstName, p.middleName, p.lastName]
-                .filter(Boolean)
-                .join(" "),
-            fullName: [p.firstName, p.middleName, p.lastName]
-              .filter(Boolean)
-              .join(" "),
-          }))
-          .reverse();
-        const ipdPatientsData = processedPatients
-          .filter(
-            (p) =>
-              (p.type && p.type.toLowerCase() === "ipd") && p.doctorName === doctorName
+        const response = await fetchIPDAdmissions();
+        const allAdmissions = Array.isArray(response?.data) ? response.data : [];
+
+        const ipdPatientsData = allAdmissions
+          .filter((a) =>
+            a &&
+            (a.doctorName === doctorName || a.doctorId === doctorName || doctorName == null)
           )
-          .map((p, i) => ({
-            ...p,
-            sequentialId: i + 1,
-            wardNo: p.wardNumber || p.wardNo,
-            roomNo: p.roomNumber || p.roomNo,
-            bedNo: p.bedNumber || p.bedNo,
-            ward: `${p.wardType || "N/A"}-${p.wardNumber || p.wardNo || "N/A"}${p.roomNumber || p.roomNo ? `-${p.roomNumber || p.roomNo}` : ""}-${p.bedNumber || p.bedNo || "N/A"}`,
-            temporaryAddress:
-              p.temporaryAddress || p.addressTemp || p.address || "",
-            address: p.address || p.temporaryAddress || p.addressTemp || "",
-            addressTemp:
-              p.addressTemp || p.temporaryAddress || p.address || "",
-            status: p.status || "Admitted",
-            diagnosis: p.diagnosis || "Under evaluation",
-            admissionDate: p.admissionDate || "Not specified",
-            department: p.department || "General Medicine",
+          .map((a, i) => ({
+            ...a,
+            sequentialId: a.id ?? a.admissionId ?? i + 1,
+            name:
+              a.patientName ||
+              a.name ||
+              [a.firstName, a.middleName, a.lastName].filter(Boolean).join(" "),
+            ward: a.ward || a.wardName || "",
+            diagnosis: a.symptomNames || a.diagnosis || "Under evaluation",
+            admissionDate: a.admissionDate || "Not specified",
           }));
+
         setIpdPatients(ipdPatientsData);
-        try {
-          localStorage.setItem("ipdPatients", JSON.stringify(ipdPatientsData));
-        } catch (e) {
-        }
       } catch (error) {
-        console.error("Error fetching patients:", error);
-        toast.error("Failed to fetch patients");
+        console.error("Error fetching IPD admissions:", error);
+        toast.error("Failed to fetch IPD admissions");
       } finally {
         setLoading(false);
       }
@@ -425,39 +402,8 @@ const IPDTab = forwardRef(
         toast.error("Please enter a Patient ID");
         return;
       }
-      try {
-        const response = await fetch(API.FORM);
-        const data = await response.json();
-        const found = (Array.isArray(data) ? data : [])
-          .filter((p) => !p.type || p.type.toLowerCase() === "opd")
-          .find((p) => (p.id || "").toString() === patientIdInput.trim());
-        if (found) {
-          const nameParts = (found.name || "").split(" ");
-          const firstName = found.firstName || nameParts[0] || "";
-          const middleName = found.middleName || nameParts[1] || "";
-          const lastName = found.lastName || nameParts[nameParts.length - 1] || "";
-          setIpdWizardData((prev) => ({
-            ...prev,
-            ...found,
-            firstName,
-            middleName,
-            lastName,
-            name: found.name || `${firstName} ${middleName} ${lastName}`.trim(),
-            permanentAddress: found.permanentAddress || found.addressPerm || "",
-            temporaryAddress: found.temporaryAddress || found.addressTemp || "",
-            admissionDate: getCurrentDate(),
-            admissionTime: getCurrentTime(),
-          }));
-          toast.success("OPD Patient details loaded for IPD transfer!");
-        } else {
-          toast.info(
-            "No OPD patient found with this ID. Only OPD patients can be transferred to IPD."
-          );
-        }
-      } catch (error) {
-        console.error("Error fetching patient:", error);
-        toast.error("Failed to fetch patient");
-      }
+      // NOTE: LocalStorage-based lookup removed. Wire this to a real OPD patient API when available.
+      toast.error("OPD transfer lookup is not connected to backend yet.");
     }, [patientIdInput]);
 
     const handleViewPatient = useCallback(
@@ -530,58 +476,17 @@ const IPDTab = forwardRef(
 
     const handleIpdWizardNext = useCallback(async () => {
       if (ipdWizardStep === 1) {
-        try {
-          const isExistingPatient = ipdWizardData?.id && patientIdInput.trim();
-          const payload = {
-            firstName: ipdWizardData.firstName,
-            middleName: ipdWizardData.middleName,
-            lastName: ipdWizardData.lastName,
-            phone: ipdWizardData.phone,
-            email: ipdWizardData.email,
-            aadhaar: ipdWizardData.aadhaar,
-            gender: ipdWizardData.gender,
-            dob: ipdWizardData.dob,
-            occupation: ipdWizardData.occupation,
-            pincode: ipdWizardData.pincode,
-            city: ipdWizardData.city,
-            district: ipdWizardData.district,
-            state: ipdWizardData.state,
-            permanentAddress: ipdWizardData.permanentAddress,
-            temporaryAddress: ipdWizardData.temporaryAddress,
-            photo: ipdWizardData.photo,
-            password: ipdWizardData.password,
-            name: `${ipdWizardData.firstName || ""} ${ipdWizardData.middleName || ""} ${ipdWizardData.lastName || ""}`.trim(),
-            type: "ipd",
-            doctorName,
-            updatedAt: new Date().toISOString(),
-          };
-          let response;
-          if (isExistingPatient) {
-            response = await fetch(`${API.FORM}/${ipdWizardData.id}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload),
-            });
-            if (!response.ok) throw new Error("Failed to update patient");
-            setNewPatientId(ipdWizardData.id);
-            toast.success("Existing OPD patient converted to IPD!");
-          } else {
-            payload.createdAt = new Date().toISOString();
-            response = await fetch(API.FORM, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload),
-            });
-            if (!response.ok) throw new Error("Failed to create patient");
-            const responseData = await response.json();
-            setNewPatientId(responseData.id);
-            toast.success("New IPD patient created!");
-          }
-          setIpdWizardStep(2);
-        } catch (error) {
-          console.error("Error saving patient:", error);
-          toast.error("Failed to save patient details");
-        }
+        // Step 1 now only validates / normalizes data in-memory and moves to ward selection.
+        const fullName = `${ipdWizardData.firstName || ""} ${
+          ipdWizardData.middleName || ""
+        } ${ipdWizardData.lastName || ""}`
+          .replace(/\s+/g, " ")
+          .trim();
+        setIpdWizardData((prev) => ({
+          ...prev,
+          name: fullName,
+        }));
+        setIpdWizardStep(2);
     } else if (ipdWizardStep === 2) {
   if (!selectedWard) {
     toast.error("Please select a ward");
@@ -631,10 +536,64 @@ const IPDTab = forwardRef(
 
     const handleIpdWizardFinish = useCallback(async () => {
       try {
+        // TODO: Replace hardcoded patientId with real patient id from backend
+        const patientId = 1;
+
+        const wardId = selectedWard?.id ?? null;
+        const roomId = ipdWizardData.roomId || ipdWizardData.roomNo || ipdWizardData.roomNumber;
+        const bedId = ipdWizardData.bedId || ipdWizardData.bedNo || ipdWizardData.bedNumber;
+
+        const departmentId = ipdWizardData.department
+          ? parseInt(ipdWizardData.department, 10)
+          : undefined;
+        const insuranceId = ipdWizardData.insuranceType
+          ? parseInt(ipdWizardData.insuranceType, 10)
+          : undefined;
+
+        const symptomId = ipdWizardData.symptoms
+          ? parseInt(ipdWizardData.symptoms, 10)
+          : undefined;
+        const symptomIds = symptomId && !Number.isNaN(symptomId) ? [symptomId] : [];
+
+        const surgeryReq =
+          ipdWizardData.surgeryRequired === true ||
+          ipdWizardData.surgeryRequired === "Yes";
+
+        const admissionDate = ipdWizardData.admissionDate || getCurrentDate();
+        const dischargeDate = ipdWizardData.dischargeDate || admissionDate;
+        const admissionTime24 = to24Hour(ipdWizardData.admissionTime);
+
+        const apiPayload = {
+          admissionDate,
+          admissionTime: admissionTime24,
+          status: ipdWizardData.status || "Admitted",
+          wardTypeId: null, // not currently tracked separately
+          wardId: wardId || 0,
+          roomId: roomId ? parseInt(roomId, 10) : 0,
+          bedId: bedId ? parseInt(bedId, 10) : 0,
+          departmentId: departmentId || 0,
+          insuranceId: insuranceId || 0,
+          surgeryReq,
+          dischargeDate,
+          symptomIds,
+          reasonForAdmission: ipdWizardData.reasonForAdmission || "",
+          patientId,
+        };
+
+        try {
+          const res = await addIPDAdmission(apiPayload);
+          console.log("[IPD] addIPDAdmission response", res?.status, res?.data);
+        } catch (apiError) {
+          console.error("Error calling addIPDAdmission:", apiError);
+          const msg = apiError?.response?.data?.message || apiError?.message;
+          toast.error(msg || "Failed to submit IPD admission");
+          return;
+        }
+
         const payload = {
           ...ipdWizardData,
           name: `${ipdWizardData.firstName || ""} ${ipdWizardData.middleName || ""} ${ipdWizardData.lastName || ""}`.trim(),
-          admissionTime: to24Hour(ipdWizardData.admissionTime),
+          admissionTime: admissionTime24,
           wardNo: ipdWizardData.wardNumber,
           roomNo: ipdWizardData.roomNumber || ipdWizardData.roomNo,
           bedNo: ipdWizardData.bedNumber,
@@ -642,16 +601,6 @@ const IPDTab = forwardRef(
           doctorName,
           updatedAt: new Date().toISOString(),
         };
-        if (!newPatientId) {
-          toast.error("Missing patient ID. Please restart admission.");
-          return;
-        }
-        const response = await fetch(`${API.FORM}/${newPatientId}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        if (!response.ok) throw new Error("Failed to finalize IPD admission");
         try {
           const savedData = localStorage.getItem("bedMasterData");
           if (savedData) {
@@ -716,17 +665,22 @@ const IPDTab = forwardRef(
   setIpdWizardStep(3);
 }, []);
 
-    const handleRoomSelection = useCallback((roomNumber) => {
+    const handleRoomSelection = useCallback((room) => {
+      if (!room) return;
+      const roomNumber = room.roomNumber;
       setSelectedRoom(roomNumber);
       setIpdWizardData((prev) => ({
         ...prev,
+        roomId: room.roomId,
         roomNumber: roomNumber != null ? roomNumber.toString() : prev.roomNumber,
       }));
     }, []);
 
 const handleBedSelection = useCallback(
-  (bedNumber) => {
-    if (!selectedWard) return;
+  (bed) => {
+    if (!selectedWard || !bed) return;
+
+    const bedNumber = bed.bedNumber;
 
     // Parse ward name like "ICU 1" -> wardType="ICU", wardNum="1"
     const rawType = (selectedWard.type || "").toString();
@@ -747,10 +701,10 @@ const handleBedSelection = useCallback(
       return;
     }
 
-    // ✅ No randomness here
     setSelectedBed(bedNumber);
     setIpdWizardData((prev) => ({
       ...prev,
+      bedId: bed.bedId,
       bedNumber: bedNumber.toString(),
       admissionDate: getCurrentDate(),
       admissionTime: incrementTime(prev.admissionTime),

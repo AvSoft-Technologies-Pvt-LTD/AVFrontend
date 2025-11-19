@@ -148,6 +148,7 @@ const AvailableLab = () => {
             if (!grouped.has(key)) {
               grouped.set(key, {
                 id: key,
+                labId: row.labId ?? null,
                 labAvailableId: row.labAvailableId || row.labId || row.id || key,
                 labName: row.labName || "",
                 location: row.location || "",
@@ -222,6 +223,7 @@ const AvailableLab = () => {
           if (!grouped.has(key)) {
             grouped.set(key, {
               id: key,
+              labId: row.labId ?? null,
               labAvailableId: row.labAvailableId || row.labId || row.id || key,
               labName: row.labName || "",
               location: row.location || "",

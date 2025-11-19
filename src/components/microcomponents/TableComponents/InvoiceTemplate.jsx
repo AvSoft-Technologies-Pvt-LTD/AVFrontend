@@ -35,7 +35,7 @@ const InvoiceTemplate = React.memo(({ invoice, showActions, onPrint, onPay }) =>
               <Stethoscope className="text-white" size={20} />
             </div>
             <div>
-              <div className="text-lg font-semibold text-[var(--accent-color)]">DigiHealth</div>
+              <div className="text-lg font-semibold text-[var(--accent-color)]">PocketClinic</div>
               <div className="no-print text-xs text-gray-500">Healthcare Solutions</div>
             </div>
           </div>
@@ -157,15 +157,15 @@ const InvoiceTemplate = React.memo(({ invoice, showActions, onPrint, onPay }) =>
             <p className="text-xs text-gray-600 leading-relaxed">
               Payment is due within 30 days of invoice date. Late payments may incur additional
               charges. For any queries regarding this invoice, please contact us at
-              billing@digihealth.com
+              billing@PocketClinic.com
             </p>
           </div>
           <div className="text-center">
             <p className="text-sm font-medium text-[var(--accent-color)] mb-1">
-              Thank you for choosing DigiHealth for your healthcare needs
+              Thank you for choosing PocketClinic for your healthcare needs
             </p>
             <p className="text-xs text-gray-500">
-              contact@digihealth.com | +91 98765 43210
+              contact@PocketClinic.com | +91 98765 43210
             </p>
           </div>
         </div>
