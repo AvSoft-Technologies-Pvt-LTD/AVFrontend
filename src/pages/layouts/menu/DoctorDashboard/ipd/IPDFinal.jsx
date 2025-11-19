@@ -102,7 +102,7 @@ export const generateAdmissionFields = (masterData, staticData) => {
     {
       name: "symptoms",
       label: "Symptoms",
-      type: "select",
+      type: "multiselect",
       required: true,
       options: [], // Will be populated from getAllSymptoms API
     },
@@ -122,6 +122,9 @@ const IPDFinal = ({ data, selectedWard, selectedRoom, selectedBed, fields, onCha
   const [loadingSpecializations, setLoadingSpecializations] = useState(false);
   const [insuranceList, setInsuranceList] = useState([]);
   const [loadingInsurance, setLoadingInsurance] = useState(false);
+  const [selectedSymptoms, setSelectedSymptoms] = useState([]);
+  const [symptomsOpen, setSymptomsOpen] = useState(false);
+  const [symptomsSearch, setSymptomsSearch] = useState("");
 
   // Fetch symptoms from API
   useEffect(() => {
@@ -210,6 +213,18 @@ const IPDFinal = ({ data, selectedWard, selectedRoom, selectedBed, fields, onCha
     fetchSpecializations();
   }, []);
 
+  // Keep selectedSymptoms in sync with data.symptoms (supports single value or array)
+  useEffect(() => {
+    const value = data?.symptoms;
+    if (Array.isArray(value)) {
+      setSelectedSymptoms(value);
+    } else if (value != null && value !== "") {
+      setSelectedSymptoms([value]);
+    } else {
+      setSelectedSymptoms([]);
+    }
+  }, [data?.symptoms]);
+
   // Build a derived field array with API-driven options
   const computedFields = useMemo(
     () =>
@@ -237,6 +252,12 @@ const IPDFinal = ({ data, selectedWard, selectedRoom, selectedBed, fields, onCha
       }),
     [fields, symptomsList, specializations, insuranceList]
   );
+
+  const handleSymptomsChange = (values) => {
+    setSelectedSymptoms(values);
+    // Propagate to parent wizard state
+    onChange("symptoms", values);
+  };
 
   const renderField = (field) => (
     <div
@@ -293,27 +314,92 @@ const IPDFinal = ({ data, selectedWard, selectedRoom, selectedBed, fields, onCha
               {field.required && " *"}
             </label>
           </>
-        ) : field.type === "multiselect" ? (
+        ) : field.type === "multiselect" && field.name === "symptoms" ? (
           <>
-            <div className="relative">
-              <div className="min-h-[42px] max-h-32 overflow-y-auto border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#01B07A] px-3 py-2">
-                {loadingSymptoms ? (
-                  <div className="text-xs text-gray-500">Loading symptoms...</div>
-                ) : symptomsList.length === 0 ? (
-                  <div className="text-xs text-gray-500">No symptoms available</div>
+            <div className="floating-input relative" data-placeholder={field.label}>
+              <div className="relative">
+                {symptomsOpen ? (
+                  <input
+                    type="text"
+                    placeholder={
+                      Array.isArray(selectedSymptoms) && selectedSymptoms.length > 0
+                        ? `${selectedSymptoms
+                            .map((value) => {
+                              const opt = symptomsList.find((o) => String(o.value) === String(value));
+                              return opt?.label || value;
+                            })
+                            .join(", ")} • Search Symptoms...`
+                        : "Search Symptoms..."
+                    }
+                    value={symptomsSearch}
+                    onChange={(e) => setSymptomsSearch(e.target.value)}
+                    className="input-field peer w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 rounded-md text-left bg-white focus:outline-none focus:ring-2 pr-8 sm:pr-10"
+                    autoFocus
+                  />
                 ) : (
-                  <div className="space-y-1">
-                    {symptomsList.map((symptom) => (
-                      <label key={symptom.key} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
-                        <input
-                          type="checkbox"
-                          checked={selectedSymptoms.includes(symptom.value)}
-                          onChange={() => handleSymptomToggle(symptom.value)}
-                          className="w-3 h-3 text-[#01B07A] border-gray-300 rounded focus:ring-[#01B07A]"
-                        />
-                        <span className="text-xs sm:text-sm">{symptom.label}</span>
-                      </label>
-                    ))}
+                  <button
+                    type="button"
+                    onClick={() => setSymptomsOpen(true)}
+                    className="input-field peer w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 rounded-md text-left bg-white focus:outline-none focus:ring-2 flex justify-between items-center"
+                  >
+                    <span className="truncate text-xs sm:text-sm">
+                      {Array.isArray(selectedSymptoms) && selectedSymptoms.length > 0
+                        ? selectedSymptoms
+                            .map((value) => {
+                              const opt = symptomsList.find((o) => String(o.value) === String(value));
+                              return opt?.label || value;
+                            })
+                            .join(", ")
+                        : `Select ${field.label}`}
+                    </span>
+                  </button>
+                )}
+                {symptomsOpen && (
+                  <div className="absolute z-[1000] mt-1 w-full max-h-40 sm:max-h-60 overflow-auto rounded-md bg-white shadow-lg border border-gray-200">
+                    <div className="max-h-40 sm:max-h-60 overflow-auto">
+                      {symptomsList
+                        .filter((opt) =>
+                          (opt.label || "")
+                            .toLowerCase()
+                            .includes(symptomsSearch.toLowerCase())
+                        ).length > 0 ? (
+                        symptomsList
+                          .filter((opt) =>
+                            (opt.label || "")
+                              .toLowerCase()
+                              .includes(symptomsSearch.toLowerCase())
+                          )
+                          .map((opt) => (
+                            <label
+                              key={opt.key || opt.value}
+                              className="flex items-center px-3 sm:px-4 py-1.5 sm:py-2 hover:bg-gray-100 cursor-pointer text-xs sm:text-sm transition-colors duration-150"
+                            >
+                              <input
+                                type="checkbox"
+                                className="mr-2 sm:mr-3 h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                checked={
+                                  Array.isArray(selectedSymptoms) &&
+                                  selectedSymptoms.includes(opt.value)
+                                }
+                                onChange={(e) => {
+                                  const prev = Array.isArray(selectedSymptoms)
+                                    ? selectedSymptoms
+                                    : [];
+                                  const next = e.target.checked
+                                    ? [...prev, opt.value]
+                                    : prev.filter((v) => v !== opt.value);
+                                  handleSymptomsChange(next);
+                                }}
+                              />
+                              <span className="flex-1">{opt.label}</span>
+                            </label>
+                          ))
+                      ) : (
+                        <div className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-500 text-center">
+                          No options found
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -321,11 +407,6 @@ const IPDFinal = ({ data, selectedWard, selectedRoom, selectedBed, fields, onCha
                 {field.label}
                 {field.required && " *"}
               </label>
-              {selectedSymptoms.length > 0 && (
-                <div className="mt-1 text-xs text-gray-600">
-                  {selectedSymptoms.length} symptom{selectedSymptoms.length !== 1 ? 's' : ''} selected
-                </div>
-              )}
             </div>
           </>
         ) : field.type === "textarea" ? (

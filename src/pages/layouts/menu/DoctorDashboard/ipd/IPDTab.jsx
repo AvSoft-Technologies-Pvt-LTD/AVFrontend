@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
+import { useSelector } from "react-redux";
 import { motion } from "framer-motion";
 import { FaVideo } from "react-icons/fa";
 import { FiExternalLink, FiLink } from "react-icons/fi";
@@ -146,6 +147,9 @@ const IPDTab = forwardRef(
   ) => {
     const navigate = useNavigate();
     const routerLocation = useLocation();
+    const { user } = useSelector((state) => state.auth || {});
+    const doctorId = user?.doctorId || user?.id;
+
     const [ipdPatients, setIpdPatients] = useState([]);
     const [loading, setLoading] = useState(true);
     const [newPatientId, setNewPatientId] = useState(null);
@@ -330,19 +334,81 @@ const IPDTab = forwardRef(
         const response = await fetchIPDAdmissions();
         const allAdmissions = Array.isArray(response?.data) ? response.data : [];
 
-        // Backend currently does not return doctorName/doctorId with admissions,
-        // so show all admissions in the table instead of filtering by doctor.
-        const ipdPatientsData = allAdmissions.map((a, i) => ({
-          ...a,
-          sequentialId: a.id ?? a.admissionId ?? i + 1,
-          name:
-            a.patientName ||
-            a.name ||
-            [a.firstName, a.middleName, a.lastName].filter(Boolean).join(" "),
-          ward: a.ward || a.wardName || "",
-          diagnosis: a.symptomNames || a.diagnosis || "Under evaluation",
-          admissionDate: a.admissionDate || "Not specified",
-        }));
+        // If backend returns doctorId, filter by logged-in doctor (like Settings)
+        const doctorFiltered = doctorId
+          ? allAdmissions.filter((a) => String(a.doctorId) === String(doctorId))
+          : allAdmissions;
+
+        const ipdPatientsData = doctorFiltered.map((a, i) => {
+          // Format admissionDate similar to VirtualTab (YYYY-MM-DD)
+          let admissionDate = "Not specified";
+          if (Array.isArray(a.admissionDate) && a.admissionDate.length >= 3) {
+            const [y, m, d] = a.admissionDate;
+            admissionDate = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+          } else if (a.admissionDate) {
+            try {
+              const d = new Date(a.admissionDate);
+              if (!Number.isNaN(d.getTime())) {
+                admissionDate = d.toISOString().split("T")[0];
+              }
+            } catch {
+              admissionDate = String(a.admissionDate);
+            }
+          }
+
+          // Format dischargeDate similarly (YYYY-MM-DD) whenever backend sends a real value
+          let dischargeDate = "-";
+          const rawDischarge = a.dischargeDate;
+
+          if (Array.isArray(rawDischarge) && rawDischarge.length >= 3) {
+            const [y, m, d] = rawDischarge;
+            dischargeDate = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+          } else if (rawDischarge && typeof rawDischarge !== "number") {
+            try {
+              const d = new Date(rawDischarge);
+              if (!Number.isNaN(d.getTime())) {
+                dischargeDate = d.toISOString().split("T")[0];
+              } else {
+                dischargeDate = String(rawDischarge);
+              }
+            } catch {
+              dischargeDate = String(rawDischarge);
+            }
+          }
+
+          // Normalize symptoms for table: comma-separated if array, fallback to diagnosis/placeholder
+          let symptomsDisplay = "Under evaluation";
+          if (Array.isArray(a.symptomNames) && a.symptomNames.length > 0) {
+            symptomsDisplay = a.symptomNames.join(", ");
+          } else if (typeof a.symptomNames === "string" && a.symptomNames.trim()) {
+            symptomsDisplay = a.symptomNames;
+          } else if (typeof a.diagnosis === "string" && a.diagnosis.trim()) {
+            symptomsDisplay = a.diagnosis;
+          }
+
+          // Build combined ward display: WardType-RoomNo-BedNo from backend fields
+          const wardDisplay = [
+            a.wardTypeName || a.wardType,
+            a.roomNumber,
+            a.bedNumber,
+          ]
+            .filter(Boolean)
+            .join("-");
+
+          return {
+            ...a,
+            // Prefer human-facing appointmentUid over numeric id
+            sequentialId: a.appointmentUid || a.id || a.admissionId || i + 1,
+            name:
+              a.patientName ||
+              a.name ||
+              [a.firstName, a.middleName, a.lastName].filter(Boolean).join(" "),
+            ward: wardDisplay || a.ward || a.wardName || a.wardTypeName || "",
+            symptoms: symptomsDisplay,
+            admissionDate,
+            dischargeDate,
+          };
+        });
 
         setIpdPatients(ipdPatientsData);
       } catch (error) {
@@ -351,7 +417,7 @@ const IPDTab = forwardRef(
       } finally {
         setLoading(false);
       }
-    }, []);
+    }, [doctorId]);
 
     // Removed fetchPatientDetails since extended sections are not shown in ReusableModal
 
@@ -409,6 +475,43 @@ const IPDTab = forwardRef(
         openModal("viewPatient");
         const patientId = patient?.id || patient?.patientId;
         if (!patientId) toast.error("Unable to load patient details: Missing patient ID");
+        // Format admissionDate for view modal similar to table and VirtualTab
+        let viewAdmissionDate = "-";
+        if (Array.isArray(patient?.admissionDate) && patient.admissionDate.length >= 3) {
+          const [y, m, d] = patient.admissionDate;
+          viewAdmissionDate = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+        } else if (patient?.admissionDate) {
+          try {
+            const d = new Date(patient.admissionDate);
+            if (!Number.isNaN(d.getTime())) {
+              viewAdmissionDate = d.toISOString().split("T")[0];
+            } else {
+              viewAdmissionDate = String(patient.admissionDate);
+            }
+          } catch {
+            viewAdmissionDate = String(patient.admissionDate);
+          }
+        }
+
+        // Format dischargeDate for view modal (YYYY-MM-DD) only if discharged
+        let viewDischargeDate = "-";
+        const isDischargedView = (patient?.status || "").toUpperCase() === "DISCHARGED";
+        if (isDischargedView && Array.isArray(patient?.dischargeDate) && patient.dischargeDate.length >= 3) {
+          const [y, m, d] = patient.dischargeDate;
+          viewDischargeDate = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+        } else if (isDischargedView && patient?.dischargeDate && typeof patient.dischargeDate !== "number") {
+          try {
+            const d = new Date(patient.dischargeDate);
+            if (!Number.isNaN(d.getTime())) {
+              viewDischargeDate = d.toISOString().split("T")[0];
+            } else {
+              viewDischargeDate = String(patient.dischargeDate);
+            }
+          } catch {
+            viewDischargeDate = String(patient.dischargeDate);
+          }
+        }
+
         // Prepare flattened data for ReusableModal
         const view = {
           name: patient?.name || [patient?.firstName, patient?.middleName, patient?.lastName].filter(Boolean).join(" ") || "-",
@@ -418,7 +521,7 @@ const IPDTab = forwardRef(
           gender: patient?.gender || patient?.sex || "-",
           bloodGroup: patient?.bloodGroup || patient?.bloodType || "-",
           dob: patient?.dob || "-",
-          admissionDate: patient?.admissionDate || "-",
+          admissionDate: viewAdmissionDate,
           status: patient?.status || "-",
           department: patient?.department || "-",
           wardType: patient?.wardType || "-",
@@ -427,10 +530,11 @@ const IPDTab = forwardRef(
           bedNo: patient?.bedNo || patient?.bedNumber || "-",
           ward: patient?.ward || "-",
           insuranceType: patient?.insuranceType || "-",
-          dischargeDate: typeof patient?.dischargeDate === "number" ? "-" : (patient?.dischargeDate || "-"),
-          diagnosis: patient?.diagnosis || "-",
+          dischargeDate: viewDischargeDate,
+          symptoms: patient?.symptoms || "-",
           address: patient?.address || patient?.temporaryAddress || patient?.addressTemp || "-",
         };
+
         setIpdViewData(view);
       },
       [openModal]
@@ -484,24 +588,23 @@ const IPDTab = forwardRef(
           name: fullName,
         }));
         setIpdWizardStep(2);
-    } else if (ipdWizardStep === 2) {
-  if (!selectedWard) {
-    toast.error("Please select a ward");
-    return;
-  }
-  const rawType = (selectedWard?.type || "").toString();
-  const m = rawType.match(/^(.+?)\s+(\d+)\s*$/);
-  const parsedType = m ? m[1] : selectedWard?.type || "";
-  const parsedNum  = m ? m[2] : (selectedWard?.number ?? selectedWard?.wardNumber ?? "");
+      } else if (ipdWizardStep === 2) {
+        if (!selectedWard) {
+          toast.error("Please select a ward");
+          return;
+        }
+        const rawType = (selectedWard?.type || "").toString();
+        const m = rawType.match(/^(.+?)\s+(\d+)\s*$/);
+        const parsedType = m ? m[1] : selectedWard?.type || "";
+        const parsedNum = m ? m[2] : (selectedWard?.number ?? selectedWard?.wardNumber ?? "");
 
-  setIpdWizardData((prev) => ({
-    ...prev,
-    wardType: parsedType,
-    wardNumber: parsedNum,
-    department: selectedWard?.department,
-  }));
-  setIpdWizardStep(3);
-
+        setIpdWizardData((prev) => ({
+          ...prev,
+          wardType: parsedType,
+          wardNumber: parsedNum,
+          department: selectedWard?.department,
+        }));
+        setIpdWizardStep(3);
       } else if (ipdWizardStep === 3) {
         if (!selectedRoom) {
           toast.error("Please select a room");
@@ -533,6 +636,11 @@ const IPDTab = forwardRef(
 
     const handleIpdWizardFinish = useCallback(async () => {
       try {
+        if (!doctorId) {
+          toast.error("Doctor ID not found. Please log in again.");
+          return;
+        }
+
         // TODO: Replace hardcoded patientId with real patient id from backend
         const patientId = 1;
 
@@ -554,17 +662,26 @@ const IPDTab = forwardRef(
           ? parseInt(ipdWizardData.insuranceType, 10)
           : undefined;
 
-        const symptomId = ipdWizardData.symptoms
-          ? parseInt(ipdWizardData.symptoms, 10)
-          : undefined;
-        const symptomIds = symptomId && !Number.isNaN(symptomId) ? [symptomId] : [];
+        const rawSymptoms = ipdWizardData.symptoms;
+        let symptomIds = [];
+        if (Array.isArray(rawSymptoms)) {
+          symptomIds = rawSymptoms
+            .map((v) => parseInt(v, 10))
+            .filter((v) => !Number.isNaN(v));
+        } else if (rawSymptoms != null && rawSymptoms !== "") {
+          const singleId = parseInt(rawSymptoms, 10);
+          if (!Number.isNaN(singleId)) {
+            symptomIds = [singleId];
+          }
+        }
 
         const surgeryReq =
           ipdWizardData.surgeryRequired === true ||
           ipdWizardData.surgeryRequired === "Yes";
 
         const admissionDate = ipdWizardData.admissionDate || getCurrentDate();
-        const dischargeDate = ipdWizardData.dischargeDate || admissionDate;
+        // Do not default dischargeDate; only send if explicitly provided
+        const dischargeDate = ipdWizardData.dischargeDate || null;
         const admissionTime24 = to24Hour(ipdWizardData.admissionTime);
 
         const apiPayload = {
@@ -582,6 +699,7 @@ const IPDTab = forwardRef(
           symptomIds,
           reasonForAdmission: ipdWizardData.reasonForAdmission || "",
           patientId,
+          doctorId,
         };
 
         try {
@@ -651,26 +769,27 @@ const IPDTab = forwardRef(
       newPatientId,
       selectedWard,
       doctorName,
+      doctorId,
       closeModal,
       fetchAllPatients,
     ]);
 
-  const handleWardSelection = useCallback((ward) => {
-  // Derive number from names like "ICU 1"
-  const rawType = (ward?.type || "").toString();
-  const m = rawType.match(/^(.+?)\s+(\d+)\s*$/);
-  const parsedType = m ? m[1] : ward?.type || "";
-  const parsedNum  = m ? m[2] : (ward?.number ?? ward?.wardNumber ?? "");
+    const handleWardSelection = useCallback((ward) => {
+      // Derive number from names like "ICU 1"
+      const rawType = (ward?.type || "").toString();
+      const m = rawType.match(/^(.+?)\s+(\d+)\s*$/);
+      const parsedType = m ? m[1] : ward?.type || "";
+      const parsedNum = m ? m[2] : (ward?.number ?? ward?.wardNumber ?? "");
 
-  setSelectedWard(ward);
-  setIpdWizardData((prev) => ({
-    ...prev,
-    wardType: parsedType,
-    wardNumber: parsedNum,
-    department: ward?.department,
-  }));
-  setIpdWizardStep(3);
-}, []);
+      setSelectedWard(ward);
+      setIpdWizardData((prev) => ({
+        ...prev,
+        wardType: parsedType,
+        wardNumber: parsedNum,
+        department: ward?.department,
+      }));
+      setIpdWizardStep(3);
+    }, []);
 
     const handleRoomSelection = useCallback((room) => {
       if (!room) return;
@@ -684,43 +803,42 @@ const IPDTab = forwardRef(
       }));
     }, []);
 
-const handleBedSelection = useCallback(
-  (bed) => {
-    if (!selectedWard || !bed) return;
+    const handleBedSelection = useCallback(
+      (bed) => {
+        if (!selectedWard || !bed) return;
 
-    const bedNumber = bed.bedNumber;
+        const bedNumber = bed.bedNumber;
 
-    // Parse ward name like "ICU 1" -> wardType="ICU", wardNum="1"
-    const rawType = (selectedWard.type || "").toString();
-    const m = rawType.match(/^(.+?)\s+(\d+)\s*$/);
-    const wardType = m ? m[1] : rawType;
-    const wardNum  = m ? m[2] : (selectedWard.number ?? selectedWard.wardNumber ?? "");
+        // Parse ward name like "ICU 1" -> wardType="ICU", wardNum="1"
+        const rawType = (selectedWard.type || "").toString();
+        const m = rawType.match(/^(.+?)\s+(\d+)\s*$/);
+        const wardType = m ? m[1] : rawType;
+        const wardNum  = m ? m[2] : (selectedWard.number ?? selectedWard.wardNumber ?? "");
 
-    // Include ROOM in the key (must match how you build `patient.ward`)
-    const wardKey = `${wardType}-${wardNum}-${selectedRoom}-${bedNumber}`;
+        // Include ROOM in the key (must match how you build `patient.ward`)
+        const wardKey = `${wardType}-${wardNum}-${selectedRoom}-${bedNumber}`;
 
-    const isOccupied = ipdPatients.some(
-      (p) =>
-        (p.status || "").toLowerCase() === "admitted" &&
-        (p.ward || "").toString() === wardKey
+        const isOccupied = ipdPatients.some(
+          (p) =>
+            (p.status || "").toLowerCase() === "admitted" &&
+            (p.ward || "").toString() === wardKey
+        );
+        if (isOccupied) {
+          toast.error("This bed is currently occupied by another patient");
+          return;
+        }
+
+        setSelectedBed(bedNumber);
+        setIpdWizardData((prev) => ({
+          ...prev,
+          bedId: bed.bedId,
+          bedNumber: bedNumber.toString(),
+          admissionDate: getCurrentDate(),
+          admissionTime: incrementTime(prev.admissionTime),
+        }));
+      },
+      [selectedWard, selectedRoom, ipdPatients]
     );
-    if (isOccupied) {
-      toast.error("This bed is currently occupied by another patient");
-      return;
-    }
-
-    setSelectedBed(bedNumber);
-    setIpdWizardData((prev) => ({
-      ...prev,
-      bedId: bed.bedId,
-      bedNumber: bedNumber.toString(),
-      admissionDate: getCurrentDate(),
-      admissionTime: incrementTime(prev.admissionTime),
-    }));
-  },
-  [selectedWard, selectedRoom, ipdPatients]
-);
-
 
     const scrollBeds = useCallback(
       (direction) => {
@@ -780,7 +898,7 @@ const handleBedSelection = useCallback(
             </span>
           ),
         },
-        { header: "Diagnosis", accessor: "diagnosis" },
+        { header: "Symptoms", accessor: "symptoms" },
         { header: "Ward", accessor: "ward", cell: (row) => row.ward || "N/A" },
         {
           header: "Discharge",
@@ -831,34 +949,8 @@ const handleBedSelection = useCallback(
               <button
                 title="View Medical Record"
                 onClick={() => {
-                  let age = "";
-                  if (row.dob) {
-                    const dobDate = new Date(row.dob);
-                    const today = new Date();
-                    age = today.getFullYear() - dobDate.getFullYear();
-                    const m = today.getMonth() - dobDate.getMonth();
-                    if (m < 0 || (m === 0 && today.getDate() < dobDate.getDate())) age--;
-                  }
                   navigate("/doctordashboard/medical-record", {
-                    state: {
-                      patientName: row.name,
-                      email: row.email || "",
-                      phone: row.phone || "",
-                      gender: row.gender || row.sex || "",
-                      temporaryAddress:
-                        row.temporaryAddress || row.addressTemp || row.address || "",
-                      address: row.address || row.temporaryAddress || row.addressTemp || "",
-                      addressTemp: row.addressTemp || row.temporaryAddress || row.address || "",
-                      dob: row.dob || "",
-                      age: age,
-                      bloodType: row.bloodGroup || row.bloodType || "",
-                      regNo: row.regNo || "2025/072/0032722",
-                      mobileNo: row.mobileNo || row.phone || "",
-                      department: row.department || "Ophthalmology",
-                      wardType: row.wardType,
-                      wardNo: row.wardNo,
-                      bedNo: row.bedNo,
-                    },
+                    state: { patient: row },
                   });
                 }}
                 className="p-0.5 text-base text-[var(--primary-color)]"

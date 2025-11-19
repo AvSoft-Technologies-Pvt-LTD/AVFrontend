@@ -350,7 +350,7 @@ const TokenGenerator = () => {
         departmentId,
         slotId: slotIdentifier,
         doctorId: doctorIdentifier,
-        patientId: 1,
+        patientId: 2,
         priorityLevel: priority.toUpperCase(),
         reasonForVisit: (symptoms || 'General Consultation').trim(),
         status: 'WAITING',
