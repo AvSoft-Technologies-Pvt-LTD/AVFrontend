@@ -38,26 +38,26 @@ const IPDWard = ({ selectedWard, onSelectWard }) => {
       try {
         const response = await getSpecializationsWardsSummaryForIpdAdmission();
         if (response?.data) {
-     const formatted = response.data.map((item, index) => {
-  const availableGroup = item.bedGroups?.find(
-    (g) => g.statusName.toLowerCase() === "available"
-  );
-  const availableBeds = availableGroup ? availableGroup.count : 0;
-  const occupiedBeds = item.totalBeds - availableBeds;
-  return {
-    id: item.wardId || index,
-    type: item.wardName,
-    number: item.wardNumber || item.wardId || index,
-    department: item.specializationName,
-    totalBeds: item.totalBeds,
-    availableBeds,
-    occupiedBeds,
-    rooms: item.rooms || [], // <-- Include the actual rooms array
-    roomNumbers: item.roomNumbers,
-    beds: item.rooms?.flatMap((r) => r.beds || []),
-  };
-});
-
+          const formatted = response.data.map((item, index) => {
+            const availableGroup = item.bedGroups?.find(
+              (g) => g.statusName.toLowerCase() === "available"
+            );
+            const availableBeds = availableGroup ? availableGroup.count : 0;
+            const occupiedBeds = item.totalBeds - availableBeds;
+            return {
+              id: item.wardId || index,
+              wardTypeId: item.wardTypeId || item.wardType?.id || null,
+              type: item.wardName,
+              number: item.wardNumber || item.wardId || index,
+              department: item.specializationName,
+              totalBeds: item.totalBeds,
+              availableBeds,
+              occupiedBeds,
+              rooms: item.rooms || [], // <-- Include the actual rooms array
+              roomNumbers: item.roomNumbers,
+              beds: item.rooms?.flatMap((r) => r.beds || []),
+            };
+          });
 
           setWardData(formatted);
         }

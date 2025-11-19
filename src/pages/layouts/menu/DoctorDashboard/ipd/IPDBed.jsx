@@ -10,10 +10,12 @@ import {
 import { getSpecializationsWardsSummaryForIpdAdmission } from "../../../../../utils/CrudService";
 
 // Map backend bedStatusId -> UI status
+// NOTE: Align these IDs with the same meaning you configured in BedAmenitiesStep.
+// If ID 1 is "Available" in your master data, it MUST map to "available" here.
 const STATUS_MAP = {
-  1: "maintenance", // Backend: 1 = Maintenance
-  2: "available",   // Backend: 2 = Available
-  3: "occupied",    // Backend: 3 = Occupied
+  1: "available",   // 1 = Available
+  2: "maintenance", // 2 = Maintenance
+  3: "occupied",    // 3 = Occupied
   4: "blocked",
 };
 
@@ -160,7 +162,10 @@ const IPDBed = ({
         : 12
       : 12;
 
-  const visibleBeds = roomBeds.slice(bedScrollIndex, bedScrollIndex + bedsPerPage);
+  // Clamp scroll index to this room's bed count so we never slice past the end
+  const maxStartIndex = Math.max(0, roomBeds.length - bedsPerPage);
+  const startIndex = Math.min(bedScrollIndex, maxStartIndex);
+  const visibleBeds = roomBeds.slice(startIndex, startIndex + bedsPerPage);
 
   if (!selectedWard || !selectedRoom) return null;
 

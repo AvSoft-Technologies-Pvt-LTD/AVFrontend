@@ -408,16 +408,16 @@ const RegisterForm = () => {
         }
       }
 
-      // ---------------- LAB MODULE ----------------
-      if (userType === "lab") {
-        // Tests
-        setApiData(prev => ({
-          ...prev,
-          loading: { ...prev.loading, availableTests: true }
-        }));
-        try {
-          const res = await getAvailableTests();
-          const tests = extractApiData(res, "testName");
+    // ---------------- LAB MODULE ----------------
+    if (userType === "lab") {
+      // ✅ Tests
+      setApiData(prev => ({
+        ...prev,
+        loading: { ...prev.loading, availableTests: true }
+      }));
+      try {
+        const res = await getAvailableTests();
+        const tests = extractApiData(res, "testName");
 
           setApiData(prev => ({
             ...prev,
@@ -432,14 +432,14 @@ const RegisterForm = () => {
           }));
         }
 
-        // Center Types
-        setApiData(prev => ({
-          ...prev,
-          loading: { ...prev.loading, centerTypes: true }
-        }));
-        try {
-          const res = await getCenterTypes();
-          const centerTypes = extractApiData(res, "centerTypeName");
+      // ✅ Center Types
+      setApiData(prev => ({
+        ...prev,
+        loading: { ...prev.loading, centerTypes: true }
+      }));
+      try {
+        const res = await getCenterTypes();
+        const centerTypes = extractApiData(res, "centerTypeName");
 
           setApiData(prev => ({
             ...prev,
@@ -454,14 +454,14 @@ const RegisterForm = () => {
           }));
         }
 
-        // Scan Services
-        setApiData(prev => ({
-          ...prev,
-          loading: { ...prev.loading, scanServices: true }
-        }));
-        try {
-          const res = await getScanServices();
-          const scanServices = extractApiData(res, "scanName");
+      // ✅ Scan Services
+      setApiData(prev => ({
+        ...prev,
+        loading: { ...prev.loading, scanServices: true }
+      }));
+      try {
+        const res = await getScanServices();
+        const scanServices = extractApiData(res, "scanName");
 
           setApiData(prev => ({
             ...prev,
@@ -476,14 +476,14 @@ const RegisterForm = () => {
           }));
         }
 
-        // Special Services
-        setApiData(prev => ({
-          ...prev,
-          loading: { ...prev.loading, specialServices: true }
-        }));
-        try {
-          const res = await getSpecialServices();
-          const specialServices = extractApiData(res, "serviceName");
+      // ✅ Special Services
+      setApiData(prev => ({
+        ...prev,
+        loading: { ...prev.loading, specialServices: true }
+      }));
+      try {
+        const res = await getSpecialServices();
+        const specialServices = extractApiData(res, "serviceName");
 
           setApiData(prev => ({
             ...prev,
@@ -524,13 +524,13 @@ const RegisterForm = () => {
         }
       }
 
-      // ---------------- DOCTOR MODULE ----------------
-      if (userType === "doctor") {
-        // Practice Types
-        setApiData(prev => ({
-          ...prev,
-          loading: { ...prev.loading, practiceTypes: true }
-        }));
+    // ---------------- DOCTOR MODULE ----------------
+    if (userType === "doctor") {
+      // ✅ Practice Types
+      setApiData(prev => ({
+        ...prev,
+        loading: { ...prev.loading, practiceTypes: true }
+      }));
 
         try {
           const res = await getPracticeTypes();
@@ -552,35 +552,30 @@ const RegisterForm = () => {
           }));
         }
 
-        // Hospitals List
+      // ✅ Hospitals List
+      setApiData(prev => ({
+        ...prev,
+        loading: { ...prev.loading, hospitals: true }
+      }));
+
+      try {
+        const res = await getAllHospitals();
+        const hospitals = extractApiData(res, "hospitalName");
+
         setApiData(prev => ({
           ...prev,
-          loading: { ...prev.loading, hospitals: true }
+          hospitals,
+          loading: { ...prev.loading, hospitals: false }
         }));
-
-        try {
-          // Use dedicated hospital dropdown API so IDs match backend expectations
-          const res = await getHospitalDropdown();
-          // Assuming API returns objects like { id, hospitalName }
-          const { options: hospitals, mapping: hospitalMapping } =
-            extractApiDataWithId(res, "hospitalName", "id");
-
-          setApiData(prev => ({
-            ...prev,
-            hospitals,
-            hospitalMapping,
-            loading: { ...prev.loading, hospitals: false }
-          }));
-        } catch {
-          setApiData(prev => ({
-            ...prev,
-            hospitals: [],
-            hospitalMapping: {},
-            loading: { ...prev.loading, hospitals: false }
-          }));
-        }
+      } catch {
+        setApiData(prev => ({
+          ...prev,
+          hospitals: [],
+          loading: { ...prev.loading, hospitals: false }
+        }));
       }
-    };
+    }
+  };
 
     loadApiData();
   }, [userType]);
@@ -676,17 +671,6 @@ const RegisterForm = () => {
           gender_id: genderId
         }));
         setErrors(prev => ({ ...prev, gender: "" }));
-        return;
-      }
-      
-      if (name === "associatedHospital") {
-        const hospitalId = apiData.hospitalMapping?.[value] || "";
-        setFormData(prev => ({
-          ...prev,
-          associatedHospital: value,
-          associatedHospitalId: hospitalId
-        }));
-        setErrors(prev => ({ ...prev, associatedHospital: "" }));
         return;
       }
       
@@ -1014,9 +998,10 @@ const validateForm = () => {
         formDataToSubmit.append('practiceTypeId', formData.roleSpecificData.practiceTypeId);
         formDataToSubmit.append('specializationId', formData.roleSpecificData.specializationId);
         formDataToSubmit.append('qualification', formData.roleSpecificData.qualification);
-        formDataToSubmit.append('agreeDeclaration', formData.agreeDeclaration);
-        formDataToSubmit.append('associationType', associationType);
-
+        formDataToSubmit.append('password', formData.password);
+        formDataToSubmit.append('confirmPassword', formData.confirmPassword);
+        formDataToSubmit.append('agreeDeclaration', formData.roleSpecificData.agreeDeclaration);
+        formDataToSubmit.append('isAssociatedWithClinicHospital', formData.isAssociatedWithClinicHospital);
         if (formData.isAssociatedWithClinicHospital === 'clinic') {
           formDataToSubmit.append('associatedClinic', formData.associatedClinic);
         }
@@ -1024,6 +1009,9 @@ const validateForm = () => {
         if (formData.isAssociatedWithClinicHospital === 'hospital') {
           // Only send associatedHospital name; skip hospitalId to avoid backend ID mismatch errors
           formDataToSubmit.append('associatedHospital', formData.associatedHospital);
+          if (formData.associatedHospitalId) {
+            formDataToSubmit.append('hospitalId', formData.associatedHospitalId);
+          }
         }
       }
 

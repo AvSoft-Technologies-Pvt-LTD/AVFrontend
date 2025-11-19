@@ -5,7 +5,7 @@ import { Search, MapPin, Clock, Home, Star, CheckCircle2 } from "lucide-react";
 import { hydrateCart } from "../../../../../context-api/cartSlice";
 import { initializeAuth } from "../../../../../context-api/authSlice";
 import TableHeader from "../../../../../components/microcomponents/TableComponents/TableHeader";
-import { getAvailableLabsBySelection, getAllAvailableLabs } from "../../../../../utils/masterService";
+import { getAllLabAvailablesTests } from "../../../../../utils/CrudService";
 
 const AvailableLab = () => {
   const dispatch = useDispatch();
@@ -34,7 +34,7 @@ const AvailableLab = () => {
           return;
         }
 
-        const { data } = await getAllAvailableLabs();
+        const { data } = await getAllLabAvailablesTests();
         const rows = Array.isArray(data) ? data : (data?.availableLabs || []);
 
         const normTests = rows
@@ -76,7 +76,34 @@ const AvailableLab = () => {
     ensureCart();
   }, [dispatch, patientId]);
 
-  const [labs, setLabs] = useState([]);
+  const [labs, setLabs] = useState([
+    {
+      id: "lab-1",
+      labAvailableId: "lab-1",
+      labName: "City Diagnostic Center",
+      location: "Bangalore",
+      rating: 4.5,
+      price: 799,
+      reportTime: "2025-11-20T10:00:00.000Z",
+      testName: "Complete Health Checkup",
+      scanName: "",
+      packageName: "",
+      homeCollection: true,
+    },
+    {
+      id: "lab-2",
+      labAvailableId: "lab-2",
+      labName: "Prime Labs",
+      location: "Chennai",
+      rating: 4.2,
+      price: 599,
+      reportTime: "2025-11-20T18:00:00.000Z",
+      testName: "Basic Blood Profile",
+      scanName: "",
+      packageName: "",
+      homeCollection: false,
+    },
+  ]);
   const [labsLoading, setLabsLoading] = useState(false);
   const [labsError, setLabsError] = useState("");
 
@@ -126,137 +153,6 @@ const AvailableLab = () => {
   );
   const ratingOptions = ["4.5", "4.0", "3.5", "3.0"];
   const reportTimeOptions = Array.from(new Set(labs.map((l) => l.reportTime)));
-
-  // Fetch labs from API when cart selections change or when searching by location
-  useEffect(() => {
-    let cancelled = false;
-    const run = async () => {
-      try {
-        setLabsError("");
-        setLabsLoading(true);
-
-        // If user typed anything, load ALL availabilities, then filter client-side
-        const q = (search || "").trim();
-        if (q.length > 0) {
-          const { data } = await getAllAvailableLabs();
-          if (cancelled) return;
-          const rows = Array.isArray(data) ? data : (data?.availableLabs || []);
-          const grouped = new Map();
-          for (const row of rows) {
-            const key = row.labAvailableId || row.labId || row.id || `${row.labName || "lab"}-${row.location || ""}`;
-            const newPrice = Number((row.totalPrice ?? row.price)) || 0;
-            if (!grouped.has(key)) {
-              grouped.set(key, {
-                id: key,
-                labId: row.labId ?? null,
-                labAvailableId: row.labAvailableId || row.labId || row.id || key,
-                labName: row.labName || "",
-                location: row.location || "",
-                rating: Number(row.rating) || 0,
-                price: newPrice,
-                reportTime: row.reportTime || "",
-                testName: row.testName || "",
-                scanName: row.scanName || "",
-                packageName: row.packageName || "",
-                homeCollection: row.homeCollection === true || row.homeCollection === "true" || row.homeCollection === "YES",
-              });
-            } else {
-              const current = grouped.get(key);
-              if ((current.price === 0 && newPrice > 0) || (newPrice > 0 && newPrice < current.price)) {
-                current.price = newPrice;
-                grouped.set(key, current);
-              }
-            }
-          }
-          const normalized = Array.from(grouped.values());
-          setLabs(normalized);
-          return;
-        }
-
-        // Otherwise pull availability based on selected tests/scans
-        // If nothing is selected and no search, fall back to get-all API
-        if ((selectedTestNames?.length || 0) === 0 && (selectedScanNames?.length || 0) === 0 && (selectedPackageNames?.length || 0) === 0) {
-          const { data } = await getAllAvailableLabs();
-          if (cancelled) return;
-          const rows = Array.isArray(data) ? data : (data?.availableLabs || []);
-          const grouped = new Map();
-          for (const row of rows) {
-            const key = row.labAvailableId || row.labId || row.id || `${row.labName || "lab"}-${row.location || ""}`;
-            const newPrice = Number((row.totalPrice ?? row.price)) || 0;
-            if (!grouped.has(key)) {
-              grouped.set(key, {
-                id: key,
-                labAvailableId: row.labAvailableId || row.labId || row.id || key,
-                labName: row.labName || "",
-                location: row.location || "",
-                rating: Number(row.rating) || 0,
-                price: newPrice,
-                reportTime: row.reportTime || "",
-                testName: row.testName || "",
-                scanName: row.scanName || "",
-                packageName: row.packageName || "",
-                homeCollection: row.homeCollection === true || row.homeCollection === "true" || row.homeCollection === "YES",
-              });
-            } else {
-              const current = grouped.get(key);
-              if ((current.price === 0 && newPrice > 0) || (newPrice > 0 && newPrice < current.price)) {
-                current.price = newPrice;
-                grouped.set(key, current);
-              }
-            }
-          }
-          const normalized = Array.from(grouped.values());
-          setLabs(normalized);
-          return;
-        }
-        const { data } = await getAvailableLabsBySelection({
-          selectedTests: selectedTestNames,
-          selectedScans: selectedScanNames,
-          selectedPackages: selectedPackageNames,
-        });
-        if (cancelled) return;
-        const rows = Array.isArray(data) ? data : (data?.availableLabs || []);
-        const grouped = new Map();
-        for (const row of rows) {
-          const key = row.labAvailableId || row.labId || row.id || `${row.labName || "lab"}-${row.location || ""}`;
-          const newPrice = Number((row.totalPrice ?? row.price)) || 0;
-          if (!grouped.has(key)) {
-            grouped.set(key, {
-              id: key,
-              labId: row.labId ?? null,
-              labAvailableId: row.labAvailableId || row.labId || row.id || key,
-              labName: row.labName || "",
-              location: row.location || "",
-              rating: Number(row.rating) || 0,
-              price: newPrice,
-              reportTime: row.reportTime || "",
-              testName: row.testName || "",
-              scanName: row.scanName || "",
-              packageName: row.packageName || "",
-              homeCollection: row.homeCollection === true || row.homeCollection === "true" || row.homeCollection === "YES",
-            });
-          } else {
-            const current = grouped.get(key);
-            if ((current.price === 0 && newPrice > 0) || (newPrice > 0 && newPrice < current.price)) {
-              current.price = newPrice;
-              grouped.set(key, current);
-            }
-          }
-        }
-        const normalized = Array.from(grouped.values());
-        setLabs(normalized);
-      } catch (e) {
-        setLabsError(e?.message || "Failed to load labs");
-      } finally {
-        setLabsLoading(false);
-      }
-    };
-
-    run();
-    return () => {
-      cancelled = true;
-    };
-  }, [search, selectedTestNames, selectedScanNames, selectedPackageNames]);
 
   const applyFilters = (items) => {
     let out = items;

@@ -983,7 +983,7 @@ const OpdTab = forwardRef(
           .trim() ||
         "N/A",
       email: p.email || p.patientEmail || "N/A",
-      phone: p.phone || p.mobileNo || p.patientPhone || "N/A",
+      phone: p.phone || p.mobileNo || p.patientPhoneNumber || "N/A",
       consultationType: p.consultationType || p.consultationTypeName || "OPD",
       date: p.appointmentDate || p.date || p.scheduledDate || "N/A",
       time: p.appointmentTime || p.time || p.scheduledTime || "N/A",

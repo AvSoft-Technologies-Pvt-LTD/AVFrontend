@@ -105,9 +105,6 @@ const mapDoctorAppointment = (appointment) => {
     appointment?.reasonForVisit ||
     appointment?.notes ||
     appointment?.chiefComplaint;
-
-  // Normalize status so CONFIRMED / REJECTED etc. display correctly and
-  // work with getStatusBadge (Confirmed + Pay, Rejected + Reason, etc.)
   let normalizedStatus = "PENDING";
   if (typeof rawStatus === "string") {
     const lower = rawStatus.toLowerCase();
@@ -117,15 +114,12 @@ const mapDoctorAppointment = (appointment) => {
     else if (lower === "pending" || lower === "upcoming") normalizedStatus = "Pending";
     else normalizedStatus = rawStatus;
   }
-
-  // Map rejection reason from all possible backend field names
   const rejectReason =
     appointment?.rejectReason ??
     appointment?.rejectionReason ??
     appointment?.reason ??
     appointment?.notes ??
     null;
-
   return {
     ...appointment,
     doctorName: doctorName || "-",
@@ -147,7 +141,6 @@ const mapDoctorAppointment = (appointment) => {
 const mapLabAppointment = (appointment) => {
   const bookingId = appointment?.bookingId || appointment?.id || appointment?.referenceId;
   const status = appointment?.status || appointment?.appointmentStatus || appointment?.state;
-
   return {
     ...appointment,
     bookingId: bookingId || "-",
@@ -174,11 +167,9 @@ const mapLabAppointment = (appointment) => {
 const normalizeAppointmentsResponse = (payload) => {
   let doctorAppointments = [];
   let labAppointments = [];
-
   if (!payload) {
     return { doctorAppointments, labAppointments };
   }
-
   if (Array.isArray(payload)) {
     payload.forEach((appointment) => {
       const typeValue = (appointment?.type || appointment?.appointmentType || appointment?.category || "").toString().toLowerCase();
@@ -190,46 +181,41 @@ const normalizeAppointmentsResponse = (payload) => {
     });
     return { doctorAppointments, labAppointments };
   }
-
   if (typeof payload === "object") {
     const doctorKeys = ["doctorAppointments", "doctor", "doctorAppointmentList", "doctorAppointmentsList"];
     const labKeys = ["labAppointments", "lab", "labAppointmentList", "labAppointmentsList"];
-
     doctorKeys.forEach((key) => {
       if (Array.isArray(payload[key])) {
         doctorAppointments = payload[key].map(mapDoctorAppointment);
       }
     });
-
     labKeys.forEach((key) => {
       if (Array.isArray(payload[key])) {
         labAppointments = payload[key].map(mapLabAppointment);
       }
     });
-
     if (Array.isArray(payload.appointments) && doctorAppointments.length === 0 && labAppointments.length === 0) {
       return normalizeAppointmentsResponse(payload.appointments);
     }
   }
-
   return { doctorAppointments, labAppointments };
 };
 
 const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = false, data }) => {
   const navigate = useNavigate();
   const { patient } = usePatientContext();
-
   const initialType = displayType || localStorage.getItem("appointmentTab") || "doctor";
   const [state, setState] = useState({
     t: initialType,
-    l: [],
     d: [],
+    l: [],
     selectedAppointment: null,
     showPaymentGateway: false,
     showModal: false,
     modalMode: "view",
-    labPayments: [],
+    loading: false,
   });
+
   const storedPatientId = useMemo(() => {
     try {
       const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
@@ -239,6 +225,7 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
       return null;
     }
   }, []);
+
   const patientId = useMemo(
     () => patient?.id ?? patient?.patientId ?? storedPatientId,
     [patient?.id, patient?.patientId, storedPatientId]
@@ -252,7 +239,6 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
     if (!data) {
       return;
     }
-
     const { doctorAppointments, labAppointments } = normalizeAppointmentsResponse(data);
     setState((prev) => ({
       ...prev,
@@ -265,20 +251,19 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
     if (data || !patientId) {
       return;
     }
-
     let isMounted = true;
-
     const fetchAppointments = async () => {
       try {
+        setState((prev) => ({ ...prev, loading: true }));
         const response = await getAppointmentsByPatientId(patientId);
         const payload = response?.data ?? [];
         const { doctorAppointments, labAppointments } = normalizeAppointmentsResponse(payload);
-
         if (isMounted) {
           setState((prev) => ({
             ...prev,
             d: doctorAppointments,
             l: labAppointments,
+            loading: false,
           }));
         }
       } catch (error) {
@@ -287,55 +272,60 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
             ...prev,
             d: [],
             l: [],
+            loading: false,
           }));
         }
         console.error("Failed to load patient appointments:", error);
       }
     };
-
     fetchAppointments();
-
     return () => {
       isMounted = false;
     };
   }, [data, patientId]);
 
   useEffect(() => {
-    if (!patientId) {
+    // Fetch lab payments whenever we have a patientId
+    // and this component is not controlled by an external data prop.
+    if (!patientId || data) {
       return;
     }
 
-    let isMounted = true;
-
     const fetchLabPayments = async () => {
       try {
+        setState((prev) => ({ ...prev, loading: true }));
+
         const res = await getLabPaymentsByPatient(patientId);
         const payments = res?.data || [];
 
-        if (!isMounted) return;
+        const mappedPayments = payments.map((p) => ({
+          ...p,
+          bookingId: p.bookingId || "-",
+          testTitle: p.testNames || p.testTitle || "-",
+          labName: p.labName || "-",
+          status: p.status || "-",
+          amountPaid: p.amountPaid ?? p.paymentAmount ?? "-",
+          paymentStatus: p.paymentStatus || p.status || "-",
+        }));
 
         setState((prev) => ({
           ...prev,
-          labPayments: payments,
-          l: payments.map((p) => ({
-            ...p,
-            bookingId: p.bookingId || "-",
-            testTitle: p.testNames || p.testTitle || "-",
-            labName: p.labName || "-",
-            status: p.status || "-",
-          })),
+          l: mappedPayments,
+          loading: false,
         }));
       } catch (error) {
-        console.error("Failed to load lab payments by patient:", error);
+        console.error("Error fetching lab payments:", error);
+
+        setState((prev) => ({
+          ...prev,
+          l: [],
+          loading: false,
+        }));
       }
     };
 
     fetchLabPayments();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [patientId]);
+  }, [patientId, data]);
 
   const handleTabChange = (tab) => {
     setState((prev) => ({ ...prev, t: tab }));
@@ -476,6 +466,7 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
         </span>
       ),
     },
+ 
     {
       header: "Action",
       cell: (appointment) => (
@@ -600,6 +591,7 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
           showSearchBar={!isOverview}
           showPagination={!isOverview}
           filters={isOverview ? [] : (state.t === "doctor" ? doctorFilters : labFilters)}
+          loading={state.loading}
         />
       )}
     </div>

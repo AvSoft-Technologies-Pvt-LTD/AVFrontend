@@ -366,17 +366,19 @@ const MultiStepForm = () => {
       appointmentTime = `${hours.toString().padStart(2, '0')}:${minutes}`;
     }
 
+    const normalizedConsultationType =
+      String(state.consultationType).toLowerCase() === 'virtual' ? 'Virtual' : 'Physical';
+
     const payload = {
       patientId: patientId,
       doctorId: doctorId,
       hospitalId: hospitalId,
       slotId: slotId,
-      symptomId: symptomId,
       symptomIds: symptomIds,
       specialtyId: state.specialtyId || 0,
       appointmentDate: state.selectedDate,
       appointmentTime: appointmentTime,
-      consultationType: state.consultationType,
+      consultationType: normalizedConsultationType,
       consultationFees: state.selectedDoctor?.fees || 0.1,
       notes: state.symptoms || "No specific symptoms",
     };

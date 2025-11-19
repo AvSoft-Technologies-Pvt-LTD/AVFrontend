@@ -152,23 +152,50 @@ const TokenGenerator = () => {
     const slot = doctor.availability?.find(s => s.date === date);
     if (!slot?.times) return [];
 
-    const bookedSlotTimes = slot.bookedSlots?.map(item =>
-      typeof item === 'object'
-        ? { time: item.time, slotId: item.slotId ?? null }
-        : { time: item, slotId: null }
-    ) || [];
+    const normalizeSlotEntry = (entry) => {
+      if (entry && typeof entry === 'object') {
+        const rawTime = entry.time || entry.slotTime || entry.startTime || '';
+        return {
+          time: typeof rawTime === 'string' ? rawTime.trim() : rawTime,
+          slotId: entry.slotId ?? entry.id ?? null,
+        };
+      }
+      return {
+        time: typeof entry === 'string' ? entry.trim() : entry,
+        slotId: null,
+      };
+    };
+
+    const slotLevelBooked = Array.isArray(slot.bookedSlots) ? slot.bookedSlots : [];
+    const doctorLevelBooked = Array.isArray(doctor.bookedSlots) ? doctor.bookedSlots : [];
+    const bookedEntries = [...slotLevelBooked, ...doctorLevelBooked]
+      .map(normalizeSlotEntry)
+      .filter(item => item.time);
+
+    const isSameSlot = (booked, candidate) => {
+      const bookedId = booked.slotId ?? null;
+      const candidateId = candidate.slotId ?? null;
+      if (bookedId !== null && candidateId !== null) {
+        return bookedId === candidateId;
+      }
+      const bookedTime = (booked.time ?? '').toString().trim();
+      const candidateTime = (candidate.time ?? '').toString().trim();
+      return bookedTime === candidateTime;
+    };
 
     return slot.times
-      .map(entry =>
-        typeof entry === 'object'
-          ? { time: entry.time, slotId: entry.slotId ?? null }
-          : { time: entry, slotId: null }
-      )
-      .filter(timeObj =>
-        !bookedSlotTimes.some(booked =>
-          booked.time === timeObj.time && (booked.slotId ?? null) === (timeObj.slotId ?? null)
-        )
-      );
+      .map(entry => {
+        const normalized = normalizeSlotEntry(entry);
+        if (!normalized.time) {
+          return null;
+        }
+        const isBooked = bookedEntries.some(booked => isSameSlot(booked, normalized));
+        return {
+          ...normalized,
+          isBooked,
+        };
+      })
+      .filter(Boolean);
   };
 
   // Get visible slots (12 at a time)
@@ -309,6 +336,7 @@ const TokenGenerator = () => {
       );
       const doctorIdentifier = Number(selectedDoctor?.doctorId || selectedDoctor?.id || 0);
       const slotIdentifier = Number(selectedSlotId);
+      const normalizedConsultationType = consultationType === 'virtual' ? 'VIRTUAL' : 'PHYSICAL';
       const waitMinutes = consultationType === 'virtual'
         ? (priority === 'emergency' ? 2 : 15)
         : (priority === 'emergency' ? 5 : 30);
@@ -322,11 +350,12 @@ const TokenGenerator = () => {
         departmentId,
         slotId: slotIdentifier,
         doctorId: doctorIdentifier,
-        patientId: Number(patientId),
+        patientId: 2,
         priorityLevel: priority.toUpperCase(),
         reasonForVisit: (symptoms || 'General Consultation').trim(),
         status: 'WAITING',
         estimatedWaitMinutes: waitMinutes,
+        consultationType: normalizedConsultationType,
       };
 
       // if (appointmentDate) {

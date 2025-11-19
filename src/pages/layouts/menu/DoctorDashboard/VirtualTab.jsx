@@ -1,15 +1,10 @@
-
-
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { FaNotesMedical } from "react-icons/fa";
 import { FiExternalLink } from "react-icons/fi";
 import DynamicTable from "../../../../components/microcomponents/DynamicTable";
 import ReusableModal from "../../../../components/microcomponents/Modal";
-import TeleConsultFlow from "../../../../components/microcomponents/Call";
 import {
-  getAllVirtualAppointments,
   getVirtualAppointmentById,
   createVirtualAppointment,
   updateVirtualAppointment,
@@ -53,20 +48,19 @@ const VirtualTab = forwardRef(
       viewPatient: false,
       editPatient: false,
     });
-      const { setPatient, setActiveTab: setContextActiveTab } = usePatientContext();
+    const { setPatient } = usePatientContext();
     const [consultationFormData, setConsultationFormData] = useState({
       scheduledDate: getCurrentDateArray(),
       scheduledTime: getCurrentTimeArray(),
       duration: 30,
     });
     const [consultationTypes, setConsultationTypes] = useState([]);
-  
 
     useImperativeHandle(ref, () => ({
       openScheduleConsultationModal: () => openModal("scheduleConsultation"),
     }));
 
-    // ✅ Fetch consultation types
+    // Fetch consultation types
     const fetchConsultationTypes = async () => {
       try {
         const r = await getConsultationTypes();
@@ -76,15 +70,13 @@ const VirtualTab = forwardRef(
       }
     };
 
-    // ✅ Fetch all virtual consultations
+    // Fetch all virtual consultations
     const fetchAllPatients = async () => {
-       console.log("fetchAllPatients called");
       setLoading(true);
       try {
         const r = await getVirtualAppointmentById(doctorId);
-         console.log("Raw GET Response:", r);
-        const all = r.data || [];
-         console.log("Fetched Appointments:", all); 
+        const raw = r?.data;
+        const all = Array.isArray(raw) ? raw : raw ? [raw] : [];
         const formatted = all.map((p) => {
           const d = p.scheduledDate ? new Date(p.scheduledDate) : null;
           const date = d && !isNaN(d) ? d.toISOString().split("T")[0] : "N/A";
@@ -103,11 +95,12 @@ const VirtualTab = forwardRef(
         setVirtualPatients(formatted.reverse());
         setPatient(formatted);
       } catch (e) {
-        console.error(e);
+        console.error("fetchAllPatients error:", e);
       } finally {
         setLoading(false);
       }
     };
+
     const openModal = (n) => setModals((p) => ({ ...p, [n]: true }));
     const closeModal = (n) => {
       setModals((p) => ({ ...p, [n]: false }));
@@ -119,18 +112,18 @@ const VirtualTab = forwardRef(
         });
       setSelectedPatient(null);
     };
-const handleSelected = (r) => {
-  try {
-    console.log("this is",{ state: { patient: r } })
-    localStorage.setItem("selectedThisPatient", JSON.stringify(r));
-     setPatient(r);
-    navigate("/doctordashboard/form", { state: { patient: r } });
-  } catch (error) {
-    console.error("Error saving patient:", error);
-  }
-};
 
-    // ✅ View appointment details
+    const handleSelected = (r) => {
+      try {
+        localStorage.setItem("selectedThisPatient", JSON.stringify(r));
+        setPatient(r);
+        navigate("/doctordashboard/form", { state: { patient: r } });
+      } catch (error) {
+        console.error("Error saving patient:", error);
+      }
+    };
+
+    // View appointment details
     const handleViewPatient = (p) => {
       setSelectedPatient(p);
       const formatted = {
@@ -166,7 +159,7 @@ const handleSelected = (r) => {
       openModal("editPatient");
     };
 
-    // ✅ Schedule new consultation
+    // Schedule new consultation
     const handleScheduleConsultation = async (f) => {
       try {
         const payload = {
@@ -174,8 +167,8 @@ const handleSelected = (r) => {
           name: `${f.firstName} ${f.lastName}`.trim(),
           type: "virtual",
           patientEmail: f.email,
-          phoneNumber: f.phone, // <-- Use phoneNumber instead of patientPhone
-          consultationNotes: f.notes, // <-- Use notes instead of consultationNotes
+          phoneNumber: f.phone,
+          consultationNotes: f.notes,
           consultationStatus: "Scheduled",
           doctorName,
           doctorId,
@@ -207,14 +200,13 @@ const handleSelected = (r) => {
           firstName: formData.firstName,
           lastName: formData.lastName,
           email: formData.email,
-          phoneNumber: formData.phone, // Use phoneNumber instead of phone
+          phoneNumber: formData.phone,
           consultationTypeId: Number(formData.consultationTypeId),
           scheduledDate: formData.scheduledDate,
           scheduledTime: formData.scheduledTime,
           duration: formData.duration,
-          consultationNotes: formData.notes, // Use consultationNotes
+          consultationNotes: formData.notes,
         };
-        console.log("Payload:", payload); // Debug log
         const res = await updateVirtualAppointment(appointmentId, payload);
         if (res?.data) {
           closeModal("editPatient");
@@ -225,7 +217,6 @@ const handleSelected = (r) => {
         console.error("Error updating consultation:", error);
       }
     };
-
 
     // Table columns
     const columns = [
@@ -261,19 +252,10 @@ const handleSelected = (r) => {
         header: "Actions",
         cell: (r) => (
           <div className="flex items-center gap-2">
-            {/* <button onClick={() => handleSelected(r)} className="text-base p-1"><FaNotesMedical /></button>
-            <TeleConsultFlow
-              phone={r.phone}
-              patientName={r.name}
-              context="Virtual"
-              patientEmail={r.email}
-              hospitalName={r.hospitalName || "AV Hospital"}
-            /> */}
             <button
               title="View Medical Record"
               onClick={() => {
-                console.log("Navigating to medical record with patient:", r);
-                setPatient(r); // ✅ ensure the correct patient is in context
+                setPatient(r);
                 navigate("/doctordashboard/medical-record", { state: { patient: r } });
               }}
               className="p-1 text-base text-[var(--primary-color)]"
@@ -285,7 +267,7 @@ const handleSelected = (r) => {
       },
     ];
 
-    // ✅ Table filters
+    // Table filters
     const filters = [
       {
         key: "consultationStatus",
@@ -331,7 +313,6 @@ const handleSelected = (r) => {
             r.appointmentId === newPatientId ? "font-bold bg-yellow-100" : ""
           }
         />
-
         <ReusableModal
           isOpen={modals.viewPatient}
           onClose={() => closeModal("viewPatient")}
@@ -347,7 +328,6 @@ const handleSelected = (r) => {
             </div>
           }
         />
-
         <ReusableModal
           isOpen={modals.scheduleConsultation}
           onClose={() => closeModal("scheduleConsultation")}
@@ -361,7 +341,6 @@ const handleSelected = (r) => {
           cancelLabel="Cancel"
           size="lg"
         />
-
         <ReusableModal
           isOpen={modals.editPatient}
           onClose={() => closeModal("editPatient")}
@@ -380,7 +359,7 @@ const handleSelected = (r) => {
   }
 );
 
-// ✅ Consultation modal form fields
+// Consultation modal form fields
 const CONSULTATION_FIELDS = (types) => [
   { name: "firstName", label: "First Name*", type: "text", required: true },
   { name: "lastName", label: "Last Name*", type: "text", required: true },
