@@ -18,6 +18,9 @@ import {
 } from '../utils/masterService';
 
 import PatientRegistration from "./PatientRegistration";
+import HospitalRegistration from "./HospitalRegistration";
+import LabRegistration from "./LabRegistration";
+import DoctorRegistration from "./DoctorRegistration";
 
 // File Upload Component
 const NeatFileUpload = ({ name, accept, multiple = false, files, onFileChange, label, required = false, icon: Icon = Upload }) => {
@@ -410,7 +413,7 @@ const RegisterForm = () => {
 
     // ---------------- LAB MODULE ----------------
     if (userType === "lab") {
-      // ✅ Tests
+      // Tests
       setApiData(prev => ({
         ...prev,
         loading: { ...prev.loading, availableTests: true }
@@ -432,7 +435,7 @@ const RegisterForm = () => {
           }));
         }
 
-      // ✅ Center Types
+      // Center Types
       setApiData(prev => ({
         ...prev,
         loading: { ...prev.loading, centerTypes: true }
@@ -454,7 +457,7 @@ const RegisterForm = () => {
           }));
         }
 
-      // ✅ Scan Services
+      // Scan Services
       setApiData(prev => ({
         ...prev,
         loading: { ...prev.loading, scanServices: true }
@@ -476,7 +479,7 @@ const RegisterForm = () => {
           }));
         }
 
-      // ✅ Special Services
+      // Special Services
       setApiData(prev => ({
         ...prev,
         loading: { ...prev.loading, specialServices: true }
@@ -526,7 +529,7 @@ const RegisterForm = () => {
 
     // ---------------- DOCTOR MODULE ----------------
     if (userType === "doctor") {
-      // ✅ Practice Types
+      // Practice Types
       setApiData(prev => ({
         ...prev,
         loading: { ...prev.loading, practiceTypes: true }
@@ -552,7 +555,7 @@ const RegisterForm = () => {
           }));
         }
 
-      // ✅ Hospitals List
+      // Hospitals List
       setApiData(prev => ({
         ...prev,
         loading: { ...prev.loading, hospitals: true }
@@ -817,17 +820,6 @@ const validateForm = () => {
   if (!formData.city?.trim()) newErrors.city = "City is required";
   if (!formData.photo) newErrors.photo = "Photo is required";
 
-  // Patient-specific validations
-  if (userType === "patient") {
-    if (!formData.aadhaar || formData.aadhaar.replace(/-/g, "").length !== 12)
-      newErrors.aadhaar = "Aadhaar must be 12 digits";
-    if (!formData.gender_id) newErrors.gender = "Gender is required";
-    if (!formData.occupation?.trim())
-      newErrors.occupation = "Occupation is required";
-    if (!formData.agreeDeclaration)
-      newErrors.agreeDeclaration = "Please accept the declaration";
-  }
-
   // Doctor-specific validations
   if (userType === "doctor") {
     if (!formData.aadhaar || formData.aadhaar.replace(/-/g, "").length !== 12)
@@ -947,13 +939,6 @@ const validateForm = () => {
       }
 
       // User type specific fields
-      if (userType === "patient") {
-        formDataToSubmit.append('aadhaar', formData.aadhaar);
-        formDataToSubmit.append('genderId', formData.gender_id);
-        formDataToSubmit.append('occupation', formData.occupation);
-        formDataToSubmit.append('agreeDeclaration', formData.agreeDeclaration);
-      }
-
       if (userType === "hospital") {
         formDataToSubmit.append('hospitalName', formData.hospitalName);
         formDataToSubmit.append('headCeoName', formData.headCeoName);
@@ -998,16 +983,12 @@ const validateForm = () => {
         formDataToSubmit.append('practiceTypeId', formData.roleSpecificData.practiceTypeId);
         formDataToSubmit.append('specializationId', formData.roleSpecificData.specializationId);
         formDataToSubmit.append('qualification', formData.roleSpecificData.qualification);
-        formDataToSubmit.append('password', formData.password);
-        formDataToSubmit.append('confirmPassword', formData.confirmPassword);
-        formDataToSubmit.append('agreeDeclaration', formData.roleSpecificData.agreeDeclaration);
-        formDataToSubmit.append('isAssociatedWithClinicHospital', formData.isAssociatedWithClinicHospital);
+        formDataToSubmit.append('agreeDeclaration', formData.agreeDeclaration);
+        formDataToSubmit.append('associationType', associationType);
         if (formData.isAssociatedWithClinicHospital === 'clinic') {
           formDataToSubmit.append('associatedClinic', formData.associatedClinic);
         }
-
         if (formData.isAssociatedWithClinicHospital === 'hospital') {
-          // Only send associatedHospital name; skip hospitalId to avoid backend ID mismatch errors
           formDataToSubmit.append('associatedHospital', formData.associatedHospital);
           if (formData.associatedHospitalId) {
             formDataToSubmit.append('hospitalId', formData.associatedHospitalId);
@@ -1063,419 +1044,46 @@ const validateForm = () => {
 
   let userFields = null;
 
-  if (userType === "patient") {
+if (userType === "patient") {
+  userFields = (
+    <PatientRegistration />
+  );
+} else if (userType === "hospital") {
     userFields = (
-      <PatientRegistration
+      <HospitalRegistration
         formData={formData}
         setFormData={setFormData}
         errors={errors}
-        setErrors={setErrors}
         handleInputChange={handleInputChange}
         handleFileChange={handleFileChange}
+        apiData={apiData}
         photoPreview={photoPreview}
-        setPhotoPreview={setPhotoPreview}
+        onPreviewClick={() => setIsModalOpen(true)}
       />
-    );
-  } else if (userType === "hospital") {
-    userFields = (
-      <>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {renderInput("hospitalName", "text", "Hospital Name", true)}
-          {renderInput("headCeoName", "text", "Head/CEO Name", true)}
-          {renderInput("registrationNumber", "text", "Registration Number", true)}
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {renderInput("phone", "text", "Phone Number", true)}
-          {renderInput("email", "email", "Email", true)}
-          {renderInput("gstNumber", "text", "GST Number", true)}
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <CompactDropdownCheckbox
-            label="Hospital Type"
-            required
-            placeholder={apiData.loading.hospitalTypes ? "Loading hospital types..." : "Select Hospital Type"}
-            options={apiData.hospitalTypes}
-            selected={formData.hospitalType}
-            onChange={(selected) => setFormData(prev => ({ ...prev, hospitalType: selected }))}
-            allowOther
-            otherValue={formData.otherHospitalType}
-            onOtherChange={(value) => setFormData(prev => ({ ...prev, otherHospitalType: value }))}
-            loading={apiData.loading.hospitalTypes}
-          />
-          <PhotoUpload
-            photoPreview={photoPreview}
-            onPhotoChange={handleFileChange}
-            onPreviewClick={() => setIsModalOpen(true)}
-          />
-          <NeatFileUpload
-            name="nabhCertificate"
-            accept=".pdf,.jpg,.jpeg,.png"
-            files={formData.nabhCertificate || []}
-            onFileChange={handleFileChange}
-            label="NABH Certificate"
-            icon={FileText}
-          />
-        </div>
-        {errors.hospitalType && <p className="error-text">{errors.hospitalType}</p>}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">In-House Lab *</label>
-            <div className="flex items-center space-x-4">
-              <label className="inline-flex items-center">
-                <input
-                  type="radio"
-                  name="inHouseLab"
-                  value="yes"
-                  checked={formData.inHouseLab === "yes"}
-                  onChange={handleInputChange}
-                  className="form-radio text-[var(--accent-color)]"
-                />
-                <span className="ml-2">Yes</span>
-              </label>
-              <label className="inline-flex items-center">
-                <input
-                  type="radio"
-                  name="inHouseLab"
-                  value="no"
-                  checked={formData.inHouseLab === "no"}
-                  onChange={handleInputChange}
-                  className="form-radio text-[var(--accent-color)]"
-                />
-                <span className="ml-2">No</span>
-              </label>
-            </div>
-            {formData.inHouseLab === "yes" && (
-              <div className="mt-2">
-                {renderInput("labLicenseNo", "text", "Lab License Number", true)}
-              </div>
-            )}
-            {errors.inHouseLab && <p className="error-text">{errors.inHouseLab}</p>}
-          </div>
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">In-House Pharmacy *</label>
-            <div className="flex items-center space-x-4">
-              <label className="inline-flex items-center">
-                <input
-                  type="radio"
-                  name="inHousePharmacy"
-                  value="yes"
-                  checked={formData.inHousePharmacy === "yes"}
-                  onChange={handleInputChange}
-                  className="form-radio text-[var(--accent-color)]"
-                />
-                <span className="ml-2">Yes</span>
-              </label>
-              <label className="inline-flex items-center">
-                <input
-                  type="radio"
-                  name="inHousePharmacy"
-                  value="no"
-                  checked={formData.inHousePharmacy === "no"}
-                  onChange={handleInputChange}
-                  className="form-radio text-[var(--accent-color)]"
-                />
-                <span className="ml-2">No</span>
-              </label>
-            </div>
-            {formData.inHousePharmacy === "yes" && (
-              <div className="mt-2">
-                {renderInput("pharmacyLicenseNo", "text", "Pharmacy License Number", true)}
-              </div>
-            )}
-            {errors.inHousePharmacy && <p className="error-text">{errors.inHousePharmacy}</p>}
-          </div>
-        </div>
-      </>
     );
   } else if (userType === "lab") {
     userFields = (
-      <>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="floating-input relative w-full" data-placeholder="Center Type *">
-            <select
-              name="centerType"
-              value={formData.centerType}
-              onChange={handleInputChange}
-              disabled={apiData.loading.centerTypes}
-              className={`input-field peer ${errors.centerType ? "input-error" : ""} ${
-                apiData.loading.centerTypes ? 'bg-gray-100 cursor-not-allowed' : ''
-              }`}
-              required
-            >
-              <option value="">
-                {apiData.loading.centerTypes
-                  ? "Loading center types..."
-                  : "Select Center Type"
-                }
-              </option>
-              {apiData.centerTypes.map((type, index) => (
-                <option key={`${type}-${index}`} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
-            {errors.centerType && <p className="error-text">{errors.centerType}</p>}
-          </div>
-          {renderInput("centerName", "text", "Center Name", true)}
-          {renderInput("ownerFullName", "text", "Owner's Full Name", true)}
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {renderInput("phone", "text", "Phone Number", true)}
-          {renderInput("email", "email", "Email", true)}
-          {renderInput("registrationNumber", "text", "Registration Number", true)}
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {renderInput("gstNumber", "text", "GST Number", true)}
-          {renderInput("licenseNumber", "text", "License Number", true)}
-          <PhotoUpload
-            photoPreview={photoPreview}
-            onPhotoChange={handleFileChange}
-            onPreviewClick={() => setIsModalOpen(true)}
-          />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <CompactDropdownCheckbox
-            label="Available Tests"
-            options={apiData.availableTests}
-            selected={formData.availableTests}
-            onChange={(selected) => setFormData(prev => ({ ...prev, availableTests: selected }))}
-            required
-            placeholder={apiData.loading.availableTests ? "Loading tests..." : "Select Available Tests"}
-            loading={apiData.loading.availableTests}
-          />
-          <CompactDropdownCheckbox
-            label="Scan Services"
-            options={apiData.scanServices}
-            selected={formData.scanServices}
-            onChange={(selected) => setFormData(prev => ({ ...prev, scanServices: selected }))}
-            required
-            placeholder={apiData.loading.scanServices ? "Loading scan services..." : "Select Scan Services"}
-            loading={apiData.loading.scanServices}
-          />
-          <CompactDropdownCheckbox
-            label="Special Services"
-            options={apiData.specialServices}
-            selected={formData.specialServices}
-            onChange={(selected) => setFormData(prev => ({ ...prev, specialServices: selected }))}
-            placeholder={apiData.loading.specialServices ? "Loading special services..." : "Select Special Services"}
-            loading={apiData.loading.specialServices}
-          />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
-          <NeatFileUpload
-            name="certificates"
-            accept=".pdf,.jpg,.jpeg,.png"
-            multiple
-            files={formData.certificates || []}
-            onFileChange={handleFileChange}
-            label="Upload Certificates"
-            icon={FileText}
-          />
-        </div>
-        {errors.availableTests && <p className="error-text">{errors.availableTests}</p>}
-        {errors.scanServices && <p className="error-text">{errors.scanServices}</p>}
-      </>
+      <LabRegistration
+        formData={formData}
+        errors={errors}
+        handleInputChange={handleInputChange}
+        handleFileChange={handleFileChange}
+        apiData={apiData}
+        photoPreview={photoPreview}
+        onPreviewClick={() => setIsModalOpen(true)}
+      />
     );
   } else if (userType === "doctor") {
     userFields = (
-      <>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {renderInput("firstName", "text", "First Name", true)}
-          {renderInput("middleName", "text", "Middle Name")}
-          {renderInput("lastName", "text", "Last Name", true)}
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {renderInput("phone", "text", "Phone Number", true)}
-          {renderInput("email", "email", "Email", true)}
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {renderInput("aadhaar", "text", "Aadhaar Number", true)}
-          <div className="floating-input relative w-full" data-placeholder="Gender *">
-            <select
-              name="gender"
-              value={formData.gender}
-              onChange={handleInputChange}
-              disabled={apiData.loading.genders || !apiData.genders.length}
-              className={`input-field peer ${errors.gender ? "input-error" : ""} ${
-                (apiData.loading.genders || !apiData.genders.length) ? 'bg-gray-100 cursor-not-allowed' : ''
-              }`}
-              required
-            >
-              <option value="">
-                {apiData.loading.genders
-                  ? "Loading genders..."
-                  : !apiData.genders.length
-                    ? "No genders available"
-                    : "Select Gender"}
-              </option>
-              {apiData.genders.map((gender, index) => (
-                <option key={`${gender}-${index}`} value={gender}>
-                  {gender}
-                </option>
-              ))}
-            </select>
-            {errors.gender && <p className="error-text">{errors.gender}</p>}
-          </div>
-          {renderInput("dob", "date", "Date of Birth", true)}
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="floating-input relative w-full" data-placeholder="Registration Number *">
-            <input
-              type="text"
-              name="roleSpecificData.registrationNumber"
-              placeholder=" "
-              value={formData.roleSpecificData.registrationNumber}
-              onChange={handleInputChange}
-              className={`input-field peer ${errors.registrationNumber ? "input-error" : ""}`}
-              required
-            />
-            {errors.registrationNumber && <p className="error-text">{errors.registrationNumber}</p>}
-          </div>
-          <div className="floating-input relative w-full" data-placeholder="Practice Type *">
-            <select
-              name="roleSpecificData.practiceType"
-              value={formData.roleSpecificData.practiceType}
-              onChange={handleInputChange}
-              className={`input-field peer ${errors.practiceType ? "input-error" : ""}`}
-              required
-              disabled={apiData.loading.practiceTypes}
-            >
-              <option value="">
-                {apiData.loading.practiceTypes ? "Loading practice types..." : "Select Practice Type"}
-              </option>
-              {apiData.practiceTypes.map((practiceType, index) => (
-                <option key={`${practiceType}-${index}`} value={practiceType}>
-                  {practiceType}
-                </option>
-              ))}
-            </select>
-            {errors.practiceType && <p className="error-text">{errors.practiceType}</p>}
-          </div>
-          <div className="floating-input relative w-full" data-placeholder="Specialization *">
-            <select
-              name="roleSpecificData.specialization"
-              value={formData.roleSpecificData.specialization}
-              onChange={handleInputChange}
-              disabled={!formData.roleSpecificData.practiceType || apiData.loading.specializations}
-              className={`input-field peer ${errors.specialization ? "input-error" : ""}`}
-              required
-            >
-              <option value="">
-                {!formData.roleSpecificData.practiceType
-                  ? "Select a practice type first"
-                  : apiData.loading.specializations
-                    ? "Loading specializations..."
-                    : "Select Specialization"}
-              </option>
-              {apiData.specializations.map((specialization, index) => (
-                <option key={`${specialization}-${index}`} value={specialization}>
-                  {specialization}
-                </option>
-              ))}
-            </select>
-            {errors.specialization && <p className="error-text">{errors.specialization}</p>}
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="floating-input relative w-full" data-placeholder="Qualification *">
-            <input
-              type="text"
-              name="roleSpecificData.qualification"
-              placeholder=" "
-              value={formData.roleSpecificData.qualification}
-              onChange={handleInputChange}
-              className={`input-field peer ${errors.qualification ? "input-error" : ""}`}
-              required
-            />
-            {errors.qualification && <p className="error-text">{errors.qualification}</p>}
-          </div>
-          <PhotoUpload
-            photoPreview={photoPreview}
-            onPhotoChange={handleFileChange}
-            onPreviewClick={() => setIsModalOpen(true)}
-          />
-        </div>
-        
-        {/* Association with Clinic/Hospital */}
-        <div>
-          <label className="paragraph">
-            Are you associated with any clinic or hospital?
-          </label>
-          <div className="grid grid-cols-2 gap-4 items-center">
-            {/* Left column - Radio buttons centered */}
-            <div className="flex ">
-              <div className="flex space-x-6">
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="isAssociatedWithClinicHospital"
-                    value="clinic"
-                    checked={formData.isAssociatedWithClinicHospital === 'clinic'}
-                    onChange={handleInputChange}
-                    className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="paragraph">Clinic</span>
-                </label>
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="isAssociatedWithClinicHospital"
-                    value="hospital"
-                    checked={formData.isAssociatedWithClinicHospital === 'hospital'}
-                    onChange={handleInputChange}
-                    className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="paragraph">Hospital</span>
-                </label>
-              </div>
-            </div>
-            
-            {/* Right column - Conditional fields */}
-            {formData.isAssociatedWithClinicHospital === 'clinic' && (
-              <div className="floating-input relative w-full" data-placeholder="Clinic Name *">
-                <input
-                  type="text"
-                  name="associatedClinic"
-                  placeholder=" "
-                  value={formData.associatedClinic}
-                  onChange={handleInputChange}
-                  className={`input-field peer ${errors.associatedClinic ? "input-error" : ""}`}
-                  required
-                />
-                {errors.associatedClinic && <p className="error-text">{errors.associatedClinic}</p>}
-              </div>
-            )}
-            
-            {formData.isAssociatedWithClinicHospital === 'hospital' && (
-              <div className="floating-input relative w-full" data-placeholder="Hospital *">
-                <select
-                  name="associatedHospital"
-                  value={formData.associatedHospital}
-                  onChange={handleInputChange}
-                  disabled={apiData.loading.hospitals}
-                  className={`input-field peer ${errors.associatedHospital ? "input-error" : ""} ${
-                    apiData.loading.hospitals ? 'bg-gray-100 cursor-not-allowed' : ''
-                  }`}
-                  required
-                >
-                  <option value="">
-                    {apiData.loading.hospitals ? "Loading hospitals..." : "Select Hospital"}
-                  </option>
-                  {apiData.hospitals.map((hospital, index) => (
-                    <option key={`${hospital}-${index}`} value={hospital}>
-                      {hospital}
-                    </option>
-                  ))}
-                </select>
-                {errors.associatedHospital && <p className="error-text">{errors.associatedHospital}</p>}
-              </div>
-            )}
-          </div>
-          {errors.associationType && (
-            <p className="error-text">{errors.associationType}</p>
-          )}
-        </div>
-      </>
+      <DoctorRegistration
+        formData={formData}
+        errors={errors}
+        handleInputChange={handleInputChange}
+        handleFileChange={handleFileChange}
+        apiData={apiData}
+        photoPreview={photoPreview}
+        onPreviewClick={() => setIsModalOpen(true)}
+      />
     );
   }
 

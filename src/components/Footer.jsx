@@ -72,21 +72,21 @@ const Footer = () => {
                   className="p-2 rounded-full bg-slate-700/50 hover:bg-emerald-600 transition-all duration-200 hover:scale-110"
                   aria-label="Facebook"
                 >
-                  <Facebook className="w-4 h-4" />
+                  <Facebook className="w-6 h-6" />
                 </a>
                 <a
                   href="#twitter"
                   className="p-2 rounded-full bg-slate-700/50 hover:bg-emerald-600 transition-all duration-200 hover:scale-110"
                   aria-label="Twitter"
                 >
-                  <Twitter className="w-4 h-4" />
+                  <Twitter className="w-6 h-6" />
                 </a>
                 <a
                   href="#linkedin"
                   className="p-2 rounded-full bg-slate-700/50 hover:bg-emerald-600 transition-all duration-200 hover:scale-110"
                   aria-label="LinkedIn"
                 >
-                  <Linkedin className="w-4 h-4" />
+                  <Linkedin className="w-6 h-6" />
                 </a>
               </div>
             </div>
@@ -99,7 +99,6 @@ const Footer = () => {
                   onClick={() => setIsExpanded(!isExpanded)}
                   className="flex items-center space-x-1 text-emerald-400 hover:text-emerald-300 transition-colors font-medium text-sm px-3 py-1 rounded-md hover:bg-emerald-500/10"
                 >
-                  <span>{isExpanded ? 'Less' : 'More'}</span>
                   {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 </button>
               </div>

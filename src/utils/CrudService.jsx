@@ -363,8 +363,8 @@ export const deleteVirtualAppointment = (id) =>
 // MEDICAL RECORDS (CRUD)
 // -----------------------------
 // Get all medical records
-export const getAllMedicalRecords = (doctorId, patientId, context) =>
-  axiosInstance.get('/medical-records', {params: { doctorId, patientId, context }});
+export const getAllMedicalRecords = (doctorId, patientId, context, registerPhone) =>
+  axiosInstance.get('/medical-records', {params: { doctorId, patientId, context, registerPhone } });
 
 // Get medical record by ID
 export const getMedicalRecordById = (id) =>
@@ -373,6 +373,9 @@ export const getMedicalRecordById = (id) =>
 // Create a new medical record
 export const createMedicalRecord = (data) =>
   axiosInstance.post('/medical-records', data);
+
+export const createIpdMedicalRecord = (payload) =>
+  axiosInstance.post('/medical-records/ipd', payload);
 
 // Update medical record by ID
 export const updateMedicalRecord = (id, data) =>

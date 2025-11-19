@@ -205,41 +205,33 @@ const [isDesktop, setIsDesktop] = useState(window?.innerWidth >= 1024);
 
 const getUserInitials = (user) => {
   if (!user) {
-    console.log("No user object, returning U");
     return "U";
   }
   // Check for firstName
   if (user.firstName) {
-    console.log("Using firstName:", user.firstName);
     return user.firstName.charAt(0).toUpperCase();
   }
   // Check for name (fallback)
   if (user.name) {
-    console.log("Using name:", user.name);
     return user.name.charAt(0).toUpperCase();
   }
   // Check for hospitalName
   if (user.hospitalName) {
-    console.log("Using hospitalName:", user.hospitalName);
     return user.hospitalName.charAt(0).toUpperCase();
   }
   // Check for labName
   if (user.labName) {
-    console.log("Using labName:", user.labName);
     return user.labName.charAt(0).toUpperCase();
   }
   // Check for centerName
   if (user.centerName) {
-    console.log("Using centerName:", user.centerName);
     return user.centerName.charAt(0).toUpperCase();
   }
   // Check for email (fallback)
   if (user.email) {
-    console.log("Using email:", user.email);
     return user.email.charAt(0).toUpperCase();
   }
   // Final fallback
-  console.log("No matching field, returning U");
   return "U";
 };
 
@@ -484,7 +476,7 @@ const getUserInitials = (user) => {
       {/* Mobile/Tablet Drawer Backdrop */}
       {isMobileDrawerOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 backdrop-blur-sm lg:hidden"
           onClick={closeMobileDrawer}
         />
       )}
