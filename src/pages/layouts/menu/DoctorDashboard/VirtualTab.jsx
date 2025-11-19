@@ -71,35 +71,43 @@ const VirtualTab = forwardRef(
     };
 
     // Fetch all virtual consultations
-    const fetchAllPatients = async () => {
-      setLoading(true);
-      try {
-        const r = await getVirtualAppointmentById(doctorId);
-        const raw = r?.data;
-        const all = Array.isArray(raw) ? raw : raw ? [raw] : [];
-        const formatted = all.map((p) => {
-          const d = p.scheduledDate ? new Date(p.scheduledDate) : null;
-          const date = d && !isNaN(d) ? d.toISOString().split("T")[0] : "N/A";
-          let time = d && !isNaN(d) ? d.toISOString().split("T")[1]?.slice(0, 5) : "N/A";
-          if (p.scheduledTime?.includes(":")) time = p.scheduledTime;
-          return {
-            ...p,
-            name: p.patientName,
-            phone: p.patientPhone,
-            consultationType: p.consultationTypeName,
-            appointmentId: p.appointmentId,
-            scheduledDate: date,
-            scheduledTime: time,
-          };
-        });
-        setVirtualPatients(formatted.reverse());
-        setPatient(formatted);
-      } catch (e) {
-        console.error("fetchAllPatients error:", e);
-      } finally {
-        setLoading(false);
+   const fetchAllPatients = async () => {
+  setLoading(true);
+  try {
+    const r = await getVirtualAppointmentById(doctorId);
+    const raw = r?.data;
+    const all = Array.isArray(raw) ? raw : raw ? [raw] : [];
+    const formatted = all.map((p) => {
+      const d = p.scheduledDate ? new Date(p.scheduledDate) : null;
+      const date = d && !isNaN(d) ? d.toISOString().split("T")[0] : "N/A";
+
+      // Format scheduledTime array into "HH:MM" string
+      let time = "N/A";
+      if (Array.isArray(p.scheduledTime) && p.scheduledTime.length >= 2) {
+        const [hours, minutes] = p.scheduledTime;
+        time = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+      } else if (typeof p.scheduledTime === "string" && p.scheduledTime.includes(":")) {
+        time = p.scheduledTime;
       }
-    };
+
+      return {
+        ...p,
+        name: p.patientName,
+        phone: p.patientPhone,
+        consultationType: p.consultationTypeName,
+        appointmentId: p.appointmentId,
+        scheduledDate: date,
+        scheduledTime: time,
+      };
+    });
+    setVirtualPatients(formatted.reverse());
+    setPatient(formatted);
+  } catch (e) {
+    console.error("fetchAllPatients error:", e);
+  } finally {
+    setLoading(false);
+  }
+};
 
     const openModal = (n) => setModals((p) => ({ ...p, [n]: true }));
     const closeModal = (n) => {
