@@ -233,19 +233,6 @@ const IPDFinal = ({ data, selectedWard, selectedRoom, selectedBed, fields, onCha
             ],
           };
         }
-        if (field.name === "status") {
-          // Ensure status is a string as per API spec
-          return {
-            ...field,
-            options:
-              field.options && field.options.length
-                ? field.options
-                : [
-                    { key: "status-admitted", value: "Admitted", label: "Admitted" },
-                    { key: "status-discharged", value: "Discharged", label: "Discharged" },
-                  ],
-          };
-        }
         return field;
       }),
     [fields, symptomsList, specializations, insuranceList]

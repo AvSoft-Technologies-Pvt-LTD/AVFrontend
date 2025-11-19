@@ -625,3 +625,7 @@ export const fetchIPDAdmission = (id) => axiosInstance.get(`/ipd-admissions/${id
 export const addIPDAdmission = (data) => axiosInstance.post('/ipd-admissions', data);
 export const editIPDAdmission = (id, data) => axiosInstance.put(`/ipd-admissions/${id}`, data);
 export const removeIPDAdmission = (id) => axiosInstance.delete(`/ipd-admissions/${id}`);
+
+// Get all lab available tests
+export const getAllLabAvailablesTests = () =>
+  axiosInstance.get('/lab-available-tests/getall');

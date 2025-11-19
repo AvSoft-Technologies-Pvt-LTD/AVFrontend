@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useSelector } from "react-redux";
 import { Clock, ChevronRight, ChevronLeft, Save } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -33,6 +34,8 @@ const MONTHS = [
 const AvailabilityPage = () => {
   const navigate = useNavigate();
   const { scheduleId } = useParams();
+  const { user } = useSelector((state) => state.auth);
+  const doctorId = user?.doctorId || user?.id;
   const isEditMode = !!scheduleId;
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedDays, setSelectedDays] = useState([]);
@@ -97,9 +100,11 @@ const AvailabilityPage = () => {
   // Helper: derive active day count from date range minus unavailable dates
   const getActiveDaysCount = (schedule) => {
     if (!schedule?.fromDate || !schedule?.toDate) return 0;
-    const startDate = apiDateToJSDate(schedule.fromDate);
-    const endDate = apiDateToJSDate(schedule.toDate);
-    if (!startDate || !endDate) return 0;
+
+    const startDate = new Date(schedule.fromDate);
+    const endDate = new Date(schedule.toDate);
+
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return 0;
 
     const msPerDay = 1000 * 60 * 60 * 24;
     const totalDays = Math.floor((endDate - startDate) / msPerDay) + 1;
@@ -255,6 +260,10 @@ const AvailabilityPage = () => {
   };
 
   const handleSave = async () => {
+    if (!doctorId) {
+      toast.error("Doctor ID not found. Please log in again.");
+      return;
+    }
     const activeDates = selectedDates.filter((d) => !deselectedDates.includes(d));
     if (activeDates.length === 0) {
       toast.error("No active dates to save");
@@ -282,7 +291,7 @@ const AvailabilityPage = () => {
       }));
 
       const scheduleData = {
-        doctorId: 1, // TODO: get from auth
+        doctorId,
         fromDate: fromDateAPI,
         toDate: toDateAPI,
         startTime,

@@ -33,11 +33,11 @@ const STATIC_DATA = {
   insurance: ["None", "CGHS", "ESIC", "Private Insurance", "Other"].map(
     (v, i) => ({ value: v, label: v, key: `insurance-${i}` })
   ),
-  status: ["Admitted", "Discharged"].map((v, i) => ({
-    value: v,
-    label: v,
-    key: `status-${i}`,
-  })),
+  // Backend: 1 = Admitted, 2 = Discharged
+  status: [
+    { value: 1, label: "Admitted", key: "status-1" },
+    { value: 2, label: "Discharged", key: "status-2" },
+  ],
   surgery: ["No", "Yes"].map((v, i) => ({
     value: v,
     label: v,
@@ -330,22 +330,19 @@ const IPDTab = forwardRef(
         const response = await fetchIPDAdmissions();
         const allAdmissions = Array.isArray(response?.data) ? response.data : [];
 
-        const ipdPatientsData = allAdmissions
-          .filter((a) =>
-            a &&
-            (a.doctorName === doctorName || a.doctorId === doctorName || doctorName == null)
-          )
-          .map((a, i) => ({
-            ...a,
-            sequentialId: a.id ?? a.admissionId ?? i + 1,
-            name:
-              a.patientName ||
-              a.name ||
-              [a.firstName, a.middleName, a.lastName].filter(Boolean).join(" "),
-            ward: a.ward || a.wardName || "",
-            diagnosis: a.symptomNames || a.diagnosis || "Under evaluation",
-            admissionDate: a.admissionDate || "Not specified",
-          }));
+        // Backend currently does not return doctorName/doctorId with admissions,
+        // so show all admissions in the table instead of filtering by doctor.
+        const ipdPatientsData = allAdmissions.map((a, i) => ({
+          ...a,
+          sequentialId: a.id ?? a.admissionId ?? i + 1,
+          name:
+            a.patientName ||
+            a.name ||
+            [a.firstName, a.middleName, a.lastName].filter(Boolean).join(" "),
+          ward: a.ward || a.wardName || "",
+          diagnosis: a.symptomNames || a.diagnosis || "Under evaluation",
+          admissionDate: a.admissionDate || "Not specified",
+        }));
 
         setIpdPatients(ipdPatientsData);
       } catch (error) {
@@ -354,7 +351,7 @@ const IPDTab = forwardRef(
       } finally {
         setLoading(false);
       }
-    }, [doctorName]);
+    }, []);
 
     // Removed fetchPatientDetails since extended sections are not shown in ReusableModal
 
@@ -540,8 +537,15 @@ const IPDTab = forwardRef(
         const patientId = 1;
 
         const wardId = selectedWard?.id ?? null;
+        const wardTypeId = selectedWard?.wardTypeId ?? 0;
+
         const roomId = ipdWizardData.roomId || ipdWizardData.roomNo || ipdWizardData.roomNumber;
         const bedId = ipdWizardData.bedId || ipdWizardData.bedNo || ipdWizardData.bedNumber;
+
+        // Backend: 1 = Admitted, 2 = Discharged
+        const statusId = ipdWizardData.status
+          ? parseInt(ipdWizardData.status, 10)
+          : 1; // default Admitted
 
         const departmentId = ipdWizardData.department
           ? parseInt(ipdWizardData.department, 10)
@@ -566,8 +570,8 @@ const IPDTab = forwardRef(
         const apiPayload = {
           admissionDate,
           admissionTime: admissionTime24,
-          status: ipdWizardData.status || "Admitted",
-          wardTypeId: null, // not currently tracked separately
+          statusId, // numeric status id expected by backend
+          wardTypeId: wardTypeId,
           wardId: wardId || 0,
           roomId: roomId ? parseInt(roomId, 10) : 0,
           bedId: bedId ? parseInt(bedId, 10) : 0,
@@ -594,9 +598,12 @@ const IPDTab = forwardRef(
           ...ipdWizardData,
           name: `${ipdWizardData.firstName || ""} ${ipdWizardData.middleName || ""} ${ipdWizardData.lastName || ""}`.trim(),
           admissionTime: admissionTime24,
+          // For local tables / UI we still store a readable status string
+          status: statusId === 2 ? "Discharged" : "Admitted",
           wardNo: ipdWizardData.wardNumber,
           roomNo: ipdWizardData.roomNumber || ipdWizardData.roomNo,
           bedNo: ipdWizardData.bedNumber,
+
           type: "ipd",
           doctorName,
           updatedAt: new Date().toISOString(),
@@ -669,6 +676,7 @@ const IPDTab = forwardRef(
       if (!room) return;
       const roomNumber = room.roomNumber;
       setSelectedRoom(roomNumber);
+      setBedScrollIndex(0); // always start from first page of beds for a new room
       setIpdWizardData((prev) => ({
         ...prev,
         roomId: room.roomId,

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 import { Calendar, Clock, Edit3, Trash2, Plus } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import {
-  getAllAvailabilitySchedules,
+  getAvailabilitySchedulesByDoctor,
   deleteAvailabilitySchedule,
 } from "../../../../../utils/CrudService";
 import { apiDateToJSDate, apiDateToString } from "./dateUtils";
@@ -12,17 +13,26 @@ import "./scheduler.css";
 
 const AvailabilityOverviewPage = () => {
   const navigate = useNavigate();
+  const { user } = useSelector((state) => state.auth);
+  const doctorId = user?.doctorId || user?.id;
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [scheduleToDelete, setScheduleToDelete] = useState(null);
 
   useEffect(() => {
-    loadSchedules();
-  }, []);
+    if (!doctorId) {
+      setLoading(false);
+      toast.error("Doctor ID not found. Please log in again.");
+      return;
+    }
+    loadSchedules(doctorId);
+  }, [doctorId]);
 
-  const loadSchedules = async () => {
+  const loadSchedules = async (currentDoctorId) => {
     setLoading(true);
     try {
-      const response = await getAllAvailabilitySchedules();
+      const response = await getAvailabilitySchedulesByDoctor(currentDoctorId);
       setSchedules(response.data || []);
     } catch (error) {
       console.error("Error loading schedules:", error);
@@ -38,15 +48,46 @@ const AvailabilityOverviewPage = () => {
   };
 
   const handleDelete = async (scheduleId) => {
-    if (window.confirm("Are you sure you want to delete this schedule?")) {
-      try {
-        await deleteAvailabilitySchedule(scheduleId);
-        loadSchedules();
-        toast.success("Schedule deleted successfully!");
-      } catch (error) {
-        console.error("Error deleting schedule:", error);
+    if (!doctorId) {
+      toast.error("Doctor ID not found. Please log in again.");
+      return;
+    }
+
+    if (!scheduleId) return;
+
+    setIsDeleteDialogOpen(true);
+    setScheduleToDelete(scheduleId);
+  };
+
+  const confirmDelete = async () => {
+    if (!doctorId) {
+      toast.error("Doctor ID not found. Please log in again.");
+      return;
+    }
+
+    if (!scheduleToDelete) {
+      setIsDeleteDialogOpen(false);
+      return;
+    }
+
+    try {
+      await deleteAvailabilitySchedule(scheduleToDelete);
+      await loadSchedules(doctorId);
+      toast.success("Schedule deleted successfully!");
+    } catch (error) {
+      console.error("Error deleting schedule:", error);
+
+      const backendMsg =
+        error?.response?.data?.error || error?.response?.data?.message || "";
+
+      if (backendMsg.includes("violates foreign key constraint")) {
+        toast.error("Cannot delete: this schedule has existing appointments.");
+      } else {
         toast.error("Failed to delete schedule");
       }
+    } finally {
+      setIsDeleteDialogOpen(false);
+      setScheduleToDelete(null);
     }
   };
 
@@ -259,6 +300,39 @@ const AvailabilityOverviewPage = () => {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      {isDeleteDialogOpen && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full mx-4 p-5 sm:p-6">
+            <h2 className="text-base sm:text-lg font-semibold text-slate-900 mb-2">
+              Delete Schedule
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 mb-4">
+              Are you sure you want to delete this availability schedule? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2 sm:gap-3 mt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsDeleteDialogOpen(false);
+                  setScheduleToDelete(null);
+                }}
+                className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg border border-slate-300 text-slate-700 bg-white hover:bg-slate-50"
+             >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg bg-red-600 text-white hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
