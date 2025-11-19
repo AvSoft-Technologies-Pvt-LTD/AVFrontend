@@ -105,6 +105,7 @@ const OpdTab = forwardRef(
     const dispatch = useDispatch();
     const { doctorId: authDoctorId, name: authDoctorName } = useSelector((state) => state.auth || {});
     const effectiveDoctorId = authDoctorId;
+   console.log("Doctor ID:", authDoctorId);
     const effectiveDoctorName = doctorName || authDoctorName;
     const [patients, setPatients] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -129,6 +130,7 @@ const OpdTab = forwardRef(
 
     const handleSelected = (r) => {
       try {
+        console.log("[OPD] navigating with patient", { state: { patient: r } });
         localStorage.setItem("selectedThisPatient", JSON.stringify(r));
         setPatient(r);
         navigate("/doctordashboard/medical-record", { state: { patient: r } });
@@ -208,7 +210,9 @@ const OpdTab = forwardRef(
           slotId,
           symptomIds,
         };
+        console.log("[Edit Appointment] API request:", body);
         const res = await updateOpdAppointmentById(id, body);
+        console.log("[Edit Appointment] API response:", res?.status, res?.data);
         toast.success("Appointment updated successfully!");
         closeModal("editPatient");
         fetchAllPatients();
@@ -235,8 +239,16 @@ const OpdTab = forwardRef(
       };
       fetchGenders();
     }, []);
+// Log on mount and whenever it changes
+useEffect(() => {
+  console.log("OPDTab mounted/doctorId changed -> doctorId:", authDoctorId);
+  console.log("Auth name:", authDoctorName);
+}, [authDoctorId, authDoctorName]);
 
-
+// Log once on first mount to confirm component renders
+useEffect(() => {
+  console.log("OPDTab mounted");
+}, []);
     useEffect(() => {
       const fetchSymptoms = async () => {
         try {
@@ -301,36 +313,33 @@ const OpdTab = forwardRef(
     const fetchAllPatients = async () => {
       setLoading(true);
       try {
-        const response = await axiosInstance.get("/auth/patient/all");
-        const allPatients = response.data;
-        console.log("Fetched Patients:", allPatients);
-        const processedPatients = allPatients
-          .map((p) => ({
-            ...p,
-            name: p.name || [p.firstName, p.middleName, p.lastName].filter(Boolean).join(" "),
-            fullName: [p.firstName, p.middleName, p.lastName].filter(Boolean).join(" "),
-          }))
-          .reverse();
-        setPatients(
-          processedPatients
-            .filter((p) =>
-              (!p.type || p.type.toLowerCase() === "OPD") &&
-              (effectiveDoctorId ? p.doctorId === effectiveDoctorId : p.doctorName === doctorName)
-            )
-            .map((p, i) => ({
-              ...p,
-              sequentialId: i + 1,
-              datetime: p.appointmentDate && p.appointmentTime ? `${p.appointmentDate} ${p.appointmentTime}` : "Not scheduled",
-              temporaryAddress: p.temporaryAddress || p.addressTemp || p.address || "",
-              address: p.address || p.temporaryAddress || p.addressTemp || "",
-              addressTemp: p.addressTemp || p.temporaryAddress || p.address || "",
-              Symptoms: p.Symptoms || "Not specified",
-              reason: p.reason || "General consultation",
-            }))
-        );
+        const { data } = await getOpdAppointmentsByDoctor(effectiveDoctorId);
+        console.log("[OPD] Fetched OPD appointments:", data);
+        const rows = (data || []).map((a) => ({
+          id: a.id,
+          sequentialId: a.appointmentUid,
+          paId: a.patientId,
+          name:
+            a.patientName ||
+            `${a.firstName || ""} ${a.middleName || ""} ${a.lastName || ""}`
+              .replace(/\s+/g, " ")
+              .trim(),
+          appointmentDate: a.appointmentDate,
+          appointmentTime: a.slotTime,
+          diagnosis: a.symptomNames || "-",
+          email: a.patientEmailId,
+          phone: a.patientPhoneNumbe,
+          gender: a.gender,
+          dob: a.dob,
+          bloodGroup: a.bloodGroup,
+          ...a,
+        }));
+        // Show newest appointments first (API usually returns oldest-first)
+        setPatients(rows.slice().reverse());
       } catch (error) {
-        console.error("Error fetching patients:", error);
-        toast.error("Failed to fetch patients");
+        console.error("Failed to load OPD appointments:", error);
+        toast.error("Failed to load OPD appointments");
+        setPatients([]);
       } finally {
         setLoading(false);
       }
@@ -432,6 +441,7 @@ const OpdTab = forwardRef(
       try {
         const apiDate = toYMD(dateStr);
         const res = await getDoctorAvailabilityByDate(effectiveDoctorId, apiDate);
+        
         const data = res?.data;
         const gen = Array.isArray(data?.generatedSlots)
           ? data.generatedSlots
@@ -520,37 +530,9 @@ const OpdTab = forwardRef(
     };
 
     useEffect(() => {
-  const loadDoctorAppointments = async () => {
-    
-    try {
-      const { data } = await getOpdAppointmentsByDoctor(effectiveDoctorId);
-      
-      const rows = (data || []).map((a) => ({
-        id:a.id,
-        sequentialId: a.appointmentUid,
-        paId:a.patientId,
-        name: a.patientName || `${a.firstName || ""} ${a.middleName || ""} ${a.lastName || ""}`.replace(/\s+/g, " ").trim(),
-        appointmentDate: a.appointmentDate,
-        appointmentTime: a.slotTime ,
-        diagnosis: a.symptomNames || "-",
-        email: a.patientEmailId,
-        phone: a.patientPhoneNumbe,
-        gender: a.gender,
-        dob: a.dob,
-        bloodGroup: a.bloodGroup,
-        ...a,
-      }));
-      setPatients(rows);
-      setLoading(false);
-    } catch (e) {
-      console.error("Failed to load OPD appointments:", e);
-      toast.error("Failed to load OPD appointments");
-      setPatients([]);
-      setLoading(false);
-    }
-  };
-  loadDoctorAppointments();
-}, [effectiveDoctorId]);
+      if (!effectiveDoctorId) return;
+      fetchAllPatients();
+    }, [effectiveDoctorId]);
 
     useEffect(() => {
       const date = appointmentFormData?.date;
@@ -631,6 +613,7 @@ const OpdTab = forwardRef(
     }, [modals.editPatient, selectedPatient, symptomsOptions, visitReasonsOptions]);
 
     const handleAppointmentNext = async () => {
+      console.log("[Appointment] Next clicked", { step: appointmentStep, data: appointmentFormData });
       const selDate = appointmentFormData?.date;
       if (selDate) await fetchAvailabilitySlots(selDate);
       setAppointmentStep(2);
@@ -642,6 +625,7 @@ const OpdTab = forwardRef(
         return;
       }
       try {
+        console.log("[Appointment] Proceed to schedule with:", appointmentFormData);
         const patientId = 1;
         const visitReasonId =
           appointmentFormData?.reason && typeof appointmentFormData.reason === "object"
@@ -681,6 +665,7 @@ const OpdTab = forwardRef(
           appointmentTime: time24WithSeconds,
           time: time24WithSeconds,
         };
+        console.log("[Appointment] Using time (HH:mm:ss):", time24WithSeconds, "from", appointmentFormData.time);
         if (!effectiveDoctorId) {
           toast.error("Missing doctorId");
           return;
@@ -698,6 +683,9 @@ const OpdTab = forwardRef(
           return;
         }
         const res = await createOpdAppointment(body);
+        console.log("[Appointment] API response:", res?.status, res?.data);
+        // Highlight the newly scheduled appointment's patient rows
+        setNewPatientId(patientId);
         toast.success("Appointment scheduled successfully!");
         closeModal("appointment");
         fetchAllPatients();
@@ -843,6 +831,7 @@ const OpdTab = forwardRef(
           return;
         }
         const createdId = response?.payload?.patientId || response?.payload?.id || response?.payload?.data?.patientId;
+        console.log("[Register] Created patientId:", createdId, "payload:", response?.payload);
         if (createdId) setNewPatientId(createdId);
         toast.success("Patient details saved!");
         closeModal("addPatient");
@@ -857,6 +846,7 @@ const OpdTab = forwardRef(
 
     const handleScheduleAppointment = async (formData) => {
       try {
+        console.log("[Appointment] handleScheduleAppointment called", formData);
         const patientId = selectedPatient?.id || selectedPatient?.patientId || newPatientId || formData?.id || formData?.patientId || appointmentFormData?.patientId;
         if (!patientId) {
           toast.error("Missing patientId");
@@ -898,7 +888,11 @@ const OpdTab = forwardRef(
           slotId,
           symptomIds,
         };
+        console.log("[Appointment] POST body:", body);
         const response = await createOpdAppointment(body);
+        console.log("[Appointment] API response::::::::::::::::::::::::::::::", response?.data);
+        // Highlight the newly scheduled appointment's patient rows
+        setNewPatientId(patientId);
         if (!response?.data?.success) throw new Error("Failed to schedule appointment");
         toast.success("Appointment scheduled successfully!");
         closeModal("appointment");
@@ -912,7 +906,10 @@ const OpdTab = forwardRef(
     const handleAddRecord = (patient) => navigate("/doctordashboard/form", { state: { patient } });
 
     const handlePatientVerificationConfirm = (patientData) => {
-    toast.success(`Patient verified: ${patientData.fullName}`);
+      // Here, you can pre-fill the form or proceed to the next step
+      // For now, just log and close the modal
+      console.log("Verified patient:", patientData);
+      toast.success(`Patient verified: ${patientData.fullName}`);
       closeModal("addPatient");
       openModal("appointment");
     };
@@ -1004,7 +1001,11 @@ const OpdTab = forwardRef(
           tabActions={tabActionsToUse}
           activeTab={activeTab}
           onTabChange={onTabChange}
-          rowClassName={(row) => row.sequentialId === newPatientId || row.sequentialId === location.state?.highlightId ? "font-bold bg-yellow-100 hover:bg-yellow-200 transition-colors duration-150" : ""}
+          rowClassName={(row) =>
+            row.paId === newPatientId || row.sequentialId === location.state?.highlightId
+              ? "font-semibold bg-yellow-100 hover:bg-yellow-200 transition-colors duration-150"
+              : ""
+          }
         />
         <ReusableModal
           isOpen={modals.viewPatient}
@@ -1021,7 +1022,7 @@ const OpdTab = forwardRef(
                 <div className="flex justify-end">
                   <button
                     onClick={() => handleEditPatient(selectedPatient)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                     className="view-btn"
                   >
                     Edit
                   </button>
@@ -1039,6 +1040,11 @@ const OpdTab = forwardRef(
           isOpen={modals.appointment}
           onClose={() => closeModal("appointment")}
           onSave={appointmentStep === 1 ? handleAppointmentNext : handleAppointmentSchedule}
+          onCancel={
+            appointmentStep === 1
+              ? () => closeModal("appointment")
+              : () => setAppointmentStep(1)
+          }
           mode="add"
           title="Schedule Appointment"
           preventCloseOnSave={appointmentStep === 1}

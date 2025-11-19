@@ -16,12 +16,7 @@ const ClinicalNotesForm = ({
   const doctorId = useSelector((state) => state.auth.doctorId);
   const { activeTab, patient } = usePatientContext();
 
-  useEffect(() => {
-    console.log("🩺 Doctor ID from Redux:", doctorId);
-    console.log("🩺 Active Tab from Context:", activeTab);
-    console.log("🩺 Selected Patient from Context:", patient);
-  }, [doctorId, activeTab, patient]);
-
+ 
   const [formData, setFormData] = useState(
     data || {
       chiefComplaint: "",
@@ -47,17 +42,10 @@ const ClinicalNotesForm = ({
   };
 
   const handleSave = async () => {
-    if (!patient) {
-      toast.error("❌ No patient selected!", {
-        position: "top-right",
-        autoClose: 2000,
-        closeOnClick: true,
-      });
-      return;
-    }
-    console.log("🩺 Saving clinical notes for:", patient);
+  
     const currentTimestamp = new Date().toISOString();
     const clinicalNotePayload = {
+      contextId:patient?.id,
       patientId: patient?.patientId,
       doctorId: doctorId || 1,
       context: activeTab?.toUpperCase(),
@@ -70,17 +58,13 @@ const ClinicalNotesForm = ({
       updatedBy: drname || patient?.doctorName || "Unknown",
       updatedAt: currentTimestamp,
     };
-    console.log("🩺 Clinical Note Payload:", clinicalNotePayload);
+   
     try {
       const clinicalNoteResponse = await createClinicalNote(clinicalNotePayload);
       if (!clinicalNoteResponse) {
         throw new Error("Failed to save clinical note.");
       }
-      toast.success("✅ Clinical notes saved successfully!", {
-        position: "top-right",
-        autoClose: 2000,
-        closeOnClick: true,
-      });
+      toast.success("✅ Clinical notes saved successfully!", );
       onSave("clinical", formData);
       // ✅ Reset form after save
       setFormData({

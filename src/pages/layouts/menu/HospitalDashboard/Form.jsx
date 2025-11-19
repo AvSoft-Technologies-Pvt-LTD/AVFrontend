@@ -3,8 +3,9 @@ import { useLocation } from 'react-router-dom';
 import {
   Heart, FileText, FlaskRound as Flask, Pill, Stethoscope, Eye, Save, Printer, User, Phone, Mail, Calendar, Menu, X, ChevronLeft,
 } from 'lucide-react';
-import { toast, ToastContainer } from 'react-toastify';
+import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+
 import VitalsForm from './VitalsForm';
 import ClinicalNotesForm from './ClinicalNotesForm';
 import LabTestsForm from './LabResultsForm';
@@ -129,7 +130,7 @@ function App() {
           <div style="display:flex;flex-direction:row;justify-content:space-between;align-items:center;font-size:16px;color:#0e1630;gap:32px;">
             <div style="display:flex;flex-direction:row;gap:32px;width:100%;justify-content:space-between;">
               <div><strong style="border-bottom:1px solid #01D48C;">Name:</strong> ${patient?.firstName || patient?.lastName ? `${patient?.firstName || ""} ${patient?.middleName || ""} ${patient?.lastName || ""}`.trim() : patient?.name || "N/A"}</div>
-              <div><strong style="border-bottom:1px solid #01D48C;">Age:</strong> ${patient?.age && patient?.age !== "N/A" ? patient.age : patient?.dob ? (() => { const today = new Date(); const birthDate = new Date(patient.dob); let age = today.getFullYear() - birthDate.getFullYear(); const m = today.getMonth() - birthDate.getMonth(); if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) { age--; } return age; })() : "N/A"}</div>
+              <div><strong style="border-bottom:1px solid #01D48C;">Age:</strong> ${patient?.age && patient?.age !== "N/A" ? patient.age : patient?.dob ? (() => { const today = new Date(); const birthDate = new Date(patient.dob); let age = today.getFullYear() - birthDate.getFullYear(); const monthDiff = today.getMonth() - birthDate.getMonth(); if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) { age--; } return age; })() : "N/A"}</div>
               <div><strong style="border-bottom:1px solid #01D48C;">Gender:</strong> ${patient?.gender || "N/A"}</div>
               <div><strong style="border-bottom:1px solid #01D48C;">Contact:</strong> ${patient?.phone || "N/A"}</div>
             </div>
@@ -473,8 +474,6 @@ function App() {
         records={formsData.vitals?.vitalsRecords || []}
         selectedIdx={null}
       />
-
-      <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover theme="light" />
     </div>
     
   );

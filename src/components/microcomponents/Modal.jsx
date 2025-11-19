@@ -56,6 +56,7 @@ const ReusableModal = ({
   extraContentPosition = "bottom",
   preventCloseOnSave = false,
   showSuccessToast = true,
+  onCancel,
 }) => {
   const [formValues, setFormValues] = useState({});
   const [formErrors, setFormErrors] = useState({});
@@ -709,7 +710,7 @@ const handleChange = (name, value) => {
             <div className="flex justify-end gap-2 sm:gap-3 px-4 sm:px-6 py-3 sm:py-4">
               {mode !== "viewProfile" && (
                 <button
-                  onClick={onClose}
+                  onClick={onCancel || onClose}
                   className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm delete-btn"
                 >
                   {cancelLabel || "Cancel"}

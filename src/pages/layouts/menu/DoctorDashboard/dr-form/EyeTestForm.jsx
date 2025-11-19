@@ -144,6 +144,7 @@ const EyeTestForm = ({ data,onSave, onPrint }) => {
     setIsSaving(true);
     try {
       const payload = rows.map(row => ({
+        contextId:patient?.id,
         patientId: patient?.patientId,
         doctorId: doctorId || 1,
         context: activeTab.toUpperCase(),

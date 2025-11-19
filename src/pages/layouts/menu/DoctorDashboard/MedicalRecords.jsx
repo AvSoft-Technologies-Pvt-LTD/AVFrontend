@@ -137,6 +137,14 @@ const DrMedicalRecords = () => {
 
   const handleAddRecord = async (formData) => {
     const recordType = formData.type || activeTab;
+    const rawPhone = formData.registerPhone ? String(formData.registerPhone).trim() : "";
+    const digitsOnlyPhone = rawPhone.replace(/\D/g, "");
+
+    if (!digitsOnlyPhone || digitsOnlyPhone.length !== 10) {
+      alert("Please enter a valid 10-digit phone number containing digits only.");
+      return;
+    }
+
     const sanitizedPayload = {
       patientId: Number(selectedPatient?.patientId || selectedPatient?.id || 1),
       doctorId: Number(user?.doctorId || 1),
@@ -157,7 +165,7 @@ const DrMedicalRecords = () => {
       medicalStatusId: formData.medicalStatusId
         ? Number(formData.medicalStatusId?.value || formData.medicalStatusId)
         : null,
-      registerPhone: formData.registerPhone ? String(formData.registerPhone).trim() : "",
+      registerPhone: digitsOnlyPhone,
       uploadedBy: "DOCTOR",
     };
     if (recordType.toUpperCase() === "OPD" || recordType.toUpperCase() === "VIRTUAL") {

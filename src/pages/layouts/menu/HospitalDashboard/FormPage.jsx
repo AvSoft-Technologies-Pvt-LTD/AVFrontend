@@ -8,7 +8,6 @@ import DentalForm from "./DentalForm";
 import EyeTestForm from "./EyeTestForm";
 import QuickLinksPanel from "./QuickLinksPanel";
 import SignatureCanvas from "react-signature-canvas";
-import { ToastContainer } from "react-toastify";
 
 const FormPage = () => {
   const location = useLocation();
@@ -64,7 +63,6 @@ const FormPage = () => {
       <div className="max-w-7xl mx-auto px-6 py-8">
         {renderActiveForm()}
       </div>
-      <ToastContainer />
     </div>
   );
 };
