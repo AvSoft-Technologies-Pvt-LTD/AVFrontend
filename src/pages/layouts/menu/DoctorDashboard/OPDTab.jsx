@@ -441,7 +441,7 @@ useEffect(() => {
       try {
         const apiDate = toYMD(dateStr);
         const res = await getDoctorAvailabilityByDate(effectiveDoctorId, apiDate);
-        
+        console.log("this is slots",res.data)
         const data = res?.data;
         const gen = Array.isArray(data?.generatedSlots)
           ? data.generatedSlots

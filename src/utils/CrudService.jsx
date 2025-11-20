@@ -462,30 +462,25 @@ export const getNearbyAmbulances = (latitude, longitude, radiusKm = 10) =>
 
 //cart
 // Cart API functions
-export const createLabCart = (patientId, payload) =>
-  axiosInstance.post('/lab/cart/add', {
-    patientId,
-    ...payload // Spread the payload (tests, scans, or packages)
-  });
+// CREATE CART (POST /lab/cart/add)
+export const createLabCart = (cartData) =>
+  axiosInstance.post('/lab/cart/add', cartData);
 
-// Get an existing cart – GET /lab/cart/{patientId}
-export const getLabCart = (patientId) =>
-  axiosInstance.get(`/lab/cart/${patientId}`);
+// GET CART BY CART ID (GET /lab/cart/{id})
+export const getLabCart = (cartId) =>
+  axiosInstance.get(`/lab/cart/${cartId}`);
 
-// Get all lab available tests (flat list of lab availability rows)
-export const getAllLabAvailableTests = () =>
-  axiosInstance.get('/lab-available-tests/getall');
+// UPDATE CART (PUT /lab/cart/{id})
+export const updateLabCart = (cartId, cartData) =>
+  axiosInstance.put(`/lab/cart/${cartId}`, cartData);
 
-// Update an existing cart – PUT /lab/cart/{patientId}
-export const updateLabCart = (patientId, payload) =>
-  axiosInstance.put(`/lab/cart/${patientId}`, {
-    patientId,
-    ...payload // Spread the payload (tests, scans, or packages)
-  });
+// DELETE CART (DELETE /lab/cart/{id})
+export const deleteLabCart = (cartId) =>
+  axiosInstance.delete(`/lab/cart/${cartId}`);
+// available labs
+export const getLabDetails = () =>
+  axiosInstance.get('/lab-details');
 
-// Delete an existing cart – DELETE /lab/cart/{patientId}
-export const deleteLabCart = (patientId) =>
-  axiosInstance.delete(`/lab/cart/${patientId}`);
 
 // --- Lab catalog detail APIs ---
 export const getLabTestById = (id) => axiosInstance.get(`/lab-tests/${id}`);
@@ -632,3 +627,6 @@ export const removeIPDAdmission = (id) => axiosInstance.delete(`/ipd-admissions/
 // Get all lab available tests
 export const getAllLabAvailablesTests = () =>
   axiosInstance.get('/lab-available-tests/getall');
+
+export const getOpdAppointmentById = (appointmentId) =>
+  axiosInstance.get(`/v1/appointments/opd/appointment-id/${appointmentId}`);

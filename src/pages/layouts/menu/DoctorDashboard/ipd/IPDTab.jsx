@@ -19,7 +19,9 @@ import {
   getSpecializationsWardsSummaryForIpdAdmission,
   addIPDAdmission,
   fetchIPDAdmissions,
+  getOpdAppointmentById,
 } from "../../../../../utils/CrudService";
+
 import IPDBasic, {
   fileToBase64,
   handlePincodeLookup,
@@ -174,6 +176,7 @@ const IPDTab = forwardRef(
     const [bedFacilities, setBedFacilities] = useState({});
     const [quickLinksOpen, setQuickLinksOpen] = useState(false);
     const [quickLinksPatient, setQuickLinksPatient] = useState(null);
+    const [transferPreview, setTransferPreview] = useState(null);
 
     useImperativeHandle(ref, () => ({
       openAddPatientModal: () => {
@@ -436,6 +439,7 @@ const IPDTab = forwardRef(
         setPatientIdInput("");
         setPhotoPreview(null);
         setAvailableCities([]);
+        setTransferPreview(null);
       }
     }, []);
 
@@ -457,16 +461,47 @@ const IPDTab = forwardRef(
         setBedScrollIndex(0);
         setPhotoPreview(null);
         setAvailableCities([]);
+        setTransferPreview(null);
       }
     }, []);
 
     const handleFetchPatientDetails = useCallback(async () => {
-      if (!patientIdInput.trim()) {
-        toast.error("Please enter a Patient ID");
+      const rawId = (patientIdInput || "").trim();
+      if (!rawId) {
+        toast.error("Please enter an OPD appointment ID");
         return;
       }
-      // NOTE: LocalStorage-based lookup removed. Wire this to a real OPD patient API when available.
-      toast.error("OPD transfer lookup is not connected to backend yet.");
+
+      try {
+        const response = await getOpdAppointmentById(rawId);
+        const appt = response?.data;
+        if (!appt) {
+          setTransferPreview(null);
+          toast.error("No OPD appointment found for this ID");
+          return;
+        }
+
+        setTransferPreview(appt);
+
+        setIpdWizardData((prev) => ({
+          ...prev,
+          patientId: appt.patientId,
+          firstName: appt.patientName || prev.firstName,
+          phone: appt.patientPhoneNumber || prev.phone,
+          email: appt.patientEmailId || prev.email,
+          appointmentUid: appt.appointmentUid || prev.appointmentUid,
+          symptoms: Array.isArray(appt.symptomIds)
+            ? appt.symptomIds.map((id) => String(id))
+            : prev.symptoms,
+        }));
+
+        toast.success("OPD appointment loaded for transfer");
+      } catch (error) {
+        console.error("Error fetching OPD appointment for transfer:", error);
+        setTransferPreview(null);
+        const msg = error?.response?.data?.message || error?.message;
+        toast.error(msg || "Failed to fetch OPD appointment");
+      }
     }, [patientIdInput]);
 
     const handleViewPatient = useCallback(
@@ -641,8 +676,11 @@ const IPDTab = forwardRef(
           return;
         }
 
-        // TODO: Replace hardcoded patientId with real patient id from backend
-        const patientId = 1;
+        const rawPatientId = ipdWizardData.patientId;
+        const parsedPatientId = rawPatientId ? parseInt(rawPatientId, 10) : NaN;
+        const patientId = !Number.isNaN(parsedPatientId) && parsedPatientId > 0
+          ? parsedPatientId
+          : 1; // TODO: replace fallback when full IPD-OPD integration is ready
 
         const wardId = selectedWard?.id ?? null;
         const wardTypeId = selectedWard?.wardTypeId ?? 0;
@@ -997,6 +1035,7 @@ const IPDTab = forwardRef(
             onPreviewClick={() => setIsPhotoModalOpen(true)}
             isLoadingCities={isLoadingCities}
             availableCities={availableCities}
+            transferPreview={transferPreview}
           />
         );
       }

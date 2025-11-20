@@ -3,14 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useEffect, useState, useMemo } from 'react';
 import { ShoppingCart } from 'lucide-react';
-import { hydrateCart } from '../../../../../context-api/cartSlice';
+import { addToCart } from '../../../../../context-api/cartSlice';
 import { initializeAuth } from '../../../../../context-api/authSlice';
 import {
   getLabTestById,
   getScanById,
   getPackageById,
-  createLabCart,
-  getLabCart,
 } from '../../../../../utils/CrudService';
 import {
   FaClock,
@@ -87,49 +85,22 @@ const TestDetail = () => {
     };
   }, [type, id, isTest, isScan, isPackage]);
 
-  const handleAdd = async () => {
-    try {
-      if (!(Number.isInteger(patientId) && patientId > 0)) {
-        console.error('Cannot add to cart: missing patientId');
-        return;
-      }
+  const handleAdd = () => {
+    if (!item) return;
 
-      const currentResp = await getLabCart(patientId);
-      const current = currentResp?.data || { tests: [], scans: [], packages: [] };
-      const testIds = (current.tests || [])
-        .map((t) => t.id ?? t.testId)
-        .filter((v) => Number.isInteger(Number(v)))
-        .map(Number);
-      const scanIds = (current.scans || [])
-        .map((s) => s.id ?? s.scanId)
-        .filter((v) => Number.isInteger(Number(v)))
-        .map(Number);
-      const packageIds = (current.packages || [])
-        .map((p) => p.id ?? p.packageId)
-        .filter((v) => Number.isInteger(Number(v)))
-        .map(Number);
+    const typeForCart = isTest ? 'test' : isScan ? 'scan' : isPackage ? 'package' : null;
+    if (!typeForCart) return;
 
-      const itemId = Number(item?.id);
-      if (!Number.isInteger(itemId)) return;
-
-      if (isTest) {
-        if (!testIds.includes(itemId)) testIds.push(itemId);
-      } else if (isScan) {
-        if (!scanIds.includes(itemId)) scanIds.push(itemId);
-      } else if (isPackage) {
-        if (!packageIds.includes(itemId)) packageIds.push(itemId);
-      } else {
-        return;
-      }
-
-      const payload = { testIds, scanIds, packageIds };
-      await createLabCart(patientId, payload);
-
-      const refreshed = await getLabCart(patientId);
-      dispatch(hydrateCart(refreshed.data));
-    } catch (error) {
-      console.error('Error adding to cart:', error?.response?.data || error.message);
-    }
+    dispatch(
+      addToCart({
+        id: item.id,
+        type: typeForCart,
+        title: item.title,
+        code: item.code,
+        price: item.price,
+        description: item.description,
+      })
+    );
   };
 
   if (loading) {

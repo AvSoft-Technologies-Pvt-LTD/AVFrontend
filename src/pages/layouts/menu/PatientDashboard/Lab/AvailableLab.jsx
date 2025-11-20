@@ -5,7 +5,7 @@ import { Search, MapPin, Clock, Home, Star, CheckCircle2 } from "lucide-react";
 import { hydrateCart } from "../../../../../context-api/cartSlice";
 import { initializeAuth } from "../../../../../context-api/authSlice";
 import TableHeader from "../../../../../components/microcomponents/TableComponents/TableHeader";
-import { getAllLabAvailablesTests } from "../../../../../utils/CrudService";
+import { getLabDetails } from "../../../../../utils/CrudService";
 
 const AvailableLab = () => {
   const dispatch = useDispatch();
@@ -21,89 +21,50 @@ const AvailableLab = () => {
 
   const cart = useSelector((state) => state.cart);
 
-  // If arriving directly or cart not passed via location, ensure cart is hydrated from API
+  // If arriving directly or cart not passed via location, ensure cart and labs are hydrated from API
   useEffect(() => {
-    const ensureCart = async () => {
+    const ensureCartAndLabs = async () => {
       try {
-        if (Array.isArray(cart) && cart.length > 0) return;
+        setLabsLoading(true);
+        setLabsError("");
 
-        // If cart came via navigation state, hydrate from that first
+        // If cart came via navigation state, hydrate cart from that first
         const navCart = location?.state?.cart;
         if (Array.isArray(navCart) && navCart.length > 0) {
           dispatch(hydrateCart(navCart));
-          return;
         }
 
-        const { data } = await getAllLabAvailablesTests();
-        const rows = Array.isArray(data) ? data : (data?.availableLabs || []);
+        // Fetch labs from getLabDetails
+        const { data } = await getLabDetails();
+        const rows = Array.isArray(data) ? data : (data?.labs || []);
 
-        const normTests = rows
-          .filter((r) => r?.testId != null)
-          .map((r) => ({
-            ...r,
-            id: r.testId,
-            kind: "test",
-            title: r.testName ?? r.name ?? r.code ?? "Test",
-            price: Number(r.price) || 0,
-            quantity: 1,
-          }));
-        const normScans = rows
-          .filter((r) => r?.scanId != null)
-          .map((r) => ({
-            ...r,
-            id: r.scanId,
-            kind: "scan",
-            title: r.scanName ?? r.name ?? r.code ?? "Scan",
-            price: Number(r.price) || 0,
-            quantity: 1,
-          }));
-        const normPackages = rows
-          .filter((r) => r?.packageId != null)
-          .map((r) => ({
-            ...r,
-            id: r.packageId,
-            kind: "package",
-            title: r.packageName ?? r.name ?? "Package",
-            price: Number(r.price) || 0,
-            quantity: 1,
-          }));
+        // Build labs list from lab details response
+        const normalizedLabs = rows.map((row, index) => ({
+          id: row.id ?? `lab-${index + 1}`,
+          labAvailableId: row.id ?? `lab-${index + 1}`,
+          labName: row.centerName ?? row.labName ?? row.centerType ?? "Lab",
+          location: row.lablocation ?? row.location ?? "",
+          rating: 0, // no rating field in sample response
+          price: 0, // no price in sample, can be updated when backend adds it
+          reportTime: null,
+          testName: row.availableTest ?? "",
+          scanName: row.scanServices ?? "",
+          packageName: "",
+          homeCollection: String(row.specialServices || "").toLowerCase().includes("home"),
+        }));
 
-        dispatch(hydrateCart([...normTests, ...normScans, ...normPackages]));
+        setLabs(normalizedLabs);
       } catch (error) {
-        console.error("Error hydrating cart:", error?.response?.data || error.message);
+        console.error("Error hydrating labs:", error?.response?.data || error.message);
+        setLabsError(error?.response?.data?.message || error.message || "Failed to load labs");
+      } finally {
+        setLabsLoading(false);
       }
     };
-    ensureCart();
+    ensureCartAndLabs();
   }, [dispatch, patientId]);
 
-  const [labs, setLabs] = useState([
-    {
-      id: "lab-1",
-      labAvailableId: "lab-1",
-      labName: "City Diagnostic Center",
-      location: "Bangalore",
-      rating: 4.5,
-      price: 799,
-      reportTime: "2025-11-20T10:00:00.000Z",
-      testName: "Complete Health Checkup",
-      scanName: "",
-      packageName: "",
-      homeCollection: true,
-    },
-    {
-      id: "lab-2",
-      labAvailableId: "lab-2",
-      labName: "Prime Labs",
-      location: "Chennai",
-      rating: 4.2,
-      price: 599,
-      reportTime: "2025-11-20T18:00:00.000Z",
-      testName: "Basic Blood Profile",
-      scanName: "",
-      packageName: "",
-      homeCollection: false,
-    },
-  ]);
+  const [labs, setLabs] = useState([]);
   const [labsLoading, setLabsLoading] = useState(false);
   const [labsError, setLabsError] = useState("");
 

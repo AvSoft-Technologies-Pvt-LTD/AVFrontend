@@ -3,7 +3,6 @@ import { useDispatch, useSelector } from 'react-redux';
 import { hydrateCart, addToCart } from '../../../../../context-api/cartSlice';
 import { initializeAuth } from '../../../../../context-api/authSlice';
 import { getAllTests, getAllScans, getAllhealthpackages } from '../../../../../utils/masterService';
-import { createLabCart, getLabCart, updateLabCart } from '../../../../../utils/CrudService';
 import { ShoppingCart, Search, Upload, FileText, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -38,25 +37,21 @@ const LabHome = () => {
 
   console.log("Current patientId in LabHome:", patientId);
 
-  // Ensure auth is initialized from localStorage on mount
+  // Ensure auth is initialized and cart is hydrated from localStorage on mount
   useEffect(() => {
     dispatch(initializeAuth());
-  }, [dispatch]);
-
-  // Fetch cart from backend on component mount
-  useEffect(() => {
-    const fetchCart = async () => {
-      try {
-        if (!(Number.isInteger(patientId) && patientId > 0)) return;
-        const response = await getLabCart(patientId);
-        console.log("Fetched cart data in LabHome:", response.data);
-        dispatch(hydrateCart(response.data));
-      } catch (error) {
-        console.error('Error fetching cart in LabHome:', error.response?.data || error.message);
+    try {
+      const stored = localStorage.getItem('labCart');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          dispatch(hydrateCart(parsed));
+        }
       }
-    };
-    fetchCart();
-  }, [dispatch, patientId]);
+    } catch (e) {
+      console.error('Failed to read labCart from localStorage:', e);
+    }
+  }, [dispatch]);
 
   // Fetch tests/scans/packages based on active tab
   useEffect(() => {
@@ -81,6 +76,15 @@ const LabHome = () => {
     };
     fetchData();
   }, [activeTab, searchQuery]);
+
+  // Persist cart to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('labCart', JSON.stringify(cart));
+    } catch (e) {
+      console.error('Failed to write labCart to localStorage:', e);
+    }
+  }, [cart]);
 
   const animateFly = (sourceEl) => {
     if (!sourceEl || !cartRef.current) return;
@@ -146,46 +150,36 @@ const LabHome = () => {
 
   const handleAdd = async (item, key, pushToCart = false) => {
     if (!addedIds.has(key)) {
-      // Build full id arrays by merging with current cart so multi-select persists
-      try {
-        if (!(Number.isInteger(patientId) && patientId > 0)) {
-          console.error('Cannot add to cart: missing patientId');
-          return;
-        }
-        // Read current cart to gather existing ids
-        const currentResp = await getLabCart(patientId);
-        const current = currentResp?.data || { tests: [], scans: [], packages: [] };
-        const testIds = (current.tests || []).map((t) => t.id ?? t.testId).filter((v) => Number.isInteger(Number(v))).map(Number);
-        const scanIds = (current.scans || []).map((s) => s.id ?? s.scanId).filter((v) => Number.isInteger(Number(v))).map(Number);
-        const packageIds = (current.packages || []).map((p) => p.id ?? p.packageId).filter((v) => Number.isInteger(Number(v))).map(Number);
+      // Only update local Redux cart state, no backend write APIs
+      const type =
+        activeTab === 'tests'
+          ? 'test'
+          : activeTab === 'scans'
+          ? 'scan'
+          : activeTab === 'packages'
+          ? 'package'
+          : null;
 
-        if (activeTab === 'tests') {
-          if (!testIds.includes(item.id)) testIds.push(item.id);
-        } else if (activeTab === 'scans') {
-          if (!scanIds.includes(item.id)) scanIds.push(item.id);
-        } else if (activeTab === 'packages') {
-          if (!packageIds.includes(item.id)) packageIds.push(item.id);
-        } else {
-          return; // unknown type
-        }
+      if (!type) return;
 
-        const payload = { testIds, scanIds, packageIds };
+      dispatch(
+        addToCart({
+          id: item.id,
+          type,
+          title: item.title,
+          code: item.code,
+          price: item.price,
+          description: item.description,
+          // Ensure backend IDs are present for CartPage -> createLabCart
+          testId: type === 'test' ? item.testId ?? item.id : undefined,
+          scanId: type === 'scan' ? item.scanId ?? item.id : undefined,
+          packageId: type === 'package' ? item.packageId ?? item.id : undefined,
+        })
+      );
 
-        // POST /lab/cart/add with full arrays, then refetch and hydrate
-        console.log('Creating lab cart with:', { patientId, ...payload });
-        const createResp = await createLabCart(patientId, payload);
-        console.log('createLabCart response:', createResp.data);
-
-        const refreshed = await getLabCart(patientId);
-        console.log('Cart after add (refetched):', refreshed.data);
-        dispatch(hydrateCart(refreshed.data));
-
-        animateFly(btnRefs.current[key]);
-        setAddedIds((prev) => new Set(prev).add(key));
-        if (pushToCart) navigate('/patientdashboard/cart');
-      } catch (error) {
-        console.error('Error adding to cart:', error.response?.data || error.message);
-      }
+      animateFly(btnRefs.current[key]);
+      setAddedIds((prev) => new Set(prev).add(key));
+      if (pushToCart) navigate('/patientdashboard/cart');
     }
   };
 

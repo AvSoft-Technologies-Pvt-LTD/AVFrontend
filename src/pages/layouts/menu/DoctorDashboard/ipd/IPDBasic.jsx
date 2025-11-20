@@ -96,6 +96,7 @@ const IPDBasic = ({
   onPreviewClick,
   isLoadingCities,
   availableCities,
+  transferPreview,
 }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [activeSection, setActiveSection] = useState("transfer");
@@ -309,6 +310,55 @@ const IPDBasic = ({
               </button>
             </div>
           </div>
+
+          {transferPreview && (
+            <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-white rounded-md border border-blue-200 shadow-sm text-xs sm:text-sm">
+              <div className="flex items-center justify-between mb-2">
+                <h5 className="font-semibold text-gray-800">OPD Appointment Preview</h5>
+                <span className="text-[10px] sm:text-xs text-gray-500">
+                  Read-only preview from OPD
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                <div>
+                  <span className="font-medium text-gray-600">Appointment ID: </span>
+                  <span className="text-gray-900">{transferPreview.appointmentUid || "-"}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-600">Patient Name: </span>
+                  <span className="text-gray-900">{transferPreview.patientName || "-"}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-600">Phone: </span>
+                  <span className="text-gray-900">{transferPreview.patientPhoneNumber || "-"}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-600">Email: </span>
+                  <span className="text-gray-900">{transferPreview.patientEmailId || "-"}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-600">Doctor: </span>
+                  <span className="text-gray-900">{transferPreview.doctorName || "-"}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-600">Date: </span>
+                  <span className="text-gray-900">{transferPreview.appointmentDate || "-"}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-600">Time: </span>
+                  <span className="text-gray-900">{transferPreview.slotTime || "-"}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-600">Symptoms: </span>
+                  <span className="text-gray-900">
+                    {Array.isArray(transferPreview.symptomNames) && transferPreview.symptomNames.length
+                      ? transferPreview.symptomNames.join(", ")
+                      : "-"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Fields removed intentionally */}
         </>
