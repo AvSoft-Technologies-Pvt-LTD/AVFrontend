@@ -34,22 +34,32 @@ const IPDWard = ({ selectedWard, onSelectWard }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log("[IPDWard] mount: starting ward summary fetch");
     const fetchWards = async () => {
       try {
+        console.log("[IPDWard] calling getSpecializationsWardsSummaryForIpdAdmission");
         const response = await getSpecializationsWardsSummaryForIpdAdmission();
+        console.log("[IPDWard] response from getSpecializationsWardsSummaryForIpdAdmission", response);
         if (response?.data) {
           const formatted = response.data.map((item, index) => {
             const availableGroup = item.bedGroups?.find(
-              (g) => g.statusName.toLowerCase() === "available"
+              (g) => (g.statusName || "").toLowerCase() === "available"
             );
-            const availableBeds = availableGroup ? availableGroup.count : 0;
-            const occupiedBeds = item.totalBeds - availableBeds;
+            const occupiedGroup = item.bedGroups?.find(
+              (g) => (g.statusName || "").toLowerCase() === "occupied"
+            );
+
+            const availableBeds = availableGroup ? Number(availableGroup.count || 0) : 0;
+            const occupiedBeds = occupiedGroup
+              ? Number(occupiedGroup.count || 0)
+              : Math.max(0, Number(item.totalBeds || 0) - availableBeds);
             return {
               id: item.wardId || index,
               wardTypeId: item.wardTypeId || item.wardType?.id || null,
               type: item.wardName,
               number: item.wardNumber || item.wardId || index,
               department: item.specializationName,
+              specializationId: item.specializationId || item.specialization?.id || null,
               totalBeds: item.totalBeds,
               availableBeds,
               occupiedBeds,
@@ -64,6 +74,7 @@ const IPDWard = ({ selectedWard, onSelectWard }) => {
       } catch (error) {
         console.error("Error fetching ward data:", error);
       } finally {
+        console.log("[IPDWard] finished ward summary fetch");
         setLoading(false);
       }
     };

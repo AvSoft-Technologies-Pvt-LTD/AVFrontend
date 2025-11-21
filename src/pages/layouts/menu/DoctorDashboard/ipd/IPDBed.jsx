@@ -13,9 +13,9 @@ import { getSpecializationsWardsSummaryForIpdAdmission } from "../../../../../ut
 // NOTE: Align these IDs with the same meaning you configured in BedAmenitiesStep.
 // If ID 1 is "Available" in your master data, it MUST map to "available" here.
 const STATUS_MAP = {
-  1: "available",   // 1 = Available
-  2: "maintenance", // 2 = Maintenance
-  3: "occupied",    // 3 = Occupied
+  1: "available",  // 1 = Available
+  2: "occupied",   // 2 = Occupied
+  3: "maintenance", // 3 = Maintenance
   4: "blocked",
 };
 

@@ -99,6 +99,7 @@ const BookLab = () => {
         phone: form.phone,
         email: form.email,
         labcenterId: labId,
+        labAvailableId: labAvailableId,
         appointmentDate: form.date,
         appointmentTime: form.time,
         homeCollection: form.location === "Home Collection",

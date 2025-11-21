@@ -81,9 +81,8 @@ export const generateAdmissionFields = (masterData, staticData) => {
     {
       name: "department",
       label: "Department",
-      type: "select",
-      required: true,
-      options: [], // Will be populated from getAllSpecializations API
+      type: "text",
+      readonly: true,
     },
     {
       name: "insuranceType",
@@ -118,8 +117,6 @@ export const generateAdmissionFields = (masterData, staticData) => {
 const IPDFinal = ({ data, selectedWard, selectedRoom, selectedBed, fields, onChange }) => {
   const [symptomsList, setSymptomsList] = useState([]);
   const [loadingSymptoms, setLoadingSymptoms] = useState(false);
-  const [specializations, setSpecializations] = useState([]);
-  const [loadingSpecializations, setLoadingSpecializations] = useState(false);
   const [insuranceList, setInsuranceList] = useState([]);
   const [loadingInsurance, setLoadingInsurance] = useState(false);
   const [selectedSymptoms, setSelectedSymptoms] = useState([]);
@@ -185,34 +182,6 @@ const IPDFinal = ({ data, selectedWard, selectedRoom, selectedBed, fields, onCha
     fetchInsurance();
   }, []);
 
-  // Fetch specializations for Department select
-  useEffect(() => {
-    const fetchSpecializations = async () => {
-      try {
-        setLoadingSpecializations(true);
-        const response = await getAllSpecializations();
-        const specs = Array.isArray(response)
-          ? response
-          : Array.isArray(response?.data)
-          ? response.data
-          : [];
-        const formattedSpecs = specs.map((spec, index) => ({
-          key: `dept-${index}`,
-          value: spec.specializationId || spec.id || spec.value,
-          label: spec.name || spec.specializationName || spec.label,
-        }));
-        setSpecializations(formattedSpecs);
-      } catch (error) {
-        console.error("Error fetching specializations:", error);
-        setSpecializations([]);
-      } finally {
-        setLoadingSpecializations(false);
-      }
-    };
-
-    fetchSpecializations();
-  }, []);
-
   // Keep selectedSymptoms in sync with data.symptoms (supports single value or array)
   useEffect(() => {
     const value = data?.symptoms;
@@ -232,9 +201,6 @@ const IPDFinal = ({ data, selectedWard, selectedRoom, selectedBed, fields, onCha
         if (field.name === "symptoms") {
           return { ...field, options: symptomsList };
         }
-        if (field.name === "department") {
-          return { ...field, options: specializations };
-        }
         if (field.name === "insuranceType") {
           return { ...field, options: insuranceList };
         }
@@ -250,7 +216,7 @@ const IPDFinal = ({ data, selectedWard, selectedRoom, selectedBed, fields, onCha
         }
         return field;
       }),
-    [fields, symptomsList, specializations, insuranceList]
+    [fields, symptomsList, insuranceList]
   );
 
   const handleSymptomsChange = (values) => {
@@ -281,13 +247,11 @@ const IPDFinal = ({ data, selectedWard, selectedRoom, selectedBed, fields, onCha
               disabled={
                 field.disabled ||
                 (field.name === "symptoms" && loadingSymptoms) ||
-                (field.name === "department" && loadingSpecializations) ||
                 (field.name === "insuranceType" && loadingInsurance)
               }
               className={`w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#01B07A] peer pt-4 pb-1 ${
                 field.disabled ||
                 (field.name === "symptoms" && loadingSymptoms) ||
-                (field.name === "department" && loadingSpecializations) ||
                 (field.name === "insuranceType" && loadingInsurance)
                   ? "bg-gray-100 cursor-not-allowed"
                   : ""
@@ -296,8 +260,6 @@ const IPDFinal = ({ data, selectedWard, selectedRoom, selectedBed, fields, onCha
               <option value="">
                 {field.name === "symptoms" && loadingSymptoms
                   ? "Loading symptoms..."
-                  : field.name === "department" && loadingSpecializations
-                  ? "Loading departments..."
                   : field.name === "insuranceType" && loadingInsurance
                   ? "Loading insurance..."
                   : `Select ${field.label}`
@@ -389,6 +351,7 @@ const IPDFinal = ({ data, selectedWard, selectedRoom, selectedBed, fields, onCha
                                     ? [...prev, opt.value]
                                     : prev.filter((v) => v !== opt.value);
                                   handleSymptomsChange(next);
+                                  setSymptomsOpen(false);
                                 }}
                               />
                               <span className="flex-1">{opt.label}</span>

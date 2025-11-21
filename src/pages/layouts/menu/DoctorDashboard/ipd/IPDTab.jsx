@@ -638,6 +638,7 @@ const IPDTab = forwardRef(
           wardType: parsedType,
           wardNumber: parsedNum,
           department: selectedWard?.department,
+          departmentId: selectedWard?.specializationId || null,
         }));
         setIpdWizardStep(3);
       } else if (ipdWizardStep === 3) {
@@ -677,6 +678,7 @@ const IPDTab = forwardRef(
         }
 
         const rawPatientId = ipdWizardData.patientId;
+        const departmentId = selectedWard?.specilaizationId || selectedWard?.specializationId || ipdWizardData.departmentId || 0;
         const parsedPatientId = rawPatientId ? parseInt(rawPatientId, 10) : NaN;
         const patientId = !Number.isNaN(parsedPatientId) && parsedPatientId > 0
           ? parsedPatientId
@@ -693,9 +695,6 @@ const IPDTab = forwardRef(
           ? parseInt(ipdWizardData.status, 10)
           : 1; // default Admitted
 
-        const departmentId = ipdWizardData.department
-          ? parseInt(ipdWizardData.department, 10)
-          : undefined;
         const insuranceId = ipdWizardData.insuranceType
           ? parseInt(ipdWizardData.insuranceType, 10)
           : undefined;
@@ -725,12 +724,12 @@ const IPDTab = forwardRef(
         const apiPayload = {
           admissionDate,
           admissionTime: admissionTime24,
-          statusId, // numeric status id expected by backend
-          wardTypeId: wardTypeId,
+          statusId,
+          wardTypeId,
           wardId: wardId || 0,
           roomId: roomId ? parseInt(roomId, 10) : 0,
           bedId: bedId ? parseInt(bedId, 10) : 0,
-          departmentId: departmentId || 0,
+          departmentId,
           insuranceId: insuranceId || 0,
           surgeryReq,
           dischargeDate,
@@ -738,6 +737,8 @@ const IPDTab = forwardRef(
           reasonForAdmission: ipdWizardData.reasonForAdmission || "",
           patientId,
           doctorId,
+          // Only include opdAppointmentId if it exists in the form data
+          ...(ipdWizardData.opdAppointmentId ? { opdAppointmentId: ipdWizardData.opdAppointmentId } : {})
         };
 
         try {
@@ -811,23 +812,6 @@ const IPDTab = forwardRef(
       closeModal,
       fetchAllPatients,
     ]);
-
-    const handleWardSelection = useCallback((ward) => {
-      // Derive number from names like "ICU 1"
-      const rawType = (ward?.type || "").toString();
-      const m = rawType.match(/^(.+?)\s+(\d+)\s*$/);
-      const parsedType = m ? m[1] : ward?.type || "";
-      const parsedNum = m ? m[2] : (ward?.number ?? ward?.wardNumber ?? "");
-
-      setSelectedWard(ward);
-      setIpdWizardData((prev) => ({
-        ...prev,
-        wardType: parsedType,
-        wardNumber: parsedNum,
-        department: ward?.department,
-      }));
-      setIpdWizardStep(3);
-    }, []);
 
     const handleRoomSelection = useCallback((room) => {
       if (!room) return;
@@ -1044,7 +1028,7 @@ const IPDTab = forwardRef(
           <IPDWard
             wardData={wardData}
             selectedWard={selectedWard}
-            onSelectWard={handleWardSelection}
+            onSelectWard={setSelectedWard}
           />
         );
      if (ipdWizardStep === 3)
@@ -1099,7 +1083,6 @@ const IPDTab = forwardRef(
       handleIpdWizardChange,
       handleIpdWizardNext,
       handleFetchPatientDetails,
-      handleWardSelection,
       handleRoomSelection,
       handleBedSelection,
       scrollBeds,
