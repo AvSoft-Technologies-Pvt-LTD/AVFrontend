@@ -23,7 +23,7 @@ const DrMedicalRecords = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const user = useSelector((state) => state.auth.user);
-  const [activeTab, setActiveTab] = useState("OPD");
+  const [activeRecordTab, setActiveRecordTab] = useState("OPD");
   const [medicalData, setMedicalData] = useState({ OPD: [], IPD: [], VIRTUAL: [] });
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
@@ -106,7 +106,7 @@ const DrMedicalRecords = () => {
     setLoading(true);
     setFetchError(null);
     try {
-      const patientId = selectedPatient?.patientId || selectedPatient?.id;
+      const patientId = selectedPatient?.patientId || selectedPatient?.id; // 
       if (!patientId) {
         throw new Error("No patient ID found");
       }
@@ -114,8 +114,7 @@ const DrMedicalRecords = () => {
       const response = await getAllMedicalRecords(
         user?.doctorId || 1,
         patientId,
-        activeTab.toUpperCase(),
-        selectedPatient?.patientPhone
+        activeRecordTab.toUpperCase()
       );
       console.log("API Response:", response.data);
       const opd = [];
@@ -136,52 +135,28 @@ const DrMedicalRecords = () => {
   };
 
   const handleAddRecord = async (formData) => {
-    const recordType = formData.type || activeTab;
-    const rawPhone = formData.registerPhone ? String(formData.registerPhone).trim() : "";
-    const digitsOnlyPhone = rawPhone.replace(/\D/g, "");
-
-    if (!digitsOnlyPhone || digitsOnlyPhone.length !== 10) {
-      alert("Please enter a valid 10-digit phone number containing digits only.");
-      return;
-    }
-
+    const recordType = formData.type || activeRecordTab;
     const sanitizedPayload = {
       patientId: Number(selectedPatient?.patientId || selectedPatient?.id || 1),
+      patientName: selectedPatient?.patientName || selectedPatient?.name || "Unknown",
       doctorId: Number(user?.doctorId || 1),
-      hospitalId: Number(formData.hospitalId),
       context: recordType.toUpperCase(),
-      symptomIds: Array.isArray(formData.symptomIds)
-        ? formData.symptomIds
-            .map((item) => item?.value || item)
-            .filter((v) => v !== null && v !== undefined)
-            .map(Number)
+      hospitalId: Number(formData.hospitalId),
+      symptoms: Array.isArray(formData.chiefComplaint)
+        ? formData.chiefComplaint.map((id) => Number(id))
         : [],
       medicalConditionIds: Array.isArray(formData.medicalConditionIds)
-        ? formData.medicalConditionIds
-            .map((mc) => mc?.value || mc)
-            .filter((v) => v !== null && v !== undefined)
-            .map(Number)
+        ? formData.medicalConditionIds.map((id) => Number(id))
         : [],
-      medicalStatusId: formData.medicalStatusId
-        ? Number(formData.medicalStatusId?.value || formData.medicalStatusId)
-        : null,
-      registerPhone: digitsOnlyPhone,
+      medicalStatusId: formData.medicalStatusId ? Number(formData.medicalStatusId) : null,
+      dateOfVisit: formData.dateOfVisit || new Date().toISOString().split("T")[0],
+      registerPhone: formData.registerPhone ? String(formData.registerPhone).trim() : "",
       uploadedBy: "DOCTOR",
     };
-    if (recordType.toUpperCase() === "OPD" || recordType.toUpperCase() === "VIRTUAL") {
-      sanitizedPayload.dateOfVisit = formData.dateOfVisit || formData.dateOfConsultation || new Date().toISOString().split("T")[0];
-    }
-    if (recordType.toUpperCase() === "IPD") {
-      sanitizedPayload.dateOfAdmission = formData.dateOfAdmission || new Date().toISOString().split("T")[0];
-      sanitizedPayload.dateOfDischarge = formData.dateOfDischarge || new Date().toISOString().split("T")[0];
-    }
-    console.log("Payload sent:", sanitizedPayload);
+    console.log("Payload sent to backend:", sanitizedPayload);
     try {
-      if (recordType.toUpperCase() === "IPD") {
-        await createIpdMedicalRecord(sanitizedPayload);
-      } else {
-        await createMedicalRecord(sanitizedPayload);
-      }
+      const response = await createMedicalRecord(sanitizedPayload);
+      response.data;
       await fetchAllRecords();
       setState({ showAddModal: false });
     } catch (error) {
@@ -209,6 +184,7 @@ const DrMedicalRecords = () => {
         .filter((opt) => opt.label);
       setHospitalOptions(hospitalsList);
       setApiDataLoading((prev) => ({ ...prev, hospitals: false }));
+
       setApiDataLoading((prev) => ({ ...prev, conditions: true }));
       const conditionsResponse = await getAllMedicalConditions();
       const conditionsList = (conditionsResponse?.data ?? [])
@@ -219,6 +195,7 @@ const DrMedicalRecords = () => {
         .filter((opt) => opt.label);
       setMedicalConditions(conditionsList);
       setApiDataLoading((prev) => ({ ...prev, conditions: false }));
+
       setApiDataLoading((prev) => ({ ...prev, status: true }));
       const statusResponse = await getAllMedicalStatus();
       const statusList = (statusResponse?.data ?? []).map((status) => ({
@@ -227,6 +204,7 @@ const DrMedicalRecords = () => {
       }));
       setStatusTypes(statusList);
       setApiDataLoading((prev) => ({ ...prev, status: false }));
+
       setApiDataLoading((prev) => ({ ...prev, symptoms: true }));
       const symptomsResponse = await getAllSymptoms();
       const symptomsList = (symptomsResponse?.data ?? []).map((symptom) => ({
@@ -310,8 +288,12 @@ const DrMedicalRecords = () => {
     ];
   };
 
+  const handleRecordTabChange = (tabValue) => {
+    setActiveRecordTab(tabValue);
+  };
+
   const getCurrentTabData = () =>
-    (medicalData[activeTab] || [])
+    (medicalData[activeRecordTab] || [])
       .map((record) => ({
         ...record,
         hospitalName: resolveHospitalLabel(record.hospitalId ?? record.hospitalName),
@@ -337,10 +319,10 @@ const DrMedicalRecords = () => {
       loading: apiDataLoading.hospitals,
       required: true,
     },
-    {
-      name: "symptomIds",
-      label: "Symptoms",
-      type: "multiselect",
+    { 
+      name: "chiefComplaint", 
+      label: "Symptoms", 
+      type: "multiselect",        
       options: symptoms,
       loading: apiDataLoading.symptoms,
       required: true,
@@ -429,7 +411,7 @@ const DrMedicalRecords = () => {
 
   useEffect(() => {
     fetchMasterData();
-  }, []);
+  }, [user?.doctorId, selectedPatient?.id, activeRecordTab]);
 
   return (
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
@@ -484,13 +466,13 @@ const DrMedicalRecords = () => {
       </div>
       <div className="overflow-x-auto">
         <DynamicTable
-          columns={createColumns(activeTab)}
+          columns={createColumns(activeRecordTab)}
           data={getCurrentTabData()}
           filters={filters}
           tabs={tabs}
           tabActions={tabActions}
-          activeTab={activeTab}
-          onTabChange={handleTabChange}
+          activeTab={activeRecordTab}
+          onTabChange={handleRecordTabChange}
         />
       </div>
       <ReusableModal
@@ -498,7 +480,7 @@ const DrMedicalRecords = () => {
         onClose={() => setState({ showAddModal: false })}
         mode="add"
         title="Add Medical Record"
-        fields={getFormFields(activeTab)}
+        fields={getFormFields(activeRecordTab)}
         data={{}}
         onSave={handleAddRecord}
       />

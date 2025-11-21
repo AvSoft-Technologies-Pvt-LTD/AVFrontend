@@ -1,3 +1,4 @@
+
 // ------------------------------
 // File: DrForm/ShareModalContent.jsx
 // ------------------------------
@@ -155,15 +156,55 @@ const translateBatch = async (texts, targetLang) => {
   return translated;
 };
 
+// PDF Generation Function (using backend-generated URL instead of Blob)
+const generatePdfUrl = async (prescriptions = [], patient = {}, doctorInfo = {}, translatedTexts = {}, lang = 'en') => {
+  try {
+    // Call backend API to generate the PDF and return a URL
+    // TODO: Replace "/api/prescriptions/generate-pdf" with your real endpoint URL if different
+    const response = await fetch("/api/prescriptions/generate-pdf", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        prescriptions,
+        patient,
+        doctorInfo,
+        translatedTexts,
+        lang,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to generate PDF. Status: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    // Expect backend to return something like: { pdfUrl: "https://.../file.pdf" }
+    const pdfUrl = data?.pdfUrl;
+
+    if (!pdfUrl || typeof pdfUrl !== "string") {
+      throw new Error("PDF URL not found in response.");
+    }
+
+    console.log("Generated PDF URL from backend:", pdfUrl);
+    return pdfUrl;
+  } catch (error) {
+    console.error("Error getting PDF URL from backend:", error);
+    throw error;
+  }
+};
+
 const ShareModalContent = ({ onClose, prescriptions = [], patient = {}, onSendWhatsApp, onSendEmail, onPrint }) => {
   const auth = useSelector((state) => state.auth);
-
   const user = auth?.user;
 
   // Get patient data from PatientContext
   const { patient: contextPatient } = usePatientContext() || {};
 
   const [doctorData, setDoctorData] = useState(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   React.useEffect(() => {
     if (!user?.doctorId) return;
@@ -282,6 +323,196 @@ const ShareModalContent = ({ onClose, prescriptions = [], patient = {}, onSendWh
     // Note: We don't translate age numbers
     
     return translated;
+  };
+
+  // Enhanced WhatsApp handler with PDF generation
+// Enhanced WhatsApp handler with PDF generation
+const handleWhatsAppClick = async () => {
+  if (typeof onSendWhatsApp === "function") {
+    onSendWhatsApp({ phone, prescriptions: displayPrescriptions, patient, lang });
+    return;
+  }
+  
+  if (!isPhoneValid) return;
+  
+  try {
+    setIsGeneratingPdf(true);
+    
+    // Generate PDF and get URL
+    const generatedPdfUrl = await generatePdfUrl(
+      displayPrescriptions,
+      translatedPatientData,
+      translatedDoctor,
+      translatedTexts,
+      lang
+    );
+    
+    // Create WhatsApp message with PDF URL - Make sure URL is properly formatted
+    const messageLines = [];
+    messageLines.push(`*${translatedTexts.prescription} - ${translatedPatientData.name}*`);
+    messageLines.push(`*Doctor:* ${translatedDoctor.name}`);
+    messageLines.push("");
+    messageLines.push("*Patient Details:*");
+    messageLines.push(`Name: ${translatedPatientData.name}`);
+    messageLines.push(`Age: ${translatedPatientData.age}`);
+    messageLines.push(`Gender: ${translatedPatientData.gender}`);
+    messageLines.push(`Contact: ${translatedPatientData.contact}`);
+    messageLines.push("");
+    messageLines.push("*Prescription:*");
+    
+    displayPrescriptions.forEach((m, i) => {
+      const medDetails = [];
+      medDetails.push(`${i + 1}. *${m.drugName || "Medicine"}*`);
+      if (m.dosage) medDetails.push(`Dosage: ${m.dosage}${m.dosageUnit ? ` ${m.dosageUnit}` : ''}`);
+      if (m.frequency) medDetails.push(`Frequency: ${m.frequency}`);
+      if (m.intake) medDetails.push(`Intake: ${m.intake}`);
+      if (m.duration) medDetails.push(`Duration: ${m.duration} ${translatedTexts.days || 'days'}`);
+      
+      messageLines.push(medDetails.join(' | '));
+    });
+    
+    messageLines.push("");
+    messageLines.push("*Download Your Prescription PDF:*");
+    messageLines.push(generatedPdfUrl); // This will be clickable in WhatsApp
+    messageLines.push("");
+    messageLines.push(`*${translatedTexts.doctorSignature}:* ${translatedDoctor.name}`);
+    messageLines.push(`*Address:* ${translatedDoctorAddress}`);
+    
+    const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(messageLines.join("\n"))}`;
+    
+    // Open WhatsApp with the PDF URL
+    window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+    
+    console.log('PDF URL sent to WhatsApp:', generatedPdfUrl);
+    
+  } catch (error) {
+    console.error('Error generating PDF for WhatsApp:', error);
+    // Fallback to text-only message
+    const messageLines = [];
+    messageLines.push(`*${translatedTexts.prescription} - ${translatedPatientData.name}*`);
+    messageLines.push(`*Doctor:* ${translatedDoctor.name}`);
+    messageLines.push("");
+    messageLines.push("*Patient Details:*");
+    messageLines.push(`Name: ${translatedPatientData.name}`);
+    messageLines.push(`Age: ${translatedPatientData.age}`);
+    messageLines.push(`Gender: ${translatedPatientData.gender}`);
+    messageLines.push(`Contact: ${translatedPatientData.contact}`);
+    messageLines.push("");
+    messageLines.push("*Prescription:*");
+    
+    displayPrescriptions.forEach((m, i) => {
+      messageLines.push(`${i + 1}. *${m.drugName || ""}* - ${m.dosage || ""} ${m.dosageUnit || ""} - ${m.frequency || ""}`);
+    });
+    
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(messageLines.join("\n"))}`;
+    window.open(url, "_blank");
+  } finally {
+    setIsGeneratingPdf(false);
+  }
+};
+
+  // Enhanced Print handler with PDF generation
+  const handlePrintClick = async () => {
+    if (typeof onPrint === 'function') {
+      onPrint({ prescriptions: displayPrescriptions, patient, lang }); 
+      return;
+    }
+    
+    try {
+      setIsGeneratingPdf(true);
+      
+      // Generate PDF using our function
+      const generatedPdfUrl = await generatePdfUrl(
+        displayPrescriptions,
+        translatedPatientData,
+        translatedDoctor,
+        translatedTexts,
+        lang
+      );
+      
+      // Open PDF in new tab for printing
+      window.open(generatedPdfUrl, '_blank');
+      
+    } catch (error) {
+      console.error('Error generating PDF for print:', error);
+      // Fallback to browser print
+      window.print();
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
+  // Enhanced Email handler with PDF generation
+  const handleEmailClick = async () => {
+    const trimmedEmail = email.trim();
+    if (typeof onSendEmail === "function") {
+      if (!isEmailValid) return;
+      onSendEmail({ email: trimmedEmail, prescriptions: displayPrescriptions, patient, lang });
+      return;
+    }
+    
+    if (!isEmailValid) return;
+    
+    try {
+      setIsGeneratingPdf(true);
+      
+      // Generate PDF for email
+      const generatedPdfUrl = await generatePdfUrl(
+        displayPrescriptions,
+        translatedPatientData,
+        translatedDoctor,
+        translatedTexts,
+        lang
+      );
+      
+      const subject = `${translatedTexts.prescription} - ${translatedPatientData.name} - ${translatedDoctor.name}`;
+      
+      const bodyLines = [];
+      bodyLines.push(`Patient: ${translatedPatientData.name}`);
+      bodyLines.push(`Doctor: ${translatedDoctor.name}`);
+      bodyLines.push("");
+      bodyLines.push("Prescription Details:");
+      displayPrescriptions.forEach((m, i) => {
+        bodyLines.push(`${i + 1}. ${m.drugName || ""} - ${m.dosage || ""} ${m.dosageUnit || ""} - ${m.frequency || ""}`);
+      });
+      bodyLines.push("");
+      bodyLines.push("Download your prescription PDF from the link below:");
+      bodyLines.push(generatedPdfUrl);
+      bodyLines.push("");
+      bodyLines.push(`Doctor's Signature: ${translatedDoctor.name}`);
+      bodyLines.push(`Address: ${translatedDoctorAddress}`);
+      
+      const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(trimmedEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyLines.join("\n"))}`;
+      try {
+        window.open(gmailUrl, "_blank");
+      } catch (e) {
+        const mailto = `mailto:${encodeURIComponent(trimmedEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyLines.join("\n"))}`;
+        window.location.href = mailto;
+      }
+      
+    } catch (error) {
+      console.error('Error generating PDF for email:', error);
+      // Fallback to text-only email
+      const subject = `${translatedTexts.prescription} - ${translatedPatientData.name}`;
+      const bodyLines = [];
+      bodyLines.push(`Patient: ${translatedPatientData.name}`);
+      bodyLines.push(`Doctor: ${translatedDoctor.name}`);
+      bodyLines.push("");
+      bodyLines.push("Prescription:");
+      displayPrescriptions.forEach((m, i) => {
+        bodyLines.push(`${i + 1}. ${m.drugName || ""} - ${m.dosage || ""} ${m.dosageUnit || ""}`);
+      });
+      
+      const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(trimmedEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyLines.join("\n"))}`;
+      try {
+        window.open(gmailUrl, "_blank");
+      } catch (e) {
+        const mailto = `mailto:${encodeURIComponent(trimmedEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyLines.join("\n"))}`;
+        window.location.href = mailto;
+      }
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   // Optimized translation effect - only translates what's necessary
@@ -432,7 +663,7 @@ const ShareModalContent = ({ onClose, prescriptions = [], patient = {}, onSendWh
         <button 
           onClick={onClose} 
           className="text-white hover:text-gray-200 transition-colors"
-          disabled={isTranslating}
+          disabled={isTranslating || isGeneratingPdf}
         >
           <X size={24}/>
         </button>
@@ -468,8 +699,10 @@ const ShareModalContent = ({ onClose, prescriptions = [], patient = {}, onSendWh
             <div className="mb-4">
               <div className="flex items-center justify-between mb-2">
                 <div className="text-[#0E1630] font-semibold">{translatedTexts.prescription}</div>
-                {isTranslating && (
-                  <div className="text-xs text-blue-600 animate-pulse">Translating...</div>
+                {(isTranslating || isGeneratingPdf) && (
+                  <div className="text-xs text-blue-600 animate-pulse">
+                    {isGeneratingPdf ? 'Generating PDF...' : 'Translating...'}
+                  </div>
                 )}
               </div>
               <div className="overflow-x-auto custom-scrollbar">
@@ -539,7 +772,7 @@ const ShareModalContent = ({ onClose, prescriptions = [], patient = {}, onSendWh
               value={lang} 
               onChange={(e) => handleLanguageChange(e.target.value)} 
               className="w-full border border-gray-300 rounded-md px-3 py-2 mb-3 text-sm transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-              disabled={isTranslating}
+              disabled={isTranslating || isGeneratingPdf}
             >
               {languages.map((language) => (
                 <option key={language.code} value={language.code}>
@@ -568,7 +801,7 @@ const ShareModalContent = ({ onClose, prescriptions = [], patient = {}, onSendWh
                   : 'border border-gray-300 focus:ring-2 focus:ring-blue-200 focus:border-blue-500'
               } outline-none`}
               maxLength={10}
-              disabled={isTranslating}
+              disabled={isTranslating || isGeneratingPdf}
             />
           </div>
 
@@ -591,7 +824,7 @@ const ShareModalContent = ({ onClose, prescriptions = [], patient = {}, onSendWh
                   : 'border border-gray-300 focus:ring-2 focus:ring-blue-200 focus:border-blue-500'
               } outline-none`}
               maxLength={254}
-              disabled={isTranslating}
+              disabled={isTranslating || isGeneratingPdf}
             />
           </div>
 
@@ -599,103 +832,72 @@ const ShareModalContent = ({ onClose, prescriptions = [], patient = {}, onSendWh
           <div className="grid grid-cols-3 gap-3 mt-2">
             {/* WhatsApp Button */}
             <button
-              onClick={() => {
-                if (typeof onSendWhatsApp === "function") {
-                  onSendWhatsApp({ phone, prescriptions: displayPrescriptions, patient, lang });
-                  return;
-                }
-                if (!isPhoneValid) return;
-                
-                const messageLines = [];
-                messageLines.push(`${translatedTexts.prescription} - ${translatedPatientData.name}`);
-                messageLines.push(`Dr: ${translatedDoctor.name}`);
-                displayPrescriptions.forEach((m, i) => {
-                  messageLines.push(`${i + 1}. ${m.drugName || ""} - ${m.dosage || ""} ${m.dosageUnit || ""}`);
-                });
-                
-                const url = `https://wa.me/${phone}?text=${encodeURIComponent(messageLines.join("\n"))}`;
-                window.open(url, "_blank");
-              }}
-              disabled={!isPhoneValid || isTranslating}
+              onClick={handleWhatsAppClick}
+              disabled={!isPhoneValid || isTranslating || isGeneratingPdf}
               className={`flex flex-col items-center justify-center p-4 rounded-lg border transition-all duration-200 ${
-                !isPhoneValid || isTranslating
+                !isPhoneValid || isTranslating || isGeneratingPdf
                   ? 'border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed'
                   : 'border-gray-200 bg-white hover:bg-gray-50 hover:shadow-md active:scale-95'
               }`}
             >
               <div className="w-10 h-10 flex items-center justify-center rounded-full mb-2">
-                <img 
-                  src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" 
-                  alt="WhatsApp" 
-                  className="w-8 h-8" 
-                />
+                {isGeneratingPdf ? (
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-500"></div>
+                ) : (
+                  <img 
+                    src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" 
+                    alt="WhatsApp" 
+                    className="w-8 h-8" 
+                  />
+                )}
               </div>
-              <span className="text-sm text-gray-600">{translatedTexts.whatsapp}</span>
+              <span className="text-sm text-gray-600">
+                {isGeneratingPdf ? 'Generating...' : translatedTexts.whatsapp}
+              </span>
             </button>
 
             {/* Email Button */}
             <button
-              onClick={() => {
-                const trimmedEmail = email.trim();
-                if (typeof onSendEmail === "function") {
-                  if (!isEmailValid) return;
-                  onSendEmail({ email: trimmedEmail, prescriptions: displayPrescriptions, patient, lang });
-                  return;
-                }
-                
-                if (!isEmailValid) return;
-                
-                const subject = `${translatedTexts.prescription} - ${translatedPatientData.name}`;
-                const bodyLines = [];
-                bodyLines.push(`Patient: ${translatedPatientData.name}`);
-                bodyLines.push(`Doctor: ${translatedDoctor.name}`);
-                bodyLines.push("");
-                bodyLines.push(translatedTexts.prescription + ":");
-                displayPrescriptions.forEach((m, i) => {
-                  bodyLines.push(`${i + 1}. ${m.drugName || ""} - ${m.dosage || ""} ${m.dosageUnit || ""}`);
-                });
-                
-                const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(trimmedEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyLines.join("\n"))}`;
-                try {
-                  window.open(gmailUrl, "_blank");
-                } catch (e) {
-                  const mailto = `mailto:${encodeURIComponent(trimmedEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyLines.join("\n"))}`;
-                  window.location.href = mailto;
-                }
-              }}
-              disabled={!isEmailValid || isTranslating}
+              onClick={handleEmailClick}
+              disabled={!isEmailValid || isTranslating || isGeneratingPdf}
               className={`flex flex-col items-center justify-center p-4 rounded-lg border transition-all duration-200 ${
-                !isEmailValid || isTranslating
+                !isEmailValid || isTranslating || isGeneratingPdf
                   ? 'border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed'
                   : 'border-gray-200 bg-white hover:bg-gray-50 hover:shadow-md active:scale-95'
               }`}
             >
               <div className="w-10 h-10 flex items-center justify-center rounded-full bg-[#FCE9E7] text-[#EA4335] mb-2">
-                <Mail size={18} />
+                {isGeneratingPdf ? (
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#EA4335]"></div>
+                ) : (
+                  <Mail size={18} />
+                )}
               </div>
-              <span className="text-sm text-gray-600">{translatedTexts.email}</span>
+              <span className="text-sm text-gray-600">
+                {isGeneratingPdf ? 'Generating...' : translatedTexts.email}
+              </span>
             </button>
 
             {/* Print Button */}
             <button 
-              onClick={() => { 
-                if (typeof onPrint === 'function') {
-                  onPrint({ prescriptions: displayPrescriptions, patient, lang }); 
-                } else {
-                  window.print(); 
-                }
-              }} 
-              disabled={isTranslating}
+              onClick={handlePrintClick}
+              disabled={isTranslating || isGeneratingPdf}
               className={`flex flex-col items-center justify-center p-4 rounded-lg border transition-all duration-200 ${
-                isTranslating
+                isTranslating || isGeneratingPdf
                   ? 'border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed'
                   : 'border-gray-200 bg-white hover:bg-gray-50 hover:shadow-md active:scale-95'
               }`}
             >
               <div className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-900 text-white mb-2">
-                <Printer size={16} />
+                {isGeneratingPdf ? (
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                ) : (
+                  <Printer size={16} />
+                )}
               </div>
-              <span className="text-sm text-gray-600">{translatedTexts.printPdf}</span>
+              <span className="text-sm text-gray-600">
+                {isGeneratingPdf ? 'Generating...' : translatedTexts.printPdf}
+              </span>
             </button>
           </div>
 
@@ -709,4 +911,6 @@ const ShareModalContent = ({ onClose, prescriptions = [], patient = {}, onSendWh
   );
 };
 
+// Export the generatePdfUrl function for use elsewhere
+export { generatePdfUrl };
 export default ShareModalContent;

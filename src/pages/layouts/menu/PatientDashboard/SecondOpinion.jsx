@@ -12,7 +12,7 @@ import { ArrowLeft, User, Stethoscope, ChevronDown, X, Printer, CheckCircle, Fil
 import { useSelector } from "react-redux";
 import ProfileCard from "../../../../components/microcomponents/ProfileCard";
 import { useMedicalRecords } from "../../../../context-api/MedicalRecordsContext";
-import { getDoctorPatientPrescriptions, getClinicalNotes, getDoctorIpdVitalsByContext, getPatientById, getUrgencyLevels, getConsultationModes, getAllDoctors, getPatientPrescriptions, getPatientMedicalInfo, getLabScanByPatient } from "../../../../utils/masterService";
+import { getPatientById, getUrgencyLevels, getConsultationModes, getAllDoctors, getPatientPrescriptions, getPatientMedicalInfo, getLabScanByPatient } from "../../../../utils/masterService";
 const PrintContent = ({ requestData, selectedRecord, formData, user }) => (                                                                                                                                                   
   <div style={{ fontFamily: "Arial, sans-serif", maxWidth: "800px", margin: "0 auto", padding: "20px" }}>
     <div className="header" style={{ textAlign: "center", borderBottom: "2px solid #333", paddingBottom: "20px", marginBottom: "30px" }}>
@@ -321,18 +321,16 @@ const MedicalRecordsDetailsPreview = ({ selectedRecord, onClose, user }) => {
             <h4 className="text-xl font-semibold text-gray-800 mb-4">Medical Information</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {Object.entries(selectedRecord?.medicalDetails || {})
-                .filter(([key]) => !["id", "doctorId", "context", "patientId", "createdAt", "updatedAt", "createdBy", "updatedBy"].includes(key))
+                .filter(([label, value]) => {
+                  // Only show these 4 specific fields
+                  const allowedFields = ["Chief Complaint", "Past History", "Medical Advice", "Treatment Plan"];
+                  return allowedFields.includes(label) && value && String(value).trim() !== '';
+                })
                 .map(([label, value]) => {
-                  const keyName = String(label).replace(/\s+/g, "").toLowerCase();
-                  const isPreviewField = ["chiefcomplaint", "pasthistory", "history", "advice", "plan", "clinicalnotes"].includes(keyName);
                   return (
                     <div key={label} className="bg-white p-6 rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
-                      <div className="font-bold text-sm text-gray-600 mb-2">{label.replace(/([A-Z])/g, " $1")}</div>
-                      {isPreviewField ? (
-                        <div className="cc-scrollbar text-gray-800 text-sm">{value || "N/A"}</div>
-                      ) : (
-                        <div className="text-gray-800 text-sm">{value || "N/A"}</div>
-                      )}
+                      <div className="font-bold text-sm text-gray-600 mb-2">{label}</div>
+                      <div className="cc-scrollbar text-gray-800 text-sm">{value || "N/A"}</div>
                     </div>
                   );
                 })}
@@ -465,14 +463,19 @@ const SecondOpinion = () => {
   // other patient-uploaded fields.
   const mapMedicalDataToDetails = (medicalData = {}) => {
     if (!medicalData || typeof medicalData !== 'object') return {};
+    
+    console.log("Raw medical data for mapping:", medicalData);
+    
     const mappings = {
       chiefComplaint: 'Chief Complaint',
       'chief_complaint': 'Chief Complaint',
       pastHistory: 'Past History',
       'past_history': 'Past History',
       advice: 'Medical Advice',
+      'medical_advice': 'Medical Advice',
       treatmentPlan: 'Treatment Plan',
       plan: 'Treatment Plan',
+      'treatment_plan': 'Treatment Plan',
       planOfTreatment: 'Treatment Plan'
     };
 
@@ -481,8 +484,11 @@ const SecondOpinion = () => {
       const val = medicalData?.[key];
       if (val !== undefined && val !== null && String(val).trim() !== '') {
         result[label] = val;
+        console.log(`Mapped ${key} -> ${label}:`, val);
       }
     });
+    
+    console.log("Processed medical details:", result);
     return result;
   };
   // Determine best DOB source: check record -> fetched patient -> logged-in user's dob
@@ -585,30 +591,10 @@ const SecondOpinion = () => {
         return;
       }
 
-      const uploadedBy = String(record.uploadedBy || "").toLowerCase();
-      const isDoctorUploaded = uploadedBy.includes("doctor");
-      
       try {
         let prescriptionsData = [];
         let notesData = [];
         let vitalsData = null;
-
-        if (isDoctorUploaded) {
-          // Fetch doctor-uploaded data
-          const doctorId = record.doctorId || record?.doctor?.id || "";
-          const context = activeTab || "OPD";
-          
-          console.log("Fetching doctor-uploaded data", { patientId, doctorId, context });
-          const [presRes, notesRes, vitalsRes] = await Promise.all([
-            getDoctorPatientPrescriptions(doctorId, patientId, context),
-            getClinicalNotes(patientId, doctorId, context),
-            getDoctorIpdVitalsByContext(doctorId, patientId, context)
-          ]);
-          
-          prescriptionsData = presRes?.data || [];
-          notesData = notesRes?.data || [];
-          vitalsData = vitalsRes?.data || null;
-        }
 
         // Always fetch patient-uploaded data
         try {
@@ -642,8 +628,7 @@ const SecondOpinion = () => {
               const exists = allPrescriptions.some(p => p.id === patientPres.id);
               if (!exists) {
                 allPrescriptions.push({
-                  ...patientPres,
-                  uploadedBy: 'patient'
+                  ...patientPres
                 });
               }
             });
@@ -673,8 +658,7 @@ const SecondOpinion = () => {
               testName: scan.testName || scan.name,
               result: scan.result || scan.value,
               normalRange: scan.normalRange || scan.range,
-              status: scan.status || 'Completed',
-              uploadedBy: 'patient'
+              status: scan.status || 'Completed'
             }));
             setLabScanData(formattedLabScans);
           }

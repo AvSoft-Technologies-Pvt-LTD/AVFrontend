@@ -29,14 +29,12 @@ import {
   getPatientVitalById,
   createPatientVital,
   updatePatientVital,
-  getClinicalNotes,
-  getDoctorPatientPrescriptions,
   getLabScanByPatient,
   getHospitalBilling,
   getLabBilling,
   getPharmacyBilling,
   getPatientMedicalInfo,
-  getDoctorIpdVitalsByContext
+  getPatientPrescriptionsData,
 } from "../../../../utils/masterService";
 import { useMedicalRecords } from "../../../../context-api/MedicalRecordsContext";
   import medicalRecordImage from '../../../../assets/geminiIN1.png';
@@ -192,9 +190,11 @@ const PatientMedicalRecordDetails = () => {
   const [imageModal, setImageModal] = useState({
     isOpen: false,
     imageUrl: "",
-    title: ""
+    title: "",
   });
-  const { clickedRecord: selectedRecord, activeTab } = useMedicalRecords();
+  const { clickedRecord: selectedRecord, recordTab } = useMedicalRecords();
+  const activeTab = recordTab;
+  const recordId = selectedRecord?.recordId || selectedRecord?.id || selectedRecord?.recordID;
   const [hospitalBillingData, setHospitalBillingData] = useState([]);
   const [labBillingData, setLabBillingData] = useState([]);
   const [pharmacyBillingData, setPharmacyBillingData] = useState([]);
@@ -298,14 +298,12 @@ const PatientMedicalRecordDetails = () => {
     (selectedRecord?.uploadedBy && String(selectedRecord.uploadedBy).toLowerCase().includes("doctor"))
   );
 
-  const [clinicalNotes, setClinicalNotes] = useState(null);
   const [prescriptionData, setPrescriptionData] = useState([]);
   const [labTestsData] = useState([]);
   const [vitalsData, setVitalsData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [, setError] = useState(null);
   const [medicalError, setMedicalError] = useState(null);
-  const [clinicalError, setClinicalError] = useState(null);
   const [prescriptionError, setPrescriptionError] = useState(null);
   const [videoRecordings, setVideoRecordings] = useState([]);
   const [showVideoModal, setShowVideoModal] = useState(false);
@@ -315,6 +313,15 @@ const PatientMedicalRecordDetails = () => {
   const [vitalsExist, setVitalsExist] = useState(false);
   const [labScansData, setLabScansData] = useState([]);
   const [medicalInfo, setMedicalInfo] = useState(null);
+
+  const recordQueryParams = useMemo(() => {
+    if (!recordId) return undefined;
+    const tab = String(activeTab || "").toUpperCase();
+    if (tab === "OPD") return { opdRecordId: recordId };
+    if (tab === "IPD") return { ipdRecordId: recordId };
+    if (tab === "VIRTUAL") return { virtualRecordId: recordId };
+    return undefined;
+  }, [recordId, activeTab]);
 
   const validateVitals = (values) => {
     const errors = {};
@@ -376,8 +383,8 @@ const PatientMedicalRecordDetails = () => {
     setLoading(true);
     setMedicalError(null);
     try {
-      const response = await getPatientMedicalInfo(selectedRecord.patientId);
-      console.log("Fetched medical info:", response.data);
+      const response = await getPatientMedicalInfo(selectedRecord.patientId, recordQueryParams);
+      console.log("Fetched medical info:+++++++++++++", response.data);
       // support both response.data and response.data.data shapes
       const payload = response.data?.data ?? response.data;
       if (payload) {
@@ -395,131 +402,45 @@ const PatientMedicalRecordDetails = () => {
     }
   };
 
+  const fetchPatientPrescriptions = async () => {
+    console.log("fetchPatientPrescriptions called with:", {
+      patientId: selectedRecord?.patientId,
+      recordQueryParams,
+    });
 
-  const fetchVitalsData = async () => {
-    if (!selectedRecord?.patientId) {
-      setVitalsData({ bloodPressure: "--", heartRate: "--", temperature: "--", spO2: "--", respiratoryRate: "--", height: "--", weight: "--" });
-      return;
-    }
-    setLoading(true);
-    setError(null);
     try {
-      const response = await getPatientVitalById(selectedRecord.patientId);
-      console.log("Fetched vitals data::::::::::::", response.data);
-      const patientVitals = response.data;
-      if (patientVitals) {
-        setVitalsData({
-          bloodPressure: patientVitals.bloodPressure || "--",
-          heartRate: patientVitals.heartRate || "--",
-          temperature: patientVitals.temperature || "--",
-          spO2: patientVitals.spo2 || "--",
-          respiratoryRate: patientVitals.respiratoryRate || "--",
-          height: patientVitals.height || "--",
-          weight: patientVitals.weight || "--",
-          id: patientVitals.id,
-        });
-        setVitalsExist(true);
-      } else {
-        setVitalsData({ bloodPressure: "--", heartRate: "--", temperature: "--", spO2: "--", respiratoryRate: "--", height: "--", weight: "--" });
-        setVitalsExist(false);
-      }
-    } catch (err) {
-      console.error("Failed to fetch vitals:", err);
-      setVitalsData({ bloodPressure: "--", heartRate: "--", temperature: "--", spO2: "--", respiratoryRate: "--", height: "--", weight: "--" });
-      setVitalsExist(false);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  
-
-  const fetchClinicalNotes = async () => {
-    if (!selectedRecord?.patientId) {
-      setClinicalError("Patient ID is missing.");
-      return;
-    }
-    setLoading(true);
-    setClinicalError(null);
-    try {
-      console.log("Fetching clinical notes for patientId:", selectedRecord.patientId);
-      const response = await getClinicalNotes(selectedRecord.patientId, doctorId, ContextTab);
-      console.log("Clinical Notes Response:", response.data);
-      if (response.data && response.data.length > 0) {
-        const sortedNotes = [...response.data].sort((a, b) => b.id - a.id);
-        setClinicalNotes(sortedNotes[0]);
-      } else {
-        setClinicalError("No clinical notes found for this patient and context.");
-        setClinicalNotes(null);
-      }
-    } catch (err) {
-      console.error("Failed to fetch clinical notes:", err);
-      setClinicalError(err.response?.data?.message || "Failed to fetch clinical notes.");
-      setClinicalNotes(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fetch IPD vitals provided by doctor in doctor-uploaded records / doctor context
-  const fetchDoctorIpdVitals = async () => {
-    // choose a doctor id: prefer logged-in user if available, otherwise fall back to record's doctorId
-    const docId = user?.id || (selectedRecord?.doctorId && String(selectedRecord.doctorId));
-    if (!selectedRecord?.patientId || !docId) {
-      return;
-    }
-    setLoading(true);
-    try {
-      const response = await getDoctorIpdVitalsByContext(docId, selectedRecord.patientId, ContextTab || activeTab);
-      console.log("Fetched doctor IPD vitals:", response.data);
-      const payload = response.data?.data ?? response.data;
-      // payload might be an array (multiple records) or an object; pick latest if array
-      const vitalsPayload = Array.isArray(payload) ? payload[0] || null : payload;
-      if (vitalsPayload) {
-        // Map fields conservatively — use existing vitalsData shape where possible
-        setVitalsData((prev) => ({
-          bloodPressure: vitalsPayload.bloodPressure || vitalsPayload.blood_pressure || prev?.bloodPressure || "--",
-          heartRate: vitalsPayload.heartRate || vitalsPayload.heart_rate || vitalsPayload.hr || prev?.heartRate || "--",
-          temperature: vitalsPayload.temperature || vitalsPayload.temp || prev?.temperature || "--",
-          spO2: vitalsPayload.spo2 || vitalsPayload.spO2 || prev?.spO2 || "--",
-          respiratoryRate: vitalsPayload.respiratoryRate || vitalsPayload.respiratory_rate || prev?.respiratoryRate || "--",
-          height: vitalsPayload.height || prev?.height || "--",
-          weight: vitalsPayload.weight || prev?.weight || "--",
-          id: vitalsPayload.id || prev?.id,
-        }));
-        setVitalsExist(true);
-      }
-    } catch (err) {
-      console.error("Failed to fetch doctor IPD vitals:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchPrescriptions = async () => {
-    if (!selectedRecord?.patientId) {
-      setPrescriptionError("Patient ID is missing.");
-      return;
-    }
-    setLoading(true);
-    setPrescriptionError(null);
-    try {
-      const response = await getDoctorPatientPrescriptions(doctorId, selectedRecord.patientId, activeTab);
+      const response = await getPatientPrescriptionsData(
+        selectedRecord.patientId,
+        recordQueryParams
+      );
+      console.log(
+        "this is patient medical record prescription++++++++++++++++++++++++++++",
+        response.data
+      );
       let prescriptions = response.data?.data || response.data;
       if (!Array.isArray(prescriptions)) {
         prescriptions = prescriptions ? [prescriptions] : [];
       }
       if (prescriptions.length > 0) {
         const formattedData = prescriptions.map((prescription) => {
-          const medicines = Array.isArray(prescription.medicines) ? prescription.medicines : [prescription.medicines];
+          const medicines = Array.isArray(prescription.medicines)
+            ? prescription.medicines
+            : prescription.medicines
+            ? [prescription.medicines]
+            : [];
           return {
             id: prescription.id || prescription.prescriptionId,
             date: prescription.prescribedAt
-              ? new Date(prescription.prescribedAt).toLocaleDateString('en-GB')
+              ? new Date(prescription.prescribedAt).toLocaleDateString(
+                  "en-GB"
+                )
               : "N/A",
-            doctorName: prescription.doctorName || "Dr. Rajesh Kumar",
+            doctorName: prescription.doctorName || "N/A",
             medicines: medicines
-              .map((med) => `${med.medicineName} - ${med.dosage} ${med.dosageUnit} for ${med.duration}`)
+              .map(
+                (med) =>
+                  `${med.medicineName} - ${med.dosage} ${med.dosageUnit} for ${med.duration}`
+              )
               .join(", "),
             instructions: medicines
               .map((med) => `Take ${med.intake}.`)
@@ -531,13 +452,93 @@ const PatientMedicalRecordDetails = () => {
         setPrescriptionData([]);
       }
     } catch (err) {
-      console.error("Failed to fetch prescriptions:", err);
-      setPrescriptionError(err.response?.data?.message || "Failed to fetch prescriptions.");
+      console.error("Failed to fetch patient prescriptions:", err);
+      setPrescriptionError(
+        err.response?.data?.message || "Failed to fetch prescriptions."
+      );
       setPrescriptionData([]);
     } finally {
       setLoading(false);
     }
   };
+
+const fetchVitalsData = async () => {
+  console.log("fetchVitalsData CALLED. selectedRecord:", selectedRecord, "recordQueryParams:", recordQueryParams);
+
+  if (!selectedRecord?.patientId) {
+    console.log("No patientId -> setting default vitals");
+    setVitalsData({
+      bloodPressure: "--",
+      heartRate: "--",
+      temperature: "--",
+      spO2: "--",
+      respiratoryRate: "--",
+      height: "--",
+      weight: "--",
+    });
+    return;
+  }
+
+  setLoading(true);
+  setError(null);
+  try {
+    const response = await getPatientVitalById(selectedRecord.patientId, recordQueryParams);
+    console.log("Fetched vitals data::::::::::::", response.data);
+
+    // Support response.data.data and array payloads
+    const payload = response.data?.data ?? response.data;
+    const patientVitals = Array.isArray(payload) ? payload[0] ?? null : payload;
+
+    console.log("Normalized patientVitals:", patientVitals);
+
+    if (patientVitals) {
+      const vitalsToSet = {
+        bloodPressure: patientVitals.bloodPressure || patientVitals.blood_pressure || "--",
+        heartRate: patientVitals.heartRate || patientVitals.heart_rate || "--",
+        temperature: patientVitals.temperature || patientVitals.temp || "--",
+        spO2: patientVitals.spO2 || patientVitals.spo2 || "--",
+        respiratoryRate: patientVitals.respiratoryRate || patientVitals.respiratory_rate || "--",
+        height: patientVitals.height || "--",
+        weight: patientVitals.weight || "--",
+        id: patientVitals.id,
+      };
+      console.log("Vitals we are setting in state:", vitalsToSet);
+      setVitalsData(vitalsToSet);
+      setVitalsExist(true);
+    } else {
+      console.log("No vitals in response -> using defaults");
+      setVitalsData({
+        bloodPressure: "--",
+        heartRate: "--",
+        temperature: "--",
+        spO2: "--",
+        respiratoryRate: "--",
+        height: "--",
+        weight: "--",
+      });
+      setVitalsExist(false);
+    }
+  } catch (err) {
+    console.error("Failed to fetch vitals:", err);
+    setVitalsData({
+      bloodPressure: "--",
+      heartRate: "--",
+      temperature: "--",
+      spO2: "--",
+      respiratoryRate: "--",
+      height: "--",
+      weight: "--",
+    });
+    setVitalsExist(false);
+  } finally {
+    setLoading(false);
+  }
+};
+  
+
+  // doctor-specific clinical notes and IPD vitals removed: this component now only uses patient-side data
+
+  // doctor-side prescriptions removed; this screen now uses only patient prescriptions
 
   const fetchLabScans = async () => {
     if (!selectedRecord?.patientId) {
@@ -547,16 +548,21 @@ const PatientMedicalRecordDetails = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await getLabScanByPatient(selectedRecord.patientId);
-      if (response.data && response.data.length > 0) {
-        const formattedData = response.data.map((scan, index) => ({
-          id: index + 1,
+      const response = await getLabScanByPatient(selectedRecord.patientId, recordQueryParams);
+      console.log("lab scans::::::::::::::::", response.data);
+      let scans = response.data;
+      if (!Array.isArray(scans)) {
+        scans = scans ? [scans] : [];
+      }
+      if (scans.length > 0) {
+        const formattedData = scans.map((scan, index) => ({
+          id: scan.id ?? index + 1,
           date: scan.date || new Date().toLocaleDateString(),
           scanName: scan.scanName || scan.testName || "N/A",
           result: scan.result || "Pending",
           normalRange: scan.normalRange || "N/A",
           status: scan.status || "Pending",
-          fileUrl: scan.fileUrl || null,
+          fileUrl: scan.fileUrl || scan.documentUrl || null,
         }));
         setLabScansData(formattedData);
       } else {
@@ -601,37 +607,36 @@ const PatientMedicalRecordDetails = () => {
     if (Object.keys(errors).length > 0) {
       return;
     }
-    // Build payload to match backend schema expected by createPatientVital/updatePatientVital
-    // const payload = {
-    //   patientId: selectedRecord?.patientId ? Number(selectedRecord.patientId) : 1,
-    //   heartRate: formValues.heartRate ? parseInt(formValues.heartRate, 10) || 0 : 0,
-    //   temperature: formValues.temperature ? parseFloat(formValues.temperature) || 0.1 : 0.1,
-    //   bloodSugar: formValues.bloodSugar ? parseFloat(formValues.bloodSugar) || 0.1 : 0.1,
-    //   bloodPressure: formValues.bloodPressure || "",
-    //   respiratoryRate: formValues.respiratoryRate ? parseInt(formValues.respiratoryRate, 10) || 0 : 0,
-    //   spo2: formValues.spO2 ? parseInt(formValues.spO2, 10) || 0 : 0,
-    //   steps: formValues.steps ? parseInt(formValues.steps, 10) || 0 : 0,
-    //   height: formValues.height ? parseFloat(formValues.height) || 0.1 : 0.1,
-    //   weight: formValues.weight ? parseFloat(formValues.weight) || 0.1 : 0.1,
-    //   consultationType: formValues.consultationType,
-    //   ...(vitalsExist ? { id: vitalsData.id } : {}),
-    // };
+ 
 
 
+    const recordBodyFields = (() => {
+      if (!recordId) return {};
+      const tab = String(activeTab || "").toUpperCase();
+      if (tab === "OPD") return { opdRecordId: recordId };
+      if (tab === "IPD") return { ipdRecordId: recordId };
+      if (tab === "VIRTUAL") return { virtualRecordId: recordId };
+      return {};
+    })();
 
-     const payload = {
-      patientId: selectedRecord?.patientId ? Number(selectedRecord.patientId) : 1,
+    const payload = {
+      patientId: selectedRecord?.patientId ? Number(selectedRecord.patientId) : 0,
+      recordId: recordId ? Number(recordId) : 0,
+
       heartRate: formValues.heartRate ? parseInt(formValues.heartRate, 10) || 0 : 0,
       temperature: formValues.temperature ? parseFloat(formValues.temperature) || 0.1 : 0.1,
       bloodSugar: formValues.bloodSugar ? parseFloat(formValues.bloodSugar) || 0.1 : 0.1,
-      bloodPressure:  "",
+
+      // backend expects string
+      bloodPressure: formValues.bloodPressure || "",
+
       respiratoryRate: formValues.respiratoryRate ? parseInt(formValues.respiratoryRate, 10) || 0 : 0,
       spo2: formValues.spO2 ? parseInt(formValues.spO2, 10) || 0 : 0,
       steps: formValues.steps ? parseInt(formValues.steps, 10) || 0 : 0,
-      height: formValues.height ? parseFloat(formValues.height) || 0.1 : 0.1,
-      weight: formValues.weight ? parseFloat(formValues.weight) || 0.1 : 0.1,
-      consultationType: formValues.consultationType || "OPD",
-     
+      height: formValues.height ? parseFloat(formValues.height) || 0 : 0,
+      weight: formValues.weight ? parseFloat(formValues.weight) || 0 : 0,
+
+      consultationType: activeTab,
     };
     try {
       let res;
@@ -640,7 +645,20 @@ const PatientMedicalRecordDetails = () => {
       } else {
         res = await createPatientVital(payload);
       }
-      setVitalsData(res.data || payload);
+
+      const saved = res?.data || payload;
+
+      setVitalsData((prev) => ({
+        bloodPressure: saved.bloodPressure ?? prev?.bloodPressure ?? "--",
+        heartRate: saved.heartRate ?? prev?.heartRate ?? "--",
+        temperature: saved.temperature ?? prev?.temperature ?? "--",
+        spO2: saved.spO2 ?? saved.spo2 ?? prev?.spO2 ?? "--",
+        respiratoryRate: saved.respiratoryRate ?? prev?.respiratoryRate ?? "--",
+        height: saved.height ?? prev?.height ?? "--",
+        weight: saved.weight ?? prev?.weight ?? "--",
+        id: saved.id ?? prev?.id,
+      }));
+
       setVitalsExist(true);
       setShowUpdateModal(false);
     } catch (err) {
@@ -653,8 +671,13 @@ const PatientMedicalRecordDetails = () => {
     if (!selectedRecord?.patientId) return;
     setBillingLoading(true);
     try {
-      const response = await getHospitalBilling(selectedRecord.patientId);
-      setHospitalBillingData(response.data || []);
+      const response = await getHospitalBilling(selectedRecord.patientId, recordQueryParams);
+      console.log("this is hospital billing", response.data);
+      let data = response.data?.data ?? response.data;
+      if (!Array.isArray(data)) {
+        data = data ? [data] : [];
+      }
+      setHospitalBillingData(data);
     } catch (err) {
       setBillingError(err.response?.data?.message || "Failed to fetch hospital billing.");
     } finally {
@@ -666,8 +689,13 @@ const PatientMedicalRecordDetails = () => {
     if (!selectedRecord?.patientId) return;
     setBillingLoading(true);
     try {
-      const response = await getLabBilling(selectedRecord.patientId);
-      setLabBillingData(response.data || []);
+      const response = await getLabBilling(selectedRecord.patientId, recordQueryParams);
+      console.log("this is lab billing", response.data);
+      let data = response.data?.data ?? response.data;
+      if (!Array.isArray(data)) {
+        data = data ? [data] : [];
+      }
+      setLabBillingData(data);
     } catch (err) {
       setBillingError(err.response?.data?.message || "Failed to fetch lab billing.");
     } finally {
@@ -679,8 +707,13 @@ const PatientMedicalRecordDetails = () => {
     if (!selectedRecord?.patientId) return;
     setBillingLoading(true);
     try {
-      const response = await getPharmacyBilling(selectedRecord.patientId);
-      setPharmacyBillingData(response.data || []);
+      const response = await getPharmacyBilling(selectedRecord.patientId, recordQueryParams);
+      console.log(" this is pharmacy billing", response.data);
+      let data = response.data?.data ?? response.data;
+      if (!Array.isArray(data)) {
+        data = data ? [data] : [];
+      }
+      setPharmacyBillingData(data);
     } catch (err) {
       setBillingError(err.response?.data?.message || "Failed to fetch pharmacy billing.");
     } finally {
@@ -725,34 +758,30 @@ const PatientMedicalRecordDetails = () => {
   };
 
   useEffect(() => {
-    // Call only the allowed APIs depending on exact uploader type.
-    // If exact PATIENT -> call patient-side APIs for the active tab (medical info + vitals)
-    // If exact DOCTOR -> call doctor-side APIs (clinical notes)
-    // If unknown -> conservative fallback: call both patient and doctor APIs where appropriate
-    console.log("uploadedBy:", uploadedBy, "detailsActiveTab:", state.detailsActiveTab);
-    if (state.detailsActiveTab === "medical-records" && selectedRecord?.patientId) {
-      if (isExactPatient) {
+    console.log(
+      "uploadedBy:",
+      uploadedBy,
+      "detailsActiveTab:",
+      state.detailsActiveTab
+    );
+    if (selectedRecord?.patientId) {
+      if (state.detailsActiveTab === "medical-records") {
         fetchMedicalInfo();
-        fetchVitalsData();
-      } else if (isExactDoctor) {
-        // For doctor-uploaded records, fetch clinical notes and doctor-provided IPD vitals
-        fetchClinicalNotes();
-        fetchDoctorIpdVitals();
-      } else {
-        // unknown uploader: attempt both
-        fetchMedicalInfo();
-        fetchClinicalNotes();
         fetchVitalsData();
       }
-    } else {
-      // ensure vitals are fetched for non-doctor contexts when appropriate
-      if (!isExactDoctor && selectedRecord?.patientId) {
+      // vitals are tied to records, so we always fetch when patientId exists
+      if (state.detailsActiveTab !== "medical-records") {
         fetchVitalsData();
       }
     }
-
-    setVideoRecordings(fetchVideoRecordings());
-  }, [selectedRecord, hospitalName, displayEmail, activeTab, state.detailsActiveTab, uploadedBy]);
+  }, [
+    selectedRecord,
+    hospitalName,
+    displayEmail,
+    activeTab,
+    state.detailsActiveTab,
+    uploadedBy,
+  ]);
 
   useEffect(() => {
     if (state.detailsActiveTab === "lab-tests") {
@@ -769,19 +798,27 @@ const PatientMedicalRecordDetails = () => {
   }, [selectedRecord, state.detailsActiveTab]);
 
   useEffect(() => {
-    // Prescriptions are doctor-side data. Only fetch when uploader is exact DOCTOR or unknown (fallback).
-    if (selectedRecord?.patientId) {
-      if (isExactDoctor) {
-        fetchPrescriptions();
-      } else if (isExactPatient) {
-        // patient-exact: do not fetch doctor prescriptions; ensure empty so DocsReader shows
-        setPrescriptionData([]);
-      } else {
-        // unknown: fetch prescriptions (best-effort)
-        fetchPrescriptions();
-      }
-    }
-  }, [displayEmail, user.id, selectedRecord?.patientId, uploadedBy]);
+    // Trigger prescriptions fetch only when the Prescriptions tab is active
+    console.log("Prescriptions effect:", {
+      patientId: selectedRecord?.patientId,
+      uploadedBy,
+      isExactPatient,
+      detailsActiveTab: state.detailsActiveTab,
+    });
+
+    if (!selectedRecord?.patientId) return;
+    if (state.detailsActiveTab !== "prescriptions") return;
+
+    // Always use patient-side prescriptions API on this screen
+    fetchPatientPrescriptions();
+  }, [
+    displayEmail,
+    user.id,
+    selectedRecord?.patientId,
+    uploadedBy,
+    state.detailsActiveTab,
+    recordQueryParams,
+  ]);
 
   useEffect(() => {
     if (state.detailsActiveTab === "billing") {
@@ -802,6 +839,16 @@ const PatientMedicalRecordDetails = () => {
       }
     }
   }, [state.detailsActiveTab, selectedRecord?.patientId]);
+
+  useEffect(() => {
+    if (state.detailsActiveTab === "video" && String(activeTab).toUpperCase() === "VIRTUAL") {
+      // Fetch video recordings for virtual consultations
+      // TODO: Implement fetchVideoRecordings API call
+      console.log("Video tab activated for virtual consultation");
+      // For now, set empty array - replace with actual API call when available
+      setVideoRecordings([]);
+    }
+  }, [state.detailsActiveTab, activeTab, selectedRecord?.patientId]);
 
   // Import images from assets
 
@@ -854,14 +901,16 @@ const PatientMedicalRecordDetails = () => {
   }, [state.detailsActiveTab]);
 
   const renderTabContent = () => {
-  const uploadedByUpper = String(uploadedBy || "").toUpperCase();
-  const isExactPatient = uploadedByUpper === "PATIENT";
-  const isExactDoctor = uploadedByUpper === "DOCTOR";
   const tabContentMap = {
       "medical-records": (() => {
-        // If uploader is exactly PATIENT, show patient medical info (or fallback to DocsReader)
+        // For patient-uploaded records, show medical info when available; otherwise DocsReader
         if (isExactPatient) {
-          if (loading) return <div className="text-center py-6 md:py-8 text-sm md:text-base">Loading medical info...</div>;
+          if (loading)
+            return (
+              <div className="text-center py-6 md:py-8 text-sm md:text-base">
+                Loading medical info...
+              </div>
+            );
           return medicalInfo ? (
             <div className="ml-6 mr-6 space-y-4 sm:space-y-5 md:space-y-6">
               <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-3 sm:mb-4 md:mb-6 gap-2 sm:gap-3">
@@ -886,47 +935,46 @@ const PatientMedicalRecordDetails = () => {
             <DocsReader />
           );
         }
-        // If uploader is exactly DOCTOR, show clinical notes (or fallback to "Data not found")
+
+        // For doctor-uploaded records, never show DocsReader; if no data, show simple message
         if (isExactDoctor) {
-          if (loading) return <div className="text-center py-6 md:py-8 text-sm md:text-base">Loading clinical notes...</div>;
-          return clinicalNotes ? (
+          if (loading)
+            return (
+              <div className="text-center py-6 md:py-8 text-sm md:text-base">
+                Loading medical info...
+              </div>
+            );
+          return medicalInfo ? (
             <div className="ml-6 mr-6 space-y-4 sm:space-y-5 md:space-y-6">
               <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-3 sm:mb-4 md:mb-6 gap-2 sm:gap-3">
                 <div className="flex items-center gap-2 sm:gap-2.5 md:gap-3">
                   <FileText size={18} className="sm:size-[20px] md:size-[24px] text-[var(--primary-color)]" />
                   <h3 className="text-base sm:text-lg md:text-xl font-semibold">Medical Information</h3>
                 </div>
-                <button className="px-2 sm:px-3 py-1 sm:py-1.5 bg-[var(--primary-color)] text-white rounded-md sm:rounded-lg hover:opacity-90 transition-opacity text-xs sm:text-sm self-start md:self-auto">View Original</button>
               </div>
-              {clinicalError ? (
-                <div className="text-center text-gray-600 py-6 md:py-8 text-sm md:text-base">{clinicalError}</div>
+              {medicalError ? (
+                <div className="text-center text-gray-600 py-6 md:py-8 text-sm md:text-base">{medicalError}</div>
               ) : (
                 renderMedicalGrid([
-                  { label: "Chief Complaint", value: clinicalNotes.chiefComplaint || clinicalNotes.chiefcomplaint || "N/A" },
-                  { label: "Past History", value: clinicalNotes.pastHistory || clinicalNotes.history || "N/A" },
-                  { label: "Advice", value: clinicalNotes.treatmentAdvice || clinicalNotes.advice || "N/A" },
-                  { label: "Plan", value: clinicalNotes.plan || "N/A" },
+                  { label: "Chief Complaint", value: medicalInfo.chiefComplaint || "N/A" },
+                  { label: "Past History", value: medicalInfo.pastHistory || "N/A" },
+                  { label: "Advice", value: medicalInfo.advice || "N/A" },
+                  { label: "Plan", value: medicalInfo.plan || "N/A" },
                 ])
-              )}
-              {selectedRecord?.type === "IPD" && (
-                <div className="mt-4 sm:mt-5 md:mt-6">
-                  <div className="flex items-center gap-2 sm:gap-2.5 md:gap-3 mb-3 sm:mb-4 md:mb-6">
-                    <FileText size={18} className="sm:size-[20px] md:size-[24px] text-green-600" />
-                    <h3 className="text-base sm:text-lg md:text-xl font-semibold">Discharge Summary</h3>
-                  </div>
-                  <div className="bg-white p-3 sm:p-4 md:p-6 rounded-lg sm:rounded-xl border border-gray-100">
-                    <div className="font-semibold text-xs sm:text-sm md:text-base text-gray-600 mb-1 sm:mb-1.5 md:mb-2">Summary</div>
-                    <div className="text-gray-800 text-xs sm:text-sm md:text-base">{clinicalNotes?.dischargeSummary || "N/A"}</div>
-                  </div>
-                </div>
               )}
             </div>
           ) : (
             <div className="text-center text-gray-600 py-6 md:py-8 text-sm md:text-base">Data not found</div>
           );
         }
-        // Unknown uploader: prefer patient info, then clinical notes, then DocsReader
-        if (loading) return <div className="text-center py-6 md:py-8 text-sm md:text-base">Loading medical info...</div>;
+
+        // For other/unknown uploaders, prefer patient info when present, otherwise DocsReader
+        if (loading)
+          return (
+            <div className="text-center py-6 md:py-8 text-sm md:text-base">
+              Loading medical info...
+            </div>
+          );
         return medicalInfo ? (
           <div className="ml-6 mr-6 space-y-4 sm:space-y-5 md:space-y-6">
             <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-3 sm:mb-4 md:mb-6 gap-2 sm:gap-3">
@@ -934,12 +982,15 @@ const PatientMedicalRecordDetails = () => {
                 <FileText size={18} className="sm:size-[20px] md:size-[24px] text-[var(--primary-color)]" />
                 <h3 className="text-base sm:text-lg md:text-xl font-semibold">Medical Information</h3>
               </div>
-              <button 
-                onClick={() => setImageModal({
-                  isOpen: true,
-                  imageUrl: "https://placehold.co/800x1000/png?text=Medical+Record+Sample",
-                  title: "Original Medical Record"
-                })}
+              <button
+                onClick={() =>
+                  setImageModal({
+                    isOpen: true,
+                    imageUrl:
+                      "https://placehold.co/800x1000/png?text=Medical+Record+Sample",
+                    title: "Original Medical Record",
+                  })
+                }
                 className="px-2 sm:px-3 py-1 sm:py-1.5 bg-[var(--primary-color)] text-white rounded-md sm:rounded-lg hover:opacity-90 transition-opacity text-xs sm:text-sm self-start md:self-auto"
               >
                 View Original
@@ -956,46 +1007,12 @@ const PatientMedicalRecordDetails = () => {
               ])
             )}
           </div>
-        ) : clinicalNotes ? (
-          <div className="ml-6 mr-6 space-y-4 sm:space-y-5 md:space-y-6">
-            <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-3 sm:mb-4 md:mb-6 gap-2 sm:gap-3">
-              <div className="flex items-center gap-2 sm:gap-2.5 md:gap-3">
-                <FileText size={18} className="sm:size-[20px] md:size-[24px] text-[var(--primary-color)]" />
-                <h3 className="text-base sm:text-lg md:text-xl font-semibold">Medical Information</h3>
-              </div>
-              <button className="px-2 sm:px-3 py-1 sm:py-1.5 bg-[var(--primary-color)] text-white rounded-md sm:rounded-lg hover:opacity-90 transition-opacity text-xs sm:text-sm self-start md:self-auto">View Original</button>
-            </div>
-            {clinicalError ? (
-              <div className="text-center text-gray-600 py-6 md:py-8 text-sm md:text-base">{clinicalError}</div>
-            ) : (
-              renderMedicalGrid([
-                { label: "Chief Complaint", value: clinicalNotes.chiefComplaint || clinicalNotes.chiefcomplaint || "N/A" },
-                { label: "Past History", value: clinicalNotes.pastHistory || clinicalNotes.history || "N/A" },
-                { label: "Advice", value: clinicalNotes.treatmentAdvice || clinicalNotes.advice || "N/A" },
-                { label: "Plan", value: clinicalNotes.plan || "N/A" },
-              ])
-            )}
-            {selectedRecord?.type === "IPD" && (
-              <div className="mt-4 sm:mt-5 md:mt-6">
-                <div className="flex items-center gap-2 sm:gap-2.5 md:gap-3 mb-3 sm:mb-4 md:mb-6">
-                  <FileText size={18} className="sm:size-[20px] md:size-[24px] text-green-600" />
-                  <h3 className="text-base sm:text-lg md:text-xl font-semibold">Discharge Summary</h3>
-                </div>
-                <div className="bg-white p-3 sm:p-4 md:p-6 rounded-lg sm:rounded-xl border border-gray-100">
-                  <div className="font-semibold text-xs sm:text-sm md:text-base text-gray-600 mb-1 sm:mb-1.5 md:mb-2">Summary</div>
-                  <div className="text-gray-800 text-xs sm:text-sm md:text-base">{clinicalNotes?.dischargeSummary || "N/A"}</div>
-                </div>
-              </div>
-            )}
-          </div>
         ) : (
           <DocsReader />
         );
       })(),
       "prescriptions": isExactPatient ? (
-        prescriptionError ? (
-          <div className="text-center text-gray-600 py-6 md:py-8 text-sm md:text-base">{prescriptionError}</div>
-        ) : prescriptionData.length > 0 ? (
+        prescriptionData.length > 0 ? (
           <div className="ml-6 mr-6 space-y-4 md:space-y-6">
             <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-3 sm:mb-4 md:mb-6 gap-2 sm:gap-3">
               <div className="flex items-center gap-2 md:gap-3">
@@ -1020,9 +1037,7 @@ const PatientMedicalRecordDetails = () => {
                 />
               </div>
             ) : (
-              <div className="text-center text-gray-600 py-6 md:py-8 text-sm md:text-base">
-                No prescriptions found for this patient.
-              </div>
+              <DocsReader />
             )}
           </div>
         ) : (
@@ -1338,12 +1353,16 @@ const PatientMedicalRecordDetails = () => {
     );
   }
 
+  // Debug: Check activeTab value
+  console.log("Current activeTab value:", activeTab, "Type:", typeof activeTab);
+
   const detailsTabs = [
     { id: "medical-records", label: "Medical Records", icon: FileText },
     { id: "prescriptions", label: "Prescriptions", icon: Pill },
     { id: "lab-tests", label: "Lab/Scan", icon: TestTube },
     { id: "billing", label: "Billing", icon: CreditCard },
-    { id: "video", label: "Video", icon: Video },
+    // Only show video tab when activeTab is "VIRTUAL" (case insensitive)
+    ...(String(activeTab).toUpperCase() === "VIRTUAL" ? [{ id: "video", label: "Video", icon: Video }] : []),
   ];
 
   const updateState = (updates) => setState((prev) => ({ ...prev, ...updates }));
@@ -1479,13 +1498,13 @@ const PatientMedicalRecordDetails = () => {
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-3 p-2">
             {[
-              { key: "bloodPressure", icon: Heart, color: "red", label: "Blood Pressure", value: vitalsData?.bloodPressure || "--" },
-              { key: "heartRate", icon: Activity, color: "blue", label: "Heart Rate", value: vitalsData?.heartRate || "--" },
-              { key: "temperature", icon: Thermometer, color: "orange", label: "Temperature", value: vitalsData?.temperature || "--" },
-              { key: "spO2", icon: Activity, color: "emerald", label: "SpO2", value: vitalsData?.spO2 || "--" },
-              { key: "respiratoryRate", icon: Activity, color: "violet", label: "Respiratory Rate", value: vitalsData?.respiratoryRate || "--" },
-              { key: "height", icon: Activity, color: "cyan", label: "Height", value: vitalsData?.height || "--" },
-              { key: "weight", icon: Activity, color: "amber", label: "Weight", value: vitalsData?.weight || "--" },
+              { key: "bloodPressure", icon: Heart, color: "red", label: "Blood Pressure", value: vitalsData?.bloodPressure ?? "--" },
+              { key: "heartRate", icon: Activity, color: "blue", label: "Heart Rate", value: vitalsData?.heartRate ?? "--" },
+              { key: "temperature", icon: Thermometer, color: "orange", label: "Temperature", value: vitalsData?.temperature ?? "--" },
+              { key: "spO2", icon: Activity, color: "emerald", label: "SpO2", value: vitalsData?.spO2 ?? "--" },
+              { key: "respiratoryRate", icon: Activity, color: "violet", label: "Respiratory Rate", value: vitalsData?.respiratoryRate ?? "--" },
+              { key: "height", icon: Activity, color: "cyan", label: "Height", value: vitalsData?.height ?? "--" },
+              { key: "weight", icon: Activity, color: "amber", label: "Weight", value: vitalsData?.weight ?? "--" },
             ].map(({ key, icon: Icon, color, label, value }) => {
               const colorMap = {
                 red: "red",

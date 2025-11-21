@@ -131,7 +131,8 @@ export const updateBulkEyeTests = data => axiosInstance.put("/eye-tests/bulk", d
 export const deleteEyeTest = id => axiosInstance.delete(`/eye-tests/${id}`);
 
 // vitals api in medicalrecord in patient dashpoard
-export const getPatientVitalById = id => axiosInstance.get(`/Summary/patient-vitals/${id}`);
+export const getPatientVitalById = (id, params) =>
+  axiosInstance.get(`/Summary/patient-vitals/${id}`, { params: params || undefined });
 export const getPatientVitals = () => axiosInstance.get("/Summary/patient-vitals");
 export const createPatientVital = data => axiosInstance.post("/Summary/patient-vitals", data);
 export const updatePatientVital = (id, data) => axiosInstance.put(`/Summary/patient-vitals/${id}`, data);
@@ -257,15 +258,50 @@ export const patchQueueTokenStatus = (id, status) => axiosInstance.put(`/queue-t
 
 
 // pani medical record details api
-export const getLabScanByPatient = (patientId) => axiosInstance.get(`/medical-record-lab-scan/${patientId}`);
+export const getLabScanByPatient = (patientId, params) =>
+  axiosInstance.get(`/medical-record-lab-scan/${patientId}`, {
+    params: params || undefined,
+  });
 // ✅ Get hospital billing by patientId
-export const getHospitalBilling = (patientId) => axiosInstance.get(`/medical-record-billing/hospitals/${patientId}`);
+export const getHospitalBilling = (patientId, params) =>
+  axiosInstance.get(`/medical-record-billing/hospitals/${patientId}`, {
+    params: {
+      patientId: patientId,
+      ...params,
+    },
+  });
+
 // ✅ Get lab billing by patientId
-export const getLabBilling = (patientId) =>axiosInstance.get(`/medical-record-billing/labs/${patientId}`);
+export const getLabBilling = (patientId, params) =>
+  axiosInstance.get(`/medical-record-billing/labs/${patientId}`, {
+    params: {
+      patientId: patientId,
+      ...params,
+    },
+  });
+
 // ✅ Get pharmacy billing by patientId
-export const getPharmacyBilling = (patientId) =>axiosInstance.get(`/medical-record-billing/pharmacy/${patientId}`);
+export const getPharmacyBilling = (patientId, params) =>
+  axiosInstance.get(`/medical-record-billing/pharmacy/${patientId}`, {
+    params: {
+      patientId: patientId,
+      ...params,
+    },
+  });
+export const getPatientPrescriptionsData = (patientId, params) => {
+  return axiosInstance.get(
+    `/patient/prescriptions/${patientId}`,
+    {
+       params: params || undefined
+    }
+  );
+};
 // ✅ Get medical info by patientId
-export const getPatientMedicalInfo = (patientId) => axiosInstance.get(`/patient/medical-info/${patientId}`);
+export const getPatientMedicalInfo = (patientId, params) =>
+  axiosInstance.get(`/patient/medical-info/${patientId}`, {
+    params: params || undefined,
+  });
+
 
 // GET /api/lab-available-tests?selectedTests=&selectedScans=&selectedPackages=
 export const getAvailableLabsBySelection = ({ selectedTests = [], selectedScans = [], selectedPackages = [] }) =>
