@@ -589,7 +589,14 @@ const IPDTab = forwardRef(
           handlePincodeChange(value);
           return prev;
         }
+        
+        // Convert status to number if it's the status field
+        if (field === "status") {
+          value = Number(value);
+        }
+        
         const updated = { ...prev, [field]: value };
+        
         if (field === "phone") {
           const formatted = (value || "").replace(/\D/g, "").slice(0, 10);
           updated.phone = formatted;
@@ -677,28 +684,23 @@ const IPDTab = forwardRef(
           return;
         }
 
+        // Get patient ID with proper validation
         const rawPatientId = ipdWizardData.patientId;
-        const departmentId = selectedWard?.specilaizationId || selectedWard?.specializationId || ipdWizardData.departmentId || 0;
         const parsedPatientId = rawPatientId ? parseInt(rawPatientId, 10) : NaN;
         const patientId = !Number.isNaN(parsedPatientId) && parsedPatientId > 0
           ? parsedPatientId
-          : 1; // TODO: replace fallback when full IPD-OPD integration is ready
+          : 1; // Fallback for development
 
-        const wardId = selectedWard?.id ?? null;
-        const wardTypeId = selectedWard?.wardTypeId ?? 0;
+        // Get ward and room details
+        const wardId = selectedWard?.id || ipdWizardData.wardId || 0;
+        const wardTypeId = selectedWard?.wardTypeId || ipdWizardData.wardTypeId || 0;
+        const specializationId = selectedWard?.specializationId || ipdWizardData.specializationId || 0;
+        
+        // Get room and bed details
+        const roomId = selectedRoom?.id || ipdWizardData.roomId || 0;
+        const bedId = selectedBed?.id || ipdWizardData.bedId || 0;
 
-        const roomId = ipdWizardData.roomId || ipdWizardData.roomNo || ipdWizardData.roomNumber;
-        const bedId = ipdWizardData.bedId || ipdWizardData.bedNo || ipdWizardData.bedNumber;
-
-        // Backend: 1 = Admitted, 2 = Discharged
-        const statusId = ipdWizardData.status
-          ? parseInt(ipdWizardData.status, 10)
-          : 1; // default Admitted
-
-        const insuranceId = ipdWizardData.insuranceType
-          ? parseInt(ipdWizardData.insuranceType, 10)
-          : undefined;
-
+        // Process symptoms
         const rawSymptoms = ipdWizardData.symptoms;
         let symptomIds = [];
         if (Array.isArray(rawSymptoms)) {
@@ -712,34 +714,41 @@ const IPDTab = forwardRef(
           }
         }
 
-        const surgeryReq =
-          ipdWizardData.surgeryRequired === true ||
-          ipdWizardData.surgeryRequired === "Yes";
-
+        // Prepare admission data
         const admissionDate = ipdWizardData.admissionDate || getCurrentDate();
-        // Do not default dischargeDate; only send if explicitly provided
-        const dischargeDate = ipdWizardData.dischargeDate || null;
         const admissionTime24 = to24Hour(ipdWizardData.admissionTime);
+        const surgeryReq = ipdWizardData.surgeryRequired === true || 
+                          ipdWizardData.surgeryRequired === "Yes";
+        
+        // Get status from form data, default to 1 (Admitted) if not set
+        const statusId = ipdWizardData.status && typeof ipdWizardData.status === 'number' 
+          ? ipdWizardData.status 
+          : 1;
 
+        // Define dischargeDate based on status
+        const dischargeDate = statusId === 2 ? (ipdWizardData.dischargeDate || getCurrentDate()) : null;
+
+        // Build the API payload with all required fields
         const apiPayload = {
           admissionDate,
           admissionTime: admissionTime24,
           statusId,
           wardTypeId,
-          wardId: wardId || 0,
-          roomId: roomId ? parseInt(roomId, 10) : 0,
-          bedId: bedId ? parseInt(bedId, 10) : 0,
-          departmentId,
-          insuranceId: insuranceId || 0,
+          wardId,
+          roomId,
+          bedId,
+          insuranceId: ipdWizardData.insuranceId || 0,
           surgeryReq,
-          dischargeDate,
-          symptomIds,
-          reasonForAdmission: ipdWizardData.reasonForAdmission || "",
+          ...(statusId === 2 && { dischargeDate }),
+          symptomIds: symptomIds.length > 0 ? symptomIds : [0],
+          reasonForAdmission: ipdWizardData.reasonForAdmission || "Admission for treatment",
           patientId,
           doctorId,
-          // Only include opdAppointmentId if it exists in the form data
-          ...(ipdWizardData.opdAppointmentId ? { opdAppointmentId: ipdWizardData.opdAppointmentId } : {})
+          opdAppointmentId: ipdWizardData.opdAppointmentId || "",
+          specializationId
         };
+
+        console.log("Submitting IPD Admission:", apiPayload);
 
         try {
           const res = await addIPDAdmission(apiPayload);
@@ -755,8 +764,10 @@ const IPDTab = forwardRef(
           ...ipdWizardData,
           name: `${ipdWizardData.firstName || ""} ${ipdWizardData.middleName || ""} ${ipdWizardData.lastName || ""}`.trim(),
           admissionTime: admissionTime24,
-          // For local tables / UI we still store a readable status string
+          // For local tables / UI we store a readable status string
           status: statusId === 2 ? "Discharged" : "Admitted",
+          statusId, // Include numeric status for reference
+          dischargeDate, // Include discharge date if status is Discharged
           wardNo: ipdWizardData.wardNumber,
           roomNo: ipdWizardData.roomNumber || ipdWizardData.roomNo,
           bedNo: ipdWizardData.bedNumber,

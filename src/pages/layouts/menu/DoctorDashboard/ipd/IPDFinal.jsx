@@ -52,7 +52,10 @@ export const generateAdmissionFields = (masterData, staticData) => {
       label: "Status",
       type: "select",
       required: true,
-      options: staticData.status,
+      options: [
+        { key: "status-1", value: 1, label: "Admitted" },
+        { key: "status-2", value: 2, label: "Discharged" }
+      ],
     },
     {
       name: "wardType",
