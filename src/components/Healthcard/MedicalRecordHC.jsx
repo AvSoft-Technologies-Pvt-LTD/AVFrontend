@@ -5,9 +5,14 @@ import {
   getHospitalDropdown,
   getAllMedicalConditions,
   getAllMedicalStatus,
+  getAllSymptoms,
 } from "../../utils/masterService";
+import {
+  getOPDRecordsByPatientId,
+  getIPDRecordsByPatientId,
+  getVirtualRecordsByPatientId,
+} from "../../utils/CrudService";
 import DynamicTable from "../../components/microcomponents/DynamicTable";
-import { getOPDRecordsByPatientId, getIPDRecordsByPatientId, getVirtualRecordsByPatientId } from "../../utils/CrudService";
 import { CheckCircle } from "lucide-react";
 import Navbar from "../../components/Navbar";
 
@@ -32,16 +37,18 @@ const MedicalRecordHC = () => {
   const [hospitalOptions, setHospitalOptions] = useState([]);
   const [medicalConditions, setMedicalConditions] = useState([]);
   const [statusTypes, setStatusTypes] = useState([]);
+  const [symptoms, setSymptoms] = useState([]);
   const [apiDataLoading, setApiDataLoading] = useState({
     hospitals: false,
     conditions: false,
     status: false,
+    symptoms: false,
   });
 
+  // Fetch master data
   useEffect(() => {
     const collator = new Intl.Collator(undefined, { sensitivity: "base" });
-    const byLabelAsc = (a, b) =>
-      collator.compare(String(a.label || ""), String(b.label || ""));
+    const byLabelAsc = (a, b) => collator.compare(String(a.label || ""), String(b.label || ""));
 
     const fetchMasterData = async () => {
       try {
@@ -80,16 +87,27 @@ const MedicalRecordHC = () => {
           .sort(byLabelAsc);
         setStatusTypes(statusList);
         setApiDataLoading((p) => ({ ...p, status: false }));
+
+        setApiDataLoading((p) => ({ ...p, symptoms: true }));
+        const symptomsResponse = await getAllSymptoms();
+        const symptomsList = (symptomsResponse?.data ?? [])
+          .map((s) => ({
+            label: s?.name ?? "",
+            value: Number(s?.symptomId),
+          }))
+          .filter((opt) => opt.label)
+          .sort(byLabelAsc);
+        setSymptoms(symptomsList);
+        setApiDataLoading((p) => ({ ...p, symptoms: false }));
       } catch (error) {
         console.error("Error fetching master data:", error);
-      } finally {
-        setApiDataLoading({ hospitals: false, conditions: false, status: false });
       }
     };
 
     fetchMasterData();
   }, []);
 
+  // Fetch all records
   useEffect(() => {
     const fetchAllRecords = async () => {
       setLoading(true);
@@ -101,10 +119,16 @@ const MedicalRecordHC = () => {
           getVirtualRecordsByPatientId(patientId),
         ]);
 
+        const normalizeRecord = (r) => ({
+          ...r,
+          isActive: r.isActive !== false, // Default to true if not specified
+          symptomNames: r.symptomIds ? getLabelsByIds(symptoms, r.symptomIds) : "",
+        });
+
         setMedicalData({
-          OPD: opdResponse.data || [],
-          IPD: ipdResponse.data || [],
-          Virtual: virtualResponse.data || [],
+          OPD: (opdResponse.data || []).map(normalizeRecord),
+          IPD: (ipdResponse.data || []).map(normalizeRecord),
+          Virtual: (virtualResponse.data || []).map(normalizeRecord),
         });
       } catch (err) {
         console.error("Error fetching medical records:", err);
@@ -114,37 +138,41 @@ const MedicalRecordHC = () => {
       }
     };
 
-    if (patientId) {
-      fetchAllRecords();
-    }
-  }, [patientId]);
+    if (patientId) fetchAllRecords();
+  }, [patientId, symptoms]);
 
-  const handleViewDetails = (record) => {
-    const currentPath = location.pathname;
-    let targetPath;
-    if (currentPath.startsWith("/medical-record")) {
-      targetPath = "/medical-record-details";
-    } else if (currentPath.startsWith("/patientdashboard/medical-record")) {
-      targetPath = "/patientdashboard/medical-record-details";
-    } else {
-      targetPath = "/medical-record-details";
-    }
-    navigate(targetPath, { state: { selectedRecord: record } });
+  // Helper: Get labels by IDs
+  const getLabelsByIds = (options, values) => {
+    if (!values || !Array.isArray(values)) return "";
+    return values
+      .map((v) => {
+        const option = options.find((opt) => String(opt.value) === String(v));
+        return option ? option.label : v;
+      })
+      .join(", ");
   };
 
+  // View details
+const handleViewDetails = (record) => {
+  navigate("/healthcard-medicalrecord-Details", { 
+    state: { selectedRecord: record } 
+  });
+};
+
+  // Create columns for DynamicTable
   const createColumns = (type) => {
     const baseFields = {
-      OPD: ["hospitalName", "chiefComplaint", "dateOfVisit", "medicalStatusName"],
+      OPD: ["hospitalName", "symptomNames", "dateOfVisit", "medicalStatusName"],
       IPD: [
         "hospitalName",
-        "chiefComplaint",
+        "symptomNames",
         "dateOfAdmission",
         "dateOfDischarge",
         "medicalStatusName",
       ],
       Virtual: [
         "hospitalName",
-        "chiefComplaint",
+        "symptomNames",
         "dateOfConsultation",
         "medicalStatusName",
       ],
@@ -152,7 +180,7 @@ const MedicalRecordHC = () => {
 
     const fieldLabels = {
       hospitalName: "Hospital",
-      chiefComplaint: "Chief Complaint",
+      symptomNames: "Symptoms",
       dateOfVisit: "Date of Visit",
       dateOfAdmission: "Date of Admission",
       dateOfDischarge: "Date of Discharge",
@@ -167,10 +195,8 @@ const MedicalRecordHC = () => {
         if (key === "hospitalName") {
           return (
             <div className="flex items-center gap-1">
-              {(row.isVerified ||
-                row.hasDischargeSummary ||
-                row.createdBy === "doctor" ||
-                row.uploadedBy === "Doctor") && (
+              {/* Show CheckCircle if uploadedBy is "DOCTOR" */}
+              {row.uploadedBy === "DOCTOR" && (
                 <CheckCircle size={14} className="text-green-600" />
               )}
               <button
@@ -183,21 +209,24 @@ const MedicalRecordHC = () => {
             </div>
           );
         }
+
         const value = row[key];
-        const formattedValue = key.toLowerCase().includes("date")
-          ? new Date(value).toLocaleDateString("en-IN", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            })
-          : value;
+        const formattedValue =
+          key.toLowerCase().includes("date")
+            ? new Date(value).toLocaleDateString("en-IN", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })
+            : value;
+
         return <span>{formattedValue}</span>;
       },
     }));
   };
 
   const getCurrentTabData = () => {
-    return medicalData[state.activeTab] || [];
+    return medicalData[state.activeTab]?.filter((record) => record.isActive) || [];
   };
 
   const tabs = Object.keys(medicalData).map((key) => ({
@@ -251,24 +280,24 @@ const MedicalRecordHC = () => {
 
   return (
     <>
-    <Navbar/>
-    <div className="p-4">
-      <DynamicTable
-        columns={createColumns(state.activeTab)}
-        data={getCurrentTabData()}
-        filters={filters}
-        tabs={tabs}
-        activeTab={state.activeTab}
-        onTabChange={(tab) => setState((prev) => ({ ...prev, activeTab: tab }))}
-        tabActions={[
-          {
-            label: "Login",
-            onClick: () => navigate("/login"),
-            className: "edit-btn",
-          },
-        ]}
-      />
-    </div>
+      <Navbar />
+      <div className="p-4">
+        <DynamicTable
+          columns={createColumns(state.activeTab)}
+          data={getCurrentTabData()}
+          filters={filters}
+          tabs={tabs}
+          activeTab={state.activeTab}
+          onTabChange={(tab) => setState((prev) => ({ ...prev, activeTab: tab }))}
+          tabActions={[
+            {
+              label: "Login",
+              onClick: () => navigate("/login"),
+              className: "edit-btn",
+            },
+          ]}
+        />
+      </div>
     </>
   );
 };

@@ -179,6 +179,9 @@ export const createOPDRecord = (data) =>
 export const deleteOPDRecord = (recordId) =>
   axiosInstance.delete(`/opd-records/${recordId}`);
 
+export const updateOPDRecord = (recordId, data) =>
+  axiosInstance.put(`/opd-records/api/opd-medical-records/${recordId}`, data);
+
 // IPD Records
 export const getIPDRecordsByPatientId = (patientId) =>
   axiosInstance.get(`/ipd-records/${patientId}`);
@@ -189,6 +192,9 @@ export const createIPDRecord = (data) =>
 export const deleteIPDRecord = (recordId) =>
   axiosInstance.delete(`/ipd-records/${recordId}`);
 
+export const updateIPDRecord = (recordId, data) =>
+  axiosInstance.put(`/ipd-records/${recordId}`, data);
+
 // Virtual Records
 export const getVirtualRecordsByPatientId = (patientId) =>
   axiosInstance.get(`/virtual-records/${patientId}`);
@@ -198,6 +204,9 @@ export const createVirtualRecord = (data) =>
 
 export const deleteVirtualRecord = (recordId) =>
   axiosInstance.delete(`/virtual-records/${recordId}`);
+
+export const updateVirtualRecord = (recordId, data) =>
+  axiosInstance.put(`/virtual-records/${recordId}`, data);
 
 /* -----------------------------
    WARD TYPES (CRUD)

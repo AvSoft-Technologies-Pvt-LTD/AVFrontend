@@ -7,7 +7,7 @@ import {
   getAllSymptoms,
   getDoctorsBySpecialty
 } from "../utils/masterService";
-import PatientVerificationSteps from './Profile';
+import PatientVerificationSteps from '../components/AadharVerification/Profile';
 
 const TOKENS_KEY = 'hospital_tokens';
 

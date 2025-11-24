@@ -356,6 +356,13 @@ const DrMedicalRecords = () => {
       label: "Register Phone Number",
       type: "text",
       required: true,
+      // allow only exactly 10 digits
+      validate: (value) => {
+        const digitsOnly = String(value || "").replace(/\D/g, "");
+        if (!digitsOnly) return "Register Phone Number is required";
+        if (digitsOnly.length !== 10) return "Phone number must be exactly 10 digits";
+        return null;
+      },
       hasInlineCheckbox: true,
       inlineCheckbox: {
         name: "phoneConsent",

@@ -11,7 +11,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { registerUser } from "../../../../context-api/authSlice";
 import { getPatientById, updatePatient, getGenders, getAllSymptoms, getVisitReasons, getDoctorAvailabilityByDate, createOpdAppointment, getOpdAppointmentsByDoctor, updateOpdAppointmentById } from "../../../../utils/masterService";
 import axiosInstance from "../../../../utils/axiosInstance";
-import PatientVerificationSteps from "../../../../components/Profile"; // Import the new component
+import AadharVerificationFlow from "../../../../components/AadharVerification/Profile"; // Import the new component
 import { usePatientContext } from "../../../../context-api/PatientContext";
 
 const getCurrentDate = () => new Date().toISOString().slice(0, 10);
@@ -32,6 +32,7 @@ const OPD_APPOINTMENT_VIEW_FIELDS = [
 
 const PatientVerificationModal = ({ isOpen, onClose, onConfirm }) => {
   if (!isOpen) return null;
+
   return (
     <motion.div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-2 sm:p-4"
@@ -55,36 +56,32 @@ const PatientVerificationModal = ({ isOpen, onClose, onConfirm }) => {
                 <h2 className="text-xl font-semibold text-white">Verify Patient</h2>
               </div>
             </div>
+
             <button
               onClick={onClose}
               className="flex h-8 w-8 items-center justify-center rounded-full border border-white text-white hover:bg-white hover:text-[#01B07A] transition-all duration-200"
             >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
         </div>
+
+        {/* Body */}
         <div className="flex-1 overflow-auto p-6 bg-gray-50">
-          <PatientVerificationSteps
-            onConfirm={onConfirm}
+          <AadharVerificationFlow
+            onComplete={onConfirm}
+            // optional: let user close whenever they want
             onCancel={onClose}
           />
         </div>
+
       </motion.div>
     </motion.div>
   );
 };
+
  
 
 const OpdTab = forwardRef(

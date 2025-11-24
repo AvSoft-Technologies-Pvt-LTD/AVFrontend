@@ -13,11 +13,13 @@ import ReusableModal from "../../../../components/microcomponents/Modal";
 import {
   getOPDRecordsByPatientId,
   createOPDRecord,
+  updateOPDRecord,
   getIPDRecordsByPatientId,
   createIPDRecord,
+  updateIPDRecord,
   getVirtualRecordsByPatientId,
   createVirtualRecord,
-
+  updateVirtualRecord,
 } from "../../../../utils/CrudService";
 import { CheckCircle } from "lucide-react";
 

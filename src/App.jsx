@@ -21,12 +21,14 @@ import { MedicalRecordsProvider } from "./context-api/MedicalRecordsContext";
 import BookApp from "./components/BookApp";
 import Home from "./pages/Home";
 import MedicalRecords from "./pages/layouts/menu/PatientDashboard/MedicalRecord"
-import MedicalRecordDetails from "./pages/layouts/menu/PatientDashboard/MedicalRecordDetails";
+
 
 //Healthcard
 import Healthcard from "./components/Healthcard/Healthcard";
 import HealthcardOTP from "./components/Healthcard/HealthcardOTP";
 import MedicalRecordHC from "./components/Healthcard/MedicalRecordHC";
+import { SecondOpinionHC } from "./components/Healthcard/SecondOpinionHC";
+import { MediRecDeatilsHC } from "./components/Healthcard/MediRecDeatilsHC";
 // Layouts & Dashboards
 import DashboardLayout from "./pages/layouts/DashboardLayout";
 import PdashboardRoutes from "./pages/layouts/menu/PatientDashboard/PdashboardRoutes";
@@ -60,6 +62,7 @@ import AvailabilityOverviewPage from "./pages/layouts/menu/DoctorDashboard/sched
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import InitialAssessmentForm from "./components/InitialAssesment";
+
 
 // ---------------------- Helpers ----------------------
 
@@ -212,12 +215,14 @@ const App = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/bookconsultation" element={<BookApp />} />
         <Route path="/medical-records" element={<MedicalRecords />} />
-  <Route path="/medical-record-details" element={<Navigate to="/patientdashboard/medical-record-details" replace />} />
+        <Route path="/medical-record-details" element={<Navigate to="/patientdashboard/medical-record-details" replace />} />
         
         {/* Healthcard */}
          <Route path="/healthcard" element={<Healthcard />} />
         <Route path="/healthcard-otp" element={<HealthcardOTP />} />
         <Route path="/healthcard-medicalrecord" element={<MedicalRecordHC />} />
+          <Route path="/healthcard-medicalrecord-Details" element={<MediRecDeatilsHC/>} />
+          <Route path="/healthcard-second-opinion" element={<SecondOpinionHC />} />
         {/* ✅ Redirect Based on Role */}
         <Route path="/redirect" element={<RoleRedirect />} />
         

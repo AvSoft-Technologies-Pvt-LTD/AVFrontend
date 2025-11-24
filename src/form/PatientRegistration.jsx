@@ -1,4 +1,4 @@
-import PatientVerificationSteps from '../components/Profile';
+import AadharVerificationFlow from '../components/AadharVerification/Profile';
 
 const PatientRegistration = ({
   fetchPatientByAadhar,
@@ -18,16 +18,12 @@ const PatientRegistration = ({
             </div>
           </div>
           {/* Steps */}
-          <PatientVerificationSteps
-            fetchPatientByAadhar={fetchPatientByAadhar}
-            fetchPatientByPhone={fetchPatientByPhone}
-            sendOtp={sendOtp}
-            onConfirm={onConfirm}
-            onCancel={onCancel}
-            otpLength={otpLength}
-          />
-        </div>
+           <AadharVerificationFlow
+          
+        />
       </div>
+        </div>
+   
     
   );
 };

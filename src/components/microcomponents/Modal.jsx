@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { toast } from "react-toastify";
 import SignatureCanvas from "react-signature-canvas";
-import { Eye, EyeOff, X, Save, ChevronDown, Search } from "lucide-react";
+import { Eye, EyeOff, X, Save, ChevronDown } from "lucide-react";
 
 const getColSpanClass = (colSpan = 1) => {
   switch (colSpan) {
@@ -51,8 +51,6 @@ const ReusableModal = ({
   showSignature = false,
   onChange,
   onFieldsUpdate,
-  validations = {},
-  shouldValidate = false,
   extraContentPosition = "bottom",
   preventCloseOnSave = false,
   showSuccessToast = true,
@@ -79,7 +77,7 @@ const ReusableModal = ({
   useEffect(() => {
     const handleClickOutside = (event) => {
       setSuggestions({});
-      
+
       // Check if click is outside any dropdown
       Object.keys(dropdownRefs.current).forEach((fieldName) => {
         const dropdownElement = dropdownRefs.current[fieldName];
@@ -98,22 +96,22 @@ const ReusableModal = ({
     };
   }, []);
 
-useEffect(() => {
-  if (isOpen && ["add", "edit"].includes(mode)) {
-    const initial = {};
-    fields.forEach((f) => {
-      if (f.type === "checkboxWithInput" || f.durationField) {
-        initial[f.name] = data?.[f.name] ?? [];
-        initial[f.inputName] = data?.[f.inputName] ?? "";
-      } else {
-        initial[f.name] = data?.[f.name] ?? "";
-      }
-    });
-    setFormValues(initial);
-    setFormErrors({});
-    setCurrentFields(fields);
-  }
-}, [isOpen, mode, data, fields]);
+  useEffect(() => {
+    if (isOpen && ["add", "edit"].includes(mode)) {
+      const initial = {};
+      fields.forEach((f) => {
+        if (f.type === "checkboxWithInput" || f.durationField) {
+          initial[f.name] = data?.[f.name] ?? [];
+          initial[f.inputName] = data?.[f.inputName] ?? "";
+        } else {
+          initial[f.name] = data?.[f.name] ?? "";
+        }
+      });
+      setFormValues(initial);
+      setFormErrors({});
+      setCurrentFields(fields);
+    }
+  }, [isOpen, mode, data, fields]);
 
   useEffect(() => {
     if (onFieldsUpdate && formValues) {
@@ -136,18 +134,25 @@ useEffect(() => {
     setDoctorSignature("");
   };
 
-const handleChange = (name, value) => {
-  setFormValues(prev => ({
-    ...prev,
-    [name]: value,
-  }));
-  setFormErrors((p) => ({ ...p, [name]: undefined }));
-  onChange?.({ ...formValues, [name]: value });
-};
+  const handleChange = (name, value) => {
+    setFormValues(prev => ({
+      ...prev,
+      [name]: value,
+    }));
+    setFormErrors((p) => ({ ...p, [name]: undefined }));
+    onChange?.({ ...formValues, [name]: value });
+  };
 
   const handleInputChange = (e, field) => {
-    const value = e.target.value;
+    let value = e.target.value;
+
+    // Special handling for phone field: allow only digits, max 10
+    if (field.name === "registerPhone") {
+      value = value.replace(/\D/g, "").slice(0, 10);
+    }
+
     handleChange(field.name, value);
+
     if (field.suggestions) {
       const filteredSuggestions = field.suggestions.filter((suggestion) =>
         suggestion.toLowerCase().includes(value.toLowerCase())
@@ -210,7 +215,7 @@ const handleChange = (name, value) => {
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 50, scale: 0.95 }}
         transition={{ type: "spring", stiffness: 300, damping: 25 }}
-        className={`flex flex-col relative w-full max-h-[90vh] rounded-xl bg-white shadow-xl overflow-hidden ${size === "sm" ? "max-w-md" : size === "md" ? "max-w-3xl" : "max-w-4xl"
+        className={`flex flex-col relative w-full max-h-[90vh] rounded-xl bg-white shadow-xl overflow-visible ${size === "sm" ? "max-w-md" : size === "md" ? "max-w-3xl" : "max-w-4xl"
           }`}
       >
         {(mode === "add" || mode === "edit" || mode === "viewProfile") && (
@@ -226,7 +231,7 @@ const handleChange = (name, value) => {
             </button>
           </div>
         )}
-        <div className="flex flex-col max-h-[90vh] overflow-auto bg-gradient-to-br from-[#E6FBF5] to-[#C1F1E8]">
+        <div className="flex flex-col max-h-[90vh] overflow-visible bg-gradient-to-br from-[#E6FBF5] to-[#C1F1E8]">
           <div className="flex-1 p-2 sm:p-4 relative z-0">
             <div className="rounded-xl bg-white p-4 sm:p-6 space-y-4 sm:space-y-6">
               {extraContentPosition === "top" && extraContent && (
@@ -302,18 +307,18 @@ const handleChange = (name, value) => {
                             <div className="floating-input relative" data-placeholder={field.label}>
                               {field.type === "select" || field.type === "multiselect" ? (
                                 <div className="relative">
-                                  <div 
+                                  <div
                                     ref={(el) => dropdownRefs.current[field.name] = el}
                                     className="relative"
                                   >
                                     {formValues[`${field.name}Open`] ? (
                                       <input
                                         type="text"
-                                        placeholder={field.type === "multiselect" && Array.isArray(formValues[field.name]) && formValues[field.name].length > 0 
+                                        placeholder={field.type === "multiselect" && Array.isArray(formValues[field.name]) && formValues[field.name].length > 0
                                           ? `${formValues[field.name].map((value) => {
-                                              const selectedOption = field.options.find((opt) => opt.value === value);
-                                              return selectedOption?.label || value;
-                                            }).join(", ")} • Search ${field.label}...`
+                                            const selectedOption = field.options.find((opt) => opt.value === value);
+                                            return selectedOption?.label || value;
+                                          }).join(", ")} • Search ${field.label}...`
                                           : `Search ${field.label}...`}
                                         value={formValues[`${field.name}Search`] || ""}
                                         onChange={(e) => {
@@ -342,9 +347,9 @@ const handleChange = (name, value) => {
                                           {field.type === "multiselect"
                                             ? Array.isArray(formValues[field.name]) && formValues[field.name].length > 0
                                               ? formValues[field.name].map((value) => {
-                                                  const selectedOption = field.options.find((opt) => opt.value === value);
-                                                  return selectedOption?.label || value;
-                                                }).join(", ")
+                                                const selectedOption = field.options.find((opt) => opt.value === value);
+                                                return selectedOption?.label || value;
+                                              }).join(", ")
                                               : `Select ${field.label}`
                                             : getSelectedLabel(field.options, formValues[field.name]) || `Select ${field.label}`}
                                         </span>
@@ -352,11 +357,10 @@ const handleChange = (name, value) => {
                                       </button>
                                     )}
                                     {formValues[`${field.name}Open`] && (
-                                      <div 
-                                        id={`dropdown-${field.name}`} 
+                                      <div
+                                        id={`dropdown-${field.name}`}
                                         className="absolute z-[1000] mt-1 w-full max-h-40 sm:max-h-60 overflow-auto rounded-md bg-white shadow-lg border border-gray-200"
                                       >
-                                      <div className="max-h-40 sm:max-h-60 overflow-auto">
                                         {field.options
                                           ?.filter((opt) =>
                                             opt.label
@@ -418,7 +422,6 @@ const handleChange = (name, value) => {
                                           </div>
                                         )}
                                       </div>
-                                    </div>
                                     )}
                                   </div>
                                   {field.durationField && (() => {
@@ -426,7 +429,7 @@ const handleChange = (name, value) => {
                                     const df = field.durationFor;
                                     // Show input if a value is selected and it's not empty
                                     // For multiselect, check if array has items; for select, check if value exists
-                                    const showInput = field.type === "multiselect" 
+                                    const showInput = field.type === "multiselect"
                                       ? Array.isArray(selected) && selected.length > 0
                                       : !!selected && selected !== "";
                                     return showInput ? (

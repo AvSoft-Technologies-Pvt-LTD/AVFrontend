@@ -1,15 +1,12 @@
-import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
+import React, { useState, useEffect, forwardRef, useImperativeHandle, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { FiExternalLink } from "react-icons/fi";
 import DynamicTable from "../../../../components/microcomponents/DynamicTable";
 import ReusableModal from "../../../../components/microcomponents/Modal";
-import {
-  getVirtualAppointmentById,
-  createVirtualAppointment,
-  updateVirtualAppointment,
-} from "../../../../utils/CrudService";
-import { getConsultationTypes } from "../../../../utils/masterService";
+import AadharVerificationFlow from "../../../../components/AadharVerification/Profile";
+import { getVirtualAppointmentById, createVirtualAppointment, updateVirtualAppointment } from "../../../../utils/CrudService";
+import { getAllSymptoms, getDoctorAvailabilityByDate } from "../../../../utils/masterService";
 import { usePatientContext } from "../../../../context-api/PatientContext";
 
 const getCurrentDateArray = () => {
@@ -17,216 +14,300 @@ const getCurrentDateArray = () => {
   return [d.getFullYear(), d.getMonth() + 1, d.getDate()];
 };
 
-const getCurrentTimeArray = () => {
-  const d = new Date();
-  return [d.getHours(), d.getMinutes()];
-};
-
-// Fields for viewing appointment info
 const APPOINTMENT_VIEW_FIELDS = [
-  { key: "appointmentId", label: "Appointment ID" },
+  { key: "appointmentId", label: "Appointment ID", subtitleKey: true },
+  { key: "doctorName", label: "Doctor Name" },
   { key: "name", label: "Patient Name", titleKey: true, initialsKey: true },
-  { key: "email", label: "Email" },
   { key: "phone", label: "Phone" },
+  { key: "email", label: "Email" },
+  { key: "gender", label: "Gender" },
+  { key: "symptomNames", label: "Symptoms" },
   { key: "scheduledDate", label: "Scheduled Date" },
   { key: "scheduledTime", label: "Scheduled Time" },
-  { key: "consultationType", label: "Consultation Type" },
   { key: "duration", label: "Duration (minutes)" },
   { key: "consultationNotes", label: "Consultation Notes" },
 ];
 
 const VirtualTab = forwardRef(
-  ({ doctorName, location, setTabActions, tabActions = [], tabs = [], activeTab, onTabChange }, ref) => {
+  (
+    { location, setTabActions, tabActions = [], tabs = [], activeTab, onTabChange },
+    ref
+  ) => {
     const navigate = useNavigate();
     const { patientId, doctorId } = useSelector((s) => s.auth);
     const [virtualPatients, setVirtualPatients] = useState([]);
     const [loading, setLoading] = useState(true);
     const [newPatientId, setNewPatientId] = useState(null);
     const [selectedPatient, setSelectedPatient] = useState(null);
+    const [symptoms, setSymptoms] = useState([]);
     const [modals, setModals] = useState({
       scheduleConsultation: false,
       viewPatient: false,
       editPatient: false,
+      verifyPatient: false,
     });
+    const [availableSlots, setAvailableSlots] = useState([]);
+    const [verifiedPatient, setVerifiedPatient] = useState(null);
     const { setPatient } = usePatientContext();
     const [consultationFormData, setConsultationFormData] = useState({
       scheduledDate: getCurrentDateArray(),
-      scheduledTime: getCurrentTimeArray(),
+      scheduledTime: null,
       duration: 30,
+      symptoms: [],
+      notes: "",
     });
-    const [consultationTypes, setConsultationTypes] = useState([]);
 
     useImperativeHandle(ref, () => ({
-      openScheduleConsultationModal: () => openModal("scheduleConsultation"),
+      openScheduleConsultationModal: () => openModal("verifyPatient"),
     }));
 
-    // Fetch consultation types
-    const fetchConsultationTypes = async () => {
+    useEffect(() => {
+      const fetchSymptoms = async () => {
+        try {
+          const response = await getAllSymptoms();
+          if (response?.data) {
+            const formattedSymptoms = response.data.map((symptom) => ({
+              value: String(symptom.symptomId ?? symptom.id ?? ""),
+              label: symptom.name ?? symptom.label ?? "Unknown",
+            }));
+            setSymptoms(formattedSymptoms);
+          }
+        } catch (error) {}
+      };
+      fetchSymptoms();
+    }, []);
+
+    const fetchAvailability = async (dateArray) => {
       try {
-        const r = await getConsultationTypes();
-        setConsultationTypes(Array.isArray(r.data) ? r.data : r.data ? [r.data] : []);
-      } catch {
-        setConsultationTypes([]);
+        if (!doctorId) {
+          setAvailableSlots([]);
+          return;
+        }
+        let dateStr;
+        if (Array.isArray(dateArray) && dateArray.length === 3) {
+          dateStr = `${dateArray[0]}-${String(dateArray[1]).padStart(2, "0")}-${String(dateArray[2]).padStart(2, "0")}`;
+        } else if (typeof dateArray === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateArray)) {
+          dateStr = dateArray;
+        } else {
+          setAvailableSlots([]);
+          return;
+        }
+        const res = await getDoctorAvailabilityByDate(doctorId, dateStr);
+        const data = res?.data || {};
+        formatSlots(data.availability || [], data.bookedSlots || []);
+      } catch (err) {
+        setAvailableSlots([]);
       }
     };
 
-    // Fetch all virtual consultations
-   const fetchAllPatients = async () => {
-  setLoading(true);
-  try {
-    const r = await getVirtualAppointmentById(doctorId);
-    const raw = r?.data;
-    const all = Array.isArray(raw) ? raw : raw ? [raw] : [];
-    const formatted = all.map((p) => {
-      const d = p.scheduledDate ? new Date(p.scheduledDate) : null;
-      const date = d && !isNaN(d) ? d.toISOString().split("T")[0] : "N/A";
-
-      // Format scheduledTime array into "HH:MM" string
-      let time = "N/A";
-      if (Array.isArray(p.scheduledTime) && p.scheduledTime.length >= 2) {
-        const [hours, minutes] = p.scheduledTime;
-        time = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
-      } else if (typeof p.scheduledTime === "string" && p.scheduledTime.includes(":")) {
-        time = p.scheduledTime;
+    const formatSlots = (availability = [], booked = []) => {
+      if (!availability.length) {
+        setAvailableSlots([]);
+        return;
       }
+      const day = availability[0];
+      const times = day.times || [];
+      const bookedIds = (booked || []).map((b) => Number(b));
+      const slots = times.map((t) => ({
+        label: t.time,
+        value: Number(t.slotId) || 0,
+        disabled: bookedIds.includes(Number(t.slotId)),
+      }));
+      setAvailableSlots(slots);
+    };
 
-      return {
-        ...p,
-        name: p.patientName,
-        phone: p.patientPhone,
-        consultationType: p.consultationTypeName,
-        appointmentId: p.appointmentId,
-        scheduledDate: date,
-        scheduledTime: time,
-      };
-    });
-    setVirtualPatients(formatted.reverse());
-    setPatient(formatted);
-  } catch (e) {
-    console.error("fetchAllPatients error:", e);
-  } finally {
-    setLoading(false);
-  }
-};
+    const fetchAllPatients = async () => {
+      setLoading(true);
+      try {
+        const r = await getVirtualAppointmentById(doctorId);
+        const raw = r?.data;
+        const all = Array.isArray(raw) ? raw : raw ? [raw] : [];
+        const formatted = all.map((p) => {
+          let date = "N/A";
+          if (Array.isArray(p.scheduledDate) && p.scheduledDate.length === 3) {
+            const [year, month, day] = p.scheduledDate;
+            date = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+          } else if (p.scheduledDate) {
+            date = p.scheduledDate;
+          }
+          const symptomNames = Array.isArray(p.symptomNames) ? p.symptomNames.join(", ") : p.symptomNames || "N/A";
+          return {
+            id: p.id,
+            appointmentId: p.appointmentId || "N/A",
+            doctorId: p.doctorId,
+            doctorName: p.doctorName || "N/A",
+            patientId: p.patientId,
+            name: p.patientName || "N/A",
+            phone: p.patientPhone || "N/A",
+            email: p.patientEmail || "N/A",
+            gender: p.patientGender || "N/A",
+            symptomIds: p.symptomIds || [],
+            symptomNames: symptomNames,
+            scheduledDate: date,
+            slotId: p.slotId || 0,
+            scheduledTime: p.slotTime || "N/A",
+            duration: p.duration || 0,
+            consultationNotes: p.consultationNotes || "N/A",
+          };
+        });
+        setVirtualPatients(formatted.reverse());
+        setPatient(formatted);
+      } catch (e) {
+        setVirtualPatients([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    useEffect(() => {
+      if (!doctorId) return;
+      if (!modals.scheduleConsultation && !modals.editPatient) return;
+      fetchAvailability(consultationFormData.scheduledDate);
+    }, [doctorId, consultationFormData.scheduledDate, modals.scheduleConsultation, modals.editPatient]);
+
+    useEffect(() => {
+      if (doctorId) {
+        fetchAllPatients();
+      }
+    }, [doctorId]);
+
+    useEffect(() => {
+      const id = location?.state?.highlightId;
+      if (id) setNewPatientId(id);
+    }, [location?.state]);
 
     const openModal = (n) => setModals((p) => ({ ...p, [n]: true }));
+
     const closeModal = (n) => {
       setModals((p) => ({ ...p, [n]: false }));
-      if (n === "scheduleConsultation")
+      if (n === "scheduleConsultation") {
         setConsultationFormData({
           scheduledDate: getCurrentDateArray(),
-          scheduledTime: getCurrentTimeArray(),
+          scheduledTime: null,
           duration: 30,
+          symptoms: [],
+          notes: "",
         });
-      setSelectedPatient(null);
-    };
-
-    const handleSelected = (r) => {
-      try {
-        localStorage.setItem("selectedThisPatient", JSON.stringify(r));
-        setPatient(r);
-        navigate("/doctordashboard/form", { state: { patient: r } });
-      } catch (error) {
-        console.error("Error saving patient:", error);
+        setAvailableSlots([]);
       }
+      if (n === "verifyPatient") setVerifiedPatient(null);
+      if (n === "viewPatient" || n === "editPatient") setSelectedPatient(null);
     };
 
-    // View appointment details
     const handleViewPatient = (p) => {
       setSelectedPatient(p);
-      const formatted = {
-        appointmentId: p.appointmentId || "N/A",
-        name: p.patientName || "N/A",
-        email: p.patientEmail || p.userEmail || "N/A",
-        phone: p.patientPhone || p.userPhone || "N/A",
-        scheduledDate: p.scheduledDate || "N/A",
-        scheduledTime: p.scheduledTime || "N/A",
-        consultationType: p.consultationTypeName || "N/A",
-        duration: p.duration || "N/A",
-        consultationNotes: p.consultationNotes || "N/A",
-      };
       openModal("viewPatient");
-      setConsultationFormData(formatted);
     };
 
     const handleEditPatient = (p) => {
       if (!p) return;
       setSelectedPatient(p);
+      let dateArray = getCurrentDateArray();
+      if (Array.isArray(p.scheduledDate) && p.scheduledDate.length === 3) {
+        dateArray = p.scheduledDate;
+      } else if (p.scheduledDate && p.scheduledDate !== "N/A") {
+        const parts = p.scheduledDate.split("-");
+        if (parts.length === 3) {
+          dateArray = [parseInt(parts[0]), parseInt(parts[1]), parseInt(parts[2])];
+        }
+      }
       setConsultationFormData({
-        firstName: p.patientName?.split(" ")[0] || "",
-        lastName: p.patientName?.split(" ")[1] || "",
-        email: p.patientEmail || p.userEmail || "",
-        phone: p.patientPhone || p.userPhone || "",
-        consultationTypeId: p.consultationTypeId || "",
-        scheduledDate: p.scheduledDate ? p.scheduledDate.split("T")[0] : "",
-        scheduledTime: p.scheduledTime || "",
+        scheduledDate: dateArray,
+        scheduledTime: p.slotId ? Number(p.slotId) : null,
         duration: p.duration || 30,
+        symptoms: [],
         notes: p.consultationNotes || "",
       });
       closeModal("viewPatient");
       openModal("editPatient");
     };
 
-    // Schedule new consultation
-    const handleScheduleConsultation = async (f) => {
+    const handleScheduleConsultation = async () => {
       try {
+        const selectedSlot = consultationFormData.scheduledTime;
+        if (!selectedSlot) return;
+        const patientIdToUse = verifiedPatient?.id || patientId || 1;
+        const scheduledDateArray = Array.isArray(consultationFormData.scheduledDate)
+          ? consultationFormData.scheduledDate
+          : String(consultationFormData.scheduledDate).split("-").map(Number);
         const payload = {
-          ...f,
-          name: `${f.firstName} ${f.lastName}`.trim(),
-          type: "virtual",
-          patientEmail: f.email,
-          phoneNumber: f.phone,
-          consultationNotes: f.notes,
-          consultationStatus: "Scheduled",
-          doctorName,
           doctorId,
-          patientId,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          patientId: patientIdToUse,
+          scheduledDate: scheduledDateArray,
+          slotId: Number(selectedSlot),
+          duration: Number(consultationFormData.duration) || 30,
+          symptomIds: (consultationFormData.symptoms || [])
+            .map((s) => Number(s.value))
+            .filter(Boolean),
+          consultationNotes: consultationFormData.notes || "",
         };
-        const r = await createVirtualAppointment(payload);
-        if (r?.data) {
-          closeModal("scheduleConsultation");
-          await new Promise((r) => setTimeout(r, 500));
-          fetchAllPatients();
-        }
-      } catch (e) {
-        console.error(e);
-      }
+        await createVirtualAppointment(payload);
+        closeModal("scheduleConsultation");
+        await fetchAllPatients();
+      } catch (error) {}
     };
 
-    // Update consultation
-    const handleUpdateConsultation = async (formData) => {
+    const handleUpdateConsultation = async (formDataParam) => {
       try {
-        const appointmentId = selectedPatient?.appointmentId;
-        if (!appointmentId) {
-          console.error("No appointment ID found for update");
+        if (!selectedPatient?.id) return;
+        const formData = formDataParam || consultationFormData;
+        const selectedSlot = formData.scheduledTime ?? consultationFormData.scheduledTime;
+        if (selectedSlot === null || selectedSlot === undefined) return;
+        let scheduledDateArray;
+        if (Array.isArray(formData.scheduledDate)) {
+          scheduledDateArray = formData.scheduledDate;
+        } else if (typeof formData.scheduledDate === 'string') {
+          const dateParts = formData.scheduledDate.includes('-')
+            ? formData.scheduledDate.split('-')
+            : formData.scheduledDate.split('/');
+          if (dateParts.length === 3) {
+            scheduledDateArray = [
+              parseInt(dateParts[0]),
+              parseInt(dateParts[1]),
+              parseInt(dateParts[2])
+            ];
+          } else {
+            return;
+          }
+        } else {
           return;
         }
         const payload = {
           doctorId,
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          email: formData.email,
-          phoneNumber: formData.phone,
-          consultationTypeId: Number(formData.consultationTypeId),
-          scheduledDate: formData.scheduledDate,
-          scheduledTime: formData.scheduledTime,
-          duration: formData.duration,
-          consultationNotes: formData.notes,
+          patientId: selectedPatient.patientId || patientId || 1,
+          scheduledDate: scheduledDateArray,
+          slotId: Number(selectedSlot),
+          duration: Number(formData.duration) || 30,
+          symptomIds: (formData.symptoms || []).map(s => {
+            if (typeof s === 'object' && s !== null) {
+              return Number(s.value || s.id || s);
+            }
+            return Number(s);
+          }).filter(Boolean),
+          consultationNotes: formData.notes || "",
         };
-        const res = await updateVirtualAppointment(appointmentId, payload);
-        if (res?.data) {
-          closeModal("editPatient");
-          await new Promise((r) => setTimeout(r, 500));
-          fetchAllPatients();
-        }
-      } catch (error) {
-        console.error("Error updating consultation:", error);
-      }
+        await updateVirtualAppointment(selectedPatient.id, payload);
+        closeModal("editPatient");
+        await fetchAllPatients();
+      } catch (error) {}
     };
 
-    // Table columns
+    const handleVerifyPatient = (patient) => {
+      setVerifiedPatient(patient);
+      closeModal("verifyPatient");
+      const date = getCurrentDateArray();
+      const newForm = {
+        scheduledDate: date,
+        scheduledTime: null,
+        duration: 30,
+        symptoms: [],
+        notes: "",
+      };
+      setConsultationFormData(newForm);
+      fetchAvailability(date);
+      openModal("scheduleConsultation");
+    };
+
     const columns = [
       {
         header: "Appointment ID",
@@ -254,7 +335,6 @@ const VirtualTab = forwardRef(
       },
       { header: "Date", accessor: "scheduledDate" },
       { header: "Time", accessor: "scheduledTime" },
-      { header: "Type", accessor: "consultationType" },
       { header: "Duration", accessor: "duration" },
       {
         header: "Actions",
@@ -275,7 +355,6 @@ const VirtualTab = forwardRef(
       },
     ];
 
-    // Table filters
     const filters = [
       {
         key: "consultationStatus",
@@ -285,25 +364,41 @@ const VirtualTab = forwardRef(
           label: s,
         })),
       },
-      {
-        key: "consultationType",
-        label: "Type",
-        options: consultationTypes.map((t) => ({ value: t.name, label: t.name })),
-      },
     ];
 
-    useEffect(() => {
-      fetchConsultationTypes();
-    }, []);
-
-    useEffect(() => {
-      fetchAllPatients();
-    }, [doctorId, patientId, consultationTypes]);
-
-    useEffect(() => {
-      const id = location.state?.highlightId;
-      if (id) setNewPatientId(id);
-    }, [location.state]);
+    const CONSULTATION_FIELDS = useMemo(
+      () => [
+        {
+          name: "scheduledDate",
+          label: "Scheduled Date*",
+          type: "date",
+          required: true,
+        },
+        {
+          name: "duration",
+          label: "Duration (minutes)*",
+          type: "number",
+          required: true,
+          min: 5,
+          max: 120,
+        },
+        {
+          name: "symptoms",
+          label: "Symptoms",
+          type: "multiselect",
+          required: true,
+          options: symptoms,
+        },
+        {
+          name: "notes",
+          label: "Consultation Notes",
+          type: "textarea",
+          required: false,
+          placeholder: "Enter any additional notes...",
+        },
+      ],
+      [symptoms]
+    );
 
     return (
       <>
@@ -317,89 +412,145 @@ const VirtualTab = forwardRef(
           tabActions={tabActions}
           activeTab={activeTab}
           onTabChange={onTabChange}
-          rClassName={(r) =>
-            r.appointmentId === newPatientId ? "font-bold bg-yellow-100" : ""
-          }
+          rClassName={(r) => (r.appointmentId === newPatientId ? "font-bold bg-yellow-100" : "")}
         />
         <ReusableModal
           isOpen={modals.viewPatient}
           onClose={() => closeModal("viewPatient")}
           mode="viewProfile"
           title="Patient Appointment Info"
-          data={consultationFormData || selectedPatient || {}}
+          data={selectedPatient || {}}
           viewFields={APPOINTMENT_VIEW_FIELDS}
           extraContent={
             <div className="flex justify-end mt-4">
-              <button onClick={() => handleEditPatient(selectedPatient)} className="view-btn">
+              <button
+                onClick={() => handleEditPatient(selectedPatient)}
+                className="px-4 py-2 bg-[var(--primary-color)] text-white rounded hover:bg-[var(--accent-color)]"
+              >
                 Edit Consultation
               </button>
             </div>
           }
         />
+        {modals.verifyPatient && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div className="w-full max-w-4xl bg-white rounded-lg shadow-2xl overflow-hidden">
+              <div className="bg-gradient-to-r from-[#01B07A] to-[#004f3d] px-6 py-4 flex justify-between items-center">
+                <h2 className="text-xl font-semibold text-white">Verify Patient</h2>
+                <button
+                  onClick={() => closeModal("verifyPatient")}
+                  className="text-white hover:bg-white/20 rounded-full p-1 transition-colors"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="p-6 max-h-[80vh] overflow-y-auto">
+                <AadharVerificationFlow
+                  onComplete={handleVerifyPatient}
+                  onCancel={() => closeModal("verifyPatient")}
+                />
+              </div>
+            </div>
+          </div>
+        )}
         <ReusableModal
           isOpen={modals.scheduleConsultation}
           onClose={() => closeModal("scheduleConsultation")}
           mode="add"
           title="Schedule Virtual Consultation"
-          fields={CONSULTATION_FIELDS(consultationTypes)}
+          fields={CONSULTATION_FIELDS}
           data={consultationFormData}
           onSave={handleScheduleConsultation}
           onChange={setConsultationFormData}
           saveLabel="Schedule"
           cancelLabel="Cancel"
           size="lg"
+          extraContent={
+            <div>
+              <label className="font-semibold mb-2 block">Select Time Slot*</label>
+              {availableSlots.length === 0 ? (
+                <p className="text-gray-500 text-sm">No available slots for this date</p>
+              ) : (
+                <div className="grid grid-cols-3 gap-3 max-h-60 overflow-y-auto">
+                  {availableSlots.map((slot) => (
+                    <button
+                      key={slot.value}
+                      disabled={slot.disabled}
+                      onClick={() => {
+                        setConsultationFormData((p) => ({
+                          ...p,
+                          scheduledTime: Number(slot.value),
+                        }));
+                      }}
+                      className={`p-2 rounded-md border text-sm transition-colors ${
+                        consultationFormData.scheduledTime === slot.value
+                          ? "bg-green-600 text-white border-green-600"
+                          : "bg-white border-gray-300 hover:border-green-400"
+                      } ${slot.disabled ? "opacity-50 cursor-not-allowed bg-gray-100" : ""}`}
+                    >
+                      {slot.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          }
         />
         <ReusableModal
           isOpen={modals.editPatient}
           onClose={() => closeModal("editPatient")}
           mode="edit"
           title="Edit Virtual Consultation"
-          fields={CONSULTATION_FIELDS(consultationTypes)}
+          fields={CONSULTATION_FIELDS}
           data={consultationFormData}
           onSave={handleUpdateConsultation}
           onChange={setConsultationFormData}
           saveLabel="Update"
           cancelLabel="Cancel"
           size="lg"
+          extraContent={
+            <div>
+              <label className="font-semibold mb-2 block">Select Time Slot*</label>
+              {availableSlots.length === 0 ? (
+                <p className="text-gray-500 text-sm">No available slots for this date</p>
+              ) : (
+                <div className="grid grid-cols-3 gap-3 max-h-60 overflow-y-auto">
+                  {availableSlots.map((slot) => (
+                    <button
+                      key={slot.value}
+                      disabled={slot.disabled}
+                      onClick={() => {
+                        setConsultationFormData((p) => ({
+                          ...p,
+                          scheduledTime: Number(slot.value),
+                        }));
+                      }}
+                      className={`p-2 rounded-md border text-sm transition-colors ${
+                        consultationFormData.scheduledTime === slot.value
+                          ? "bg-green-600 text-white border-green-600"
+                          : "bg-white border-gray-300 hover:border-green-400"
+                      } ${slot.disabled ? "opacity-50 cursor-not-allowed bg-gray-100" : ""}`}
+                    >
+                      {slot.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          }
         />
       </>
     );
   }
 );
 
-// Consultation modal form fields
-const CONSULTATION_FIELDS = (types) => [
-  { name: "firstName", label: "First Name*", type: "text", required: true },
-  { name: "lastName", label: "Last Name*", type: "text", required: true },
-  {
-    name: "email",
-    label: "Email Address*",
-    type: "email",
-    required: true,
-  },
-  {
-    name: "phone",
-    label: "Phone Number*",
-    type: "text",
-    required: true,
-    placeholder: "10 digits only",
-  },
-  {
-    name: "consultationTypeId",
-    label: "Consultation Type*",
-    type: "select",
-    required: true,
-    options: types.map((t) => ({ value: t.id, label: t.name })),
-  },
-  { name: "scheduledDate", label: "Scheduled Date*", type: "date", required: true },
-  { name: "scheduledTime", label: "Scheduled Time*", type: "time", required: true },
-  {
-    name: "duration",
-    label: "Duration (minutes)*",
-    type: "number",
-    required: true,
-  },
-  { name: "notes", label: "Consultation Notes", type: "textarea", colSpan: 2 },
-];
-
+VirtualTab.displayName = "VirtualTab";
 export default VirtualTab;
