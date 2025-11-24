@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { createPortal } from "react-dom";
@@ -35,6 +35,7 @@ import {
   getPharmacyBilling,
   getPatientMedicalInfo,
   getPatientPrescriptionsData,
+  getPatientById,
 } from "../../../../utils/masterService";
 import { useMedicalRecords } from "../../../../context-api/MedicalRecordsContext";
   import medicalRecordImage from '../../../../assets/geminiIN1.png';
@@ -208,8 +209,8 @@ const PatientMedicalRecordDetails = () => {
   const patientName = selectedRecord?.patientName || selectedRecord?.name || "Guest Patient";
   const email = selectedRecord?.email || selectedRecord?.ptemail || "";
   const phone = selectedRecord?.phone || "";
-  const gender = selectedRecord?.gender || selectedRecord?.sex || "";
-  const dob = selectedRecord?.dob || "";
+  const rawGender = selectedRecord?.gender || selectedRecord?.sex || "";
+  const rawDob = selectedRecord?.dob || "";
   const uploadedBy = selectedRecord?.uploadedBy;
   const uploadedByUpper = String(uploadedBy || "").toUpperCase();
   const isExactPatient = uploadedByUpper === "PATIENT";
@@ -227,64 +228,141 @@ const PatientMedicalRecordDetails = () => {
     return `${age} years`;
   };
 
+  // Fetch patient basics (dob, gender) from master profile
+  const [patientBasics, setPatientBasics] = useState({ dob: null, gender: null, age: null });
+
+  useEffect(() => {
+    const pid = selectedRecord?.patientId;
+    if (!pid) return;
+
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await getPatientById(pid);
+        const data = res?.data?.data || res?.data || {};
+        const fetchedDob = data.dob || data.dateOfBirth || null;
+        const fetchedGender = data.gender || data.sex || null;
+        const computedAge = fetchedDob && visitDate ? calculateAge(fetchedDob, visitDate) : null;
+        if (mounted) {
+          setPatientBasics({ dob: fetchedDob, gender: fetchedGender, age: computedAge });
+        }
+      } catch (err) {
+        console.error("Failed to fetch patient basics:", err);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [selectedRecord?.patientId, visitDate]);
+
+  const formatDisplayDate = (value) => {
+    if (!value) return "N/A";
+    if (typeof value === "string" && /^\d{8}$/.test(value)) {
+      const year = value.slice(0, 4);
+      const month = value.slice(4, 6);
+      const day = value.slice(6, 8);
+      return `${day}/${month}/${year}`;
+    }
+    const d = new Date(value);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString("en-GB");
+    }
+    return String(value);
+  };
+
   // Small wrapper that shows a subtle '...' indicator when its content overflows
+  // but only while the user is at the TOP of the content. Once they scroll,
+  // the blur/ellipsis disappear so text is clear while reading.
   const ScrollHintBox = ({ children, className = "" }) => {
     const ref = useRef(null);
-    const [isOverflowing, setIsOverflowing] = useState(false);
+    const [showHint, setShowHint] = useState(false);
 
     useEffect(() => {
       const el = ref.current;
       if (!el) return;
-      const check = () => {
-        // consider vertical overflow
-        setIsOverflowing(el.scrollHeight > el.clientHeight + 1);
+
+      const updateHint = () => {
+        const hasOverflow = el.scrollHeight > el.clientHeight + 1;
+        if (!hasOverflow) {
+          setShowHint(false);
+          return;
+        }
+        // show hint only when user is at (or very near) the top
+        const atTop = el.scrollTop <= 1;
+        setShowHint(atTop);
       };
-      check();
-      // watch for size/content changes
-      const ro = new ResizeObserver(check);
+
+      updateHint();
+
+      const ro = new ResizeObserver(updateHint);
       ro.observe(el);
-      window.addEventListener("resize", check);
+      window.addEventListener("resize", updateHint);
+      el.addEventListener("scroll", updateHint);
+
       return () => {
         ro.disconnect();
-        window.removeEventListener("resize", check);
+        window.removeEventListener("resize", updateHint);
+        el.removeEventListener("scroll", updateHint);
       };
     }, [children]);
 
     return (
       <div ref={ref} className={`${className} relative`}>
         {children}
-        {isOverflowing && (
+        {showHint && (
           <div className="pointer-events-none absolute bottom-1 right-2 text-gray-500 text-sm select-none">…</div>
         )}
-        {isOverflowing && (
+        {showHint && (
           <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white/90 to-transparent"></div>
         )}
       </div>
     );
   };
 
-  const renderMedicalGrid = (fields = []) => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 md:gap-6 ml-6 mr-6">
-      {fields.map((item, index) => (
-        <div key={index} className="bg-white p-3 sm:p-4 md:p-6 rounded-lg sm:rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
-          <div className="font-semibold text-xs sm:text-sm md:text-base text-gray-600 mb-1 sm:mb-1.5 md:mb-2">{item.label}</div>
-          {["Chief Complaint", "Past History", "Advice", "Plan"].includes(item.label) ? (
-            <div className="overflow-auto cc-scrollbar max-h-20 text-gray-800 text-xs sm:text-sm md:text-base pr-2">{item.value}</div>
-          ) : (
-            <div className="text-gray-500 text-xs sm:text-sm md:text-sm">{item.value}</div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
+  const renderMedicalGrid = (fields = []) => {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 md:gap-6 ml-6 mr-6">
+        {fields.map((item, index) => (
+          <div
+            key={index}
+            className="bg-white p-3 sm:p-4 md:p-6 rounded-lg sm:rounded-xl border border-gray-100 hover:shadow-md transition-shadow h-37"
+          >
+            <div className="font-semibold text-xs sm:text-sm md:text-base text-gray-600 mb-1 sm:mb-1.5 md:mb-2">
+              {item.label}
+            </div>
+            {["Chief Complaint", "Past History", "Advice", "Plan"].includes(item.label) ? (
+              <ScrollHintBox className="max-h-16 cc-scroll-wrapper cc-scrollbar pr-1">
+                <div className="text-gray-500 text-xs sm:text-sm md:text-sm">
+                  {item.value}
+                </div>
+              </ScrollHintBox>
+            ) : (
+              <div className="text-gray-500 text-xs sm:text-sm md:text-sm">
+                {item.value}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  };
 
-  const displayAge = useMemo(() => calculateAge(dob, visitDate), [dob, visitDate]);
-  const displayDob = dob || "N/A";
+  const effectiveDob = patientBasics.dob || rawDob;
+  const effectiveGender = patientBasics.gender || rawGender;
+  const displayAge = useMemo(
+    () => patientBasics.age || calculateAge(effectiveDob, visitDate),
+    [patientBasics.age, effectiveDob, visitDate]
+  );
+  const displayDob = effectiveDob || "N/A";
   const displayEmail = email || "N/A";
   const displayPatientName = patientName || "Guest Patient";
-  const displayGender = gender || "N/A";
+  const displayGender = effectiveGender || "N/A";
   const displayPhone = phone || "N/A";
-  const displayDiagnosis = diagnosis || "N/A";
+  const symptomsFromRecord = Array.isArray(selectedRecord?.symptomNames)
+    ? selectedRecord.symptomNames.filter(Boolean).join(", ")
+    : "";
+  const displayDiagnosis = symptomsFromRecord || diagnosis || "N/A";
 
   const [state, setState] = useState({
     detailsActiveTab: "medical-records",
@@ -387,8 +465,29 @@ const PatientMedicalRecordDetails = () => {
       console.log("Fetched medical info:+++++++++++++", response.data);
       // support both response.data and response.data.data shapes
       const payload = response.data?.data ?? response.data;
-      if (payload) {
-        setMedicalInfo(payload);
+
+      let normalized = null;
+      if (Array.isArray(payload)) {
+        // Try to find the record matching current visit / record
+        normalized =
+          payload.find((item) => {
+            const itemId = item.id || item.recordId || item.recordID;
+            const itemOpd = item.opdRecordId || item.opdId;
+            const itemIpd = item.ipdRecordId || item.ipdId;
+            const currentOpd = selectedRecord?.opdRecordId || selectedRecord?.opdId;
+            const currentIpd = selectedRecord?.ipdRecordId || selectedRecord?.ipdId;
+            return (
+              (recordId && itemId && String(itemId) === String(recordId)) ||
+              (currentOpd && itemOpd && String(itemOpd) === String(currentOpd)) ||
+              (currentIpd && itemIpd && String(itemIpd) === String(currentIpd))
+            );
+          }) || payload[0];
+      } else {
+        normalized = payload;
+      }
+
+      if (normalized) {
+        setMedicalInfo(normalized);
       } else {
         setMedicalInfo(null);
         setMedicalError("No medical info found.");
@@ -933,6 +1032,9 @@ const fetchVitalsData = async () => {
                   { label: "Past History", value: medicalInfo.pastHistory || "N/A" },
                   { label: "Advice", value: medicalInfo.advice || "N/A" },
                   { label: "Plan", value: medicalInfo.plan || "N/A" },
+                  ...(String(activeTab || "").toUpperCase() === "IPD"
+                    ? [{ label: "Discharge Summary", value: medicalInfo.dischargeSummary || "N/A" }]
+                    : []),
                 ])
               )}
             </div>
@@ -965,6 +1067,9 @@ const fetchVitalsData = async () => {
                   { label: "Past History", value: medicalInfo.pastHistory || "N/A" },
                   { label: "Advice", value: medicalInfo.advice || "N/A" },
                   { label: "Plan", value: medicalInfo.plan || "N/A" },
+                  ...(String(activeTab || "").toUpperCase() === "IPD"
+                    ? [{ label: "Discharge Summary", value: medicalInfo.dischargeSummary || "N/A" }]
+                    : []),
                 ])
               )}
             </div>
@@ -1009,6 +1114,9 @@ const fetchVitalsData = async () => {
                 { label: "Past History", value: medicalInfo.pastHistory || "N/A" },
                 { label: "Advice", value: medicalInfo.advice || "N/A" },
                 { label: "Plan", value: medicalInfo.plan || "N/A" },
+                ...(String(activeTab || "").toUpperCase() === "IPD"
+                  ? [{ label: "Discharge Summary", value: medicalInfo.dischargeSummary || "N/A" }]
+                  : []),
               ])
             )}
           </div>
@@ -1485,6 +1593,37 @@ const fetchVitalsData = async () => {
     },
   ];
 
+  // Build profile fields with conditional dates based on active tab
+  const profileFields = [
+    { label: "Age", value: displayAge },
+    { label: "Gender", value: displayGender },
+    { label: "Hospital", value: hospitalName },
+    // Dates
+    ...(String(activeTab || "").toUpperCase() === "IPD"
+      ? [
+          {
+            label: "Date of Admission",
+            value: formatDisplayDate(selectedRecord.dateOfAdmission),
+          },
+          {
+            label: "Date of Discharge",
+            value: formatDisplayDate(selectedRecord.dateOfDischarge),
+          },
+        ]
+      : [
+          {
+            label: "Visit Date",
+            value: formatDisplayDate(
+              selectedRecord.dateOfVisit ||
+              selectedRecord.dateOfAdmission ||
+              selectedRecord.dateOfConsultation
+            ),
+          },
+        ]),
+    { label: "Diagnosis", value: displayDiagnosis },
+    { label: "K/C/O", value: selectedRecord["K/C/O"] ?? "--" },
+  ];
+
   return (
     <ErrorBoundary>
       <div className="p-3 md:p-6 space-y-4 md:space-y-6">
@@ -1492,17 +1631,7 @@ const fetchVitalsData = async () => {
         <ProfileCard
           initials={getInitials(displayPatientName)}
           name={displayPatientName}
-          fields={[
-            { label: "Age", value: displayAge },
-            { label: "Gender", value: displayGender },
-            { label: "Hospital", value: hospitalName },
-            {
-              label: "Visit Date",
-              value: selectedRecord.dateOfVisit || selectedRecord.dateOfAdmission || selectedRecord.dateOfConsultation || "N/A",
-            },
-            { label: "Diagnosis", value: displayDiagnosis },
-            { label: "K/C/O", value: selectedRecord["K/C/O"] ?? "--" },
-          ]}
+          fields={profileFields}
         />
         <div className="space-y-4 md:space-y-6">
           <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">

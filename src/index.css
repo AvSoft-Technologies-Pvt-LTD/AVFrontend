@@ -220,6 +220,43 @@ body {
     opacity: 0 !important;
   }
 
+
+
+
+  .cc-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.cc-scrollbar::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+/* hidden by default */
+.cc-scrollbar::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 10px;
+}
+
+/* show thumb only when the user hovers the scrollable area */
+.cc-scrollbar:hover::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+}
+
+.cc-scrollbar:hover::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Container that only shows vertical scrollbar on hover */
+.cc-scroll-wrapper {
+  max-height: 4rem; /* ~3 lines for small text */
+  overflow-y: hidden;
+}
+
+.cc-scroll-wrapper:hover {
+  overflow-y: auto;
+}
+
   /* Fade Up */
   @keyframes headingFadeUpInView {
     0% { opacity: 0; transform: translateY(40px); }

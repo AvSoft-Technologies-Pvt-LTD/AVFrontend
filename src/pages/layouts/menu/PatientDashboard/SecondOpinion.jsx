@@ -1,20 +1,53 @@
-
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
 import axios from "axios";
-
 import html2pdf from "html2pdf.js";
 import emailjs from "emailjs-com";
 import DynamicTable from "../../../../components/microcomponents/DynamicTable";
 import { ArrowLeft, User, Stethoscope, ChevronDown, X, Printer, CheckCircle, FileText, Pill, TestTube, Mail, MessageCircle, Send, Phone, AtSign, Activity, Heart, Thermometer } from "lucide-react";
-
 import { useSelector } from "react-redux";
 import ProfileCard from "../../../../components/microcomponents/ProfileCard";
 import { useMedicalRecords } from "../../../../context-api/MedicalRecordsContext";
 import { getPatientById, getUrgencyLevels, getConsultationModes, getAllDoctors, getPatientMedicalInfo, getPatientPrescriptionsData, getLabScanByPatient, getPatientVitalById } from "../../../../utils/masterService";
+ 
+const calculateAgeFromDob = (dob) => {
+  if (!dob) return null;
+  const birth = new Date(dob);
+  if (isNaN(birth.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age;
+};
 
-const PrintContent = ({ requestData, selectedRecord, formData, user }) => (                                                                                                                                                   
+const PrintContent = ({ requestData, selectedRecord, formData, user, symptoms }) => {
+  const isIPDRecord =
+    !!selectedRecord?.ipdRecordId ||
+    !!selectedRecord?.dateOfAdmission ||
+    !!selectedRecord?.dateOfDischarge ||
+    String(requestData?.consultationType || "").toUpperCase() === "IPD";
+
+  const formatPrintDate = (value) => {
+    if (!value) return "--";
+    if (typeof value === "string" && /^\d{8}$/.test(value)) {
+      const year = value.slice(0, 4);
+      const month = value.slice(4, 6);
+      const day = value.slice(6, 8);
+      return `${day}/${month}/${year}`;
+    }
+    const d = new Date(value);
+    if (!isNaN(d.getTime())) return d.toLocaleDateString("en-GB");
+    return String(value);
+  };
+
+  const admissionForPrint = selectedRecord?.dateOfAdmission || requestData?.patientInfo?.AdmissionDate;
+  const dischargeForPrint = selectedRecord?.dateOfDischarge || requestData?.patientInfo?.DischargeDate;
+
+  return (
   <div style={{ fontFamily: "Arial, sans-serif", maxWidth: "800px", margin: "0 auto", padding: "20px" }}>
     <div className="header" style={{ textAlign: "center", borderBottom: "2px solid #333", paddingBottom: "20px", marginBottom: "30px" }}>
       <h1 className="h4-heading">SECOND OPINION REQUEST</h1>
@@ -33,19 +66,50 @@ const PrintContent = ({ requestData, selectedRecord, formData, user }) => (
     <div className="patient-section" style={{ marginBottom: "25px" }}>
       <h3 style={{ fontSize: "18px", fontWeight: "bold", marginBottom: "15px", color: "#333", borderBottom: "1px solid #ddd", paddingBottom: "5px" }}>Patient Information</h3>
       <div className="patient-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "0 30px", rowGap: "10px" }}>
-        {Object.entries(requestData.patientInfo).map(([key, value]) => (
-          <div key={key} style={{ marginBottom: 0 }}>
-            <strong style={{ color: "#555" }}>{key.replace(/([A-Z])/g, " $1") + ":"}</strong>
-            <span style={{ color: "#0E1630", marginLeft: 8 }}>{value}</span>
+        <div>
+          <strong style={{ color: "#555" }}>Patient Name:</strong>
+          <span style={{ color: "#0E1630", marginLeft: 8 }}>{selectedRecord?.patientName || user?.firstName || "N/A"}</span>
+        </div>
+        <div>
+          <strong style={{ color: "#555" }}>Age:</strong>
+          <span style={{ color: "#0E1630", marginLeft: 8 }}>{(selectedRecord.age !== null && selectedRecord.age !== undefined && selectedRecord.age !== "") ? selectedRecord.age : "--"}</span>
+        </div>
+        <div>
+          <strong style={{ color: "#555" }}>Gender:</strong>
+          <span style={{ color: "#0E1630", marginLeft: 8 }}>{(selectedRecord.sex && selectedRecord.sex !== "--") ? selectedRecord.sex : "--"}</span>
+        </div>
+        <div>
+          <strong style={{ color: "#555" }}>Hospital:</strong>
+          <span style={{ color: "#0E1630", marginLeft: 8 }}>{selectedRecord.hospitalName || "--"}</span>
+        </div>
+        <div>
+          <strong style={{ color: "#555" }}>Diagnosis:</strong>
+          <span style={{ color: "#0E1630", marginLeft: 8 }}>{symptoms || selectedRecord.diagnosis || "--"}</span>
+        </div>
+        {isIPDRecord ? (
+          <>
+            <div>
+              <strong style={{ color: "#555" }}>Date of Admission:</strong>
+              <span style={{ color: "#0E1630", marginLeft: 8 }}>{formatPrintDate(admissionForPrint)}</span>
+            </div>
+            <div>
+              <strong style={{ color: "#555" }}>Date of Discharge:</strong>
+              <span style={{ color: "#0E1630", marginLeft: 8 }}>{formatPrintDate(dischargeForPrint)}</span>
+            </div>
+          </>
+        ) : (
+          <div>
+            <strong style={{ color: "#555" }}>Visit Date:</strong>
+            <span style={{ color: "#0E1630", marginLeft: 8 }}>{requestData.requestDate || "--"}</span>
           </div>
-        ))}
+        )}
         <div>
           <strong style={{ color: "#555" }}>K/C/O:</strong>
           <span style={{ color: "#0E1630", marginLeft: 8 }}>{selectedRecord["K/C/O"] ?? "--"}</span>
         </div>
       </div>
     </div>
-  <div className="request-details" style={{ marginBottom: "30px" }}>
+    <div className="request-details" style={{ marginBottom: "30px" }}>
       <h3 style={{ fontSize: "18px", fontWeight: "bold", marginBottom: "15px", color: "#333", borderBottom: "1px solid #ddd", paddingBottom: "5px" }}>Consultation Request Details</h3>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "0 30px", rowGap: "10px" }}>
         {Object.entries(formData).filter(([key]) => !["contactEmail", "contactPhone"].includes(key)).map(([key, value]) => (
@@ -57,56 +121,50 @@ const PrintContent = ({ requestData, selectedRecord, formData, user }) => (
       </div>
     </div>
     <div style={{ pageBreakBefore: 'always', breakBefore: 'page', marginTop: "40px", fontFamily: "Arial, sans-serif", maxWidth: "900px", marginLeft: "auto", marginRight: "auto" }}>
-        <div style={{ padding: "24px", background: "linear-gradient(90deg, #01B07A 0%, #1A223F 100%)", color: "#fff", borderRadius: "18px 18px 0 0" }}>
+      <div style={{ padding: "24px", background: "linear-gradient(90deg, #01B07A 0%, #1A223F 100%)", color: "#fff", borderRadius: "18px 18px 0 0" }}>
         <h2 style={{ fontSize: "28px", fontWeight: "bold", marginBottom: "8px" }}>Medical Records Preview</h2>
         <p style={{ fontSize: "16px", color: "#e0e0e0", marginBottom: 0 }}>Complete patient medical information</p>
       </div>
       <div style={{ background: "#fff", borderRadius: "0 0 18px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.04)", padding: "32px" }}>
         <div style={{ marginBottom: "24px" }}>
           <h3 style={{ fontSize: "22px", fontWeight: "bold", color: "#1A223F", marginBottom: "12px" }}>{selectedRecord?.patientName || user?.firstName || 'N/A'}</h3>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px", fontSize: "15px", color: "#333" }}>
-              <div>Age: { (selectedRecord.age !== null && selectedRecord.age !== undefined && selectedRecord.age !== "") ? selectedRecord.age : "--" }</div>
-              <div>Gender: { (selectedRecord.sex && selectedRecord.sex !== "--") ? selectedRecord.sex : "--" }</div>
-              <div>Hospital: {selectedRecord.hospitalName}</div>
-              <div>Diagnosis: {selectedRecord.diagnosis}</div>
-              <div>K/C/O: {selectedRecord["K/C/O"] ?? "--"}</div>
-            </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px", fontSize: "15px", color: "#333" }}>
+            <div>Age: { (selectedRecord.age !== null && selectedRecord.age !== undefined && selectedRecord.age !== "") ? selectedRecord.age : "--" }</div>
+            <div>Gender: { (selectedRecord.sex && selectedRecord.sex !== "--") ? selectedRecord.sex : "--" }</div>
+            <div>Hospital: {selectedRecord.hospitalName}</div>
+            <div>Diagnosis: {symptoms}</div>
+            <div>K/C/O: {selectedRecord["K/C/O"] ?? "--"}</div>
+          </div>
         </div>
         <div style={{ marginBottom: "24px" }}>
           <h4 style={{ fontSize: "18px", fontWeight: "bold", color: "#0E1630", marginBottom: "10px" }}>Vitals Summary</h4>
-              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                {Object.entries(selectedRecord.vitals || {}).map(([key, value], idx) => {
-                  const colors = ["#FEE2E2", "#DBEAFE", "#FFF7ED", "#DCFCE7", "#ECFEFF", "#F5F3FF", "#FFF7E6"];
-                  const borderColor = colors[idx % colors.length];
-                  return (
-                    <div key={key} style={{ minWidth: 120, padding: "10px 12px", borderRadius: 12, borderLeft: `4px solid ${borderColor}`, background: "#fff", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", display: "flex", flexDirection: "column" }}>
-                      <div style={{ fontSize: 12, color: "#666", marginBottom: 6 }}>{key.replace(/([A-Z])/g, " $1").replace(/^./, str => str.toUpperCase())}</div>
-                      <div style={{ fontSize: 16, fontWeight: 700, color: "#0E1630" }}>{value ?? "--"}</div>
-                    </div>
-                  );
-                })}
-              </div>
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+            {Object.entries(selectedRecord.vitals || {}).map(([key, value], idx) => {
+              const colors = ["#FEE2E2", "#DBEAFE", "#FFF7ED", "#DCFCE7", "#ECFEFF", "#F5F3FF", "#FFF7E6"];
+              const borderColor = colors[idx % colors.length];
+              return (
+                <div key={key} style={{ minWidth: 120, padding: "10px 12px", borderRadius: 12, borderLeft: `4px solid ${borderColor}`, background: "#fff", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", display: "flex", flexDirection: "column" }}>
+                  <div style={{ fontSize: 12, color: "#666", marginBottom: 6 }}>{key.replace(/([A-Z])/g, " $1").replace(/^./, str => str.toUpperCase())}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "#0E1630" }}>{value ?? "--"}</div>
+                </div>
+              );
+            })}
+          </div>
         </div>
         <div style={{ marginBottom: "24px" }}>
           <h4 style={{ fontSize: "18px", fontWeight: "bold", color: "#0E1630", marginBottom: "10px" }}>Medical Information</h4>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "12px" }}>
-          
-            {Object.entries(selectedRecord?.medicalDetails || {})
-              .filter(([key]) => !["id", "doctorId", "context", "patientId", "createdAt", "updatedAt", "createdBy", "updatedBy"].includes(key))
-              .map(([label, value]) => {
-                const keyName = String(label).replace(/\s+/g, "").toLowerCase();
-                const isPreviewField = ["chiefcomplaint", "pasthistory", "history", "advice", "plan", "clinicalnotes"].includes(keyName);
-                return (
-                  <div key={label} style={{ background: "#fff", border: "1px solid #f3f4f6", borderRadius: "10px", padding: "16px" }}>
-                    <div style={{ fontWeight: "bold", fontSize: "13px", color: "#666", marginBottom: "4px" }}>{label.replace(/([A-Z])/g, " $1")}</div>
-                    {isPreviewField ? (
-                      <div className="cc-scrollbar" style={{ color: "#222", fontSize: "14px" }}>{value || "N/A"}</div>
-                    ) : (
-                      <div style={{ color: "#222", fontSize: "14px" }}>{value || "N/A"}</div>
-                    )}
-                  </div>
-                );
-              })}
+            {["chiefComplaint", "pastHistory", "plan", "advice"].map((fieldKey) => {
+              const value = (selectedRecord?.medicalDetails || {})[fieldKey];
+              if (!value || String(value).trim() === "") return null;
+              const label = fieldKey.replace(/([A-Z])/g, " $1");
+              return (
+                <div key={fieldKey} style={{ background: "#fff", border: "1px solid #f3f4f6", borderRadius: "10px", padding: "16px" }}>
+                  <div style={{ fontWeight: "bold", fontSize: "13px", color: "#666", marginBottom: "4px" }}>{label}</div>
+                  <div className="cc-scrollbar" style={{ color: "#222", fontSize: "14px" }}>{value}</div>
+                </div>
+              );
+            }).filter(Boolean)}
           </div>
         </div>
         <div style={{ marginBottom: "24px" }}>
@@ -162,13 +220,50 @@ const PrintContent = ({ requestData, selectedRecord, formData, user }) => (
       </div>
     </div>
   </div>
-);
-const MedicalRecordsDetailsPreview = ({ selectedRecord, onClose, user }) => {
+  );
+};
+
+const MedicalRecordsDetailsPreview = ({ selectedRecord, onClose, user, symptoms, recordTab }) => {
   if (!selectedRecord) return null;
   const [detailsActiveTab, setDetailsActiveTab] = useState("medical-records");
-  // Local display-friendly values to avoid referencing outer-scope variables
+  const isIPD = String(recordTab || "").toUpperCase() === "IPD";
+  const isIPDRecord = isIPD || !!selectedRecord.ipdRecordId;
   const displayAge = (selectedRecord.age !== null && selectedRecord.age !== undefined && selectedRecord.age !== "") ? String(selectedRecord.age) : "--";
   const displayGender = (selectedRecord.sex && selectedRecord.sex !== "--") ? selectedRecord.sex : "--";
+  const rawVisitDate = selectedRecord.dateOfVisit || selectedRecord.dateOfAdmission || selectedRecord.dateOfConsultation;
+  const formatVisitDate = (value) => {
+    if (!value) return "--";
+    if (typeof value === "string" && /^\d{8}$/.test(value)) {
+      const year = value.slice(0, 4);
+      const month = value.slice(4, 6);
+      const day = value.slice(6, 8);
+      return `${day}/${month}/${year}`;
+    }
+    const d = new Date(value);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString("en-GB");
+    }
+    return String(value);
+  };
+  const formattedVisitDate = formatVisitDate(rawVisitDate);
+  const formattedAdmissionDate = isIPDRecord ? formatVisitDate(selectedRecord.dateOfAdmission) : null;
+  const formattedDischargeDate = isIPDRecord ? formatVisitDate(selectedRecord.dateOfDischarge) : null;
+
+  const profileFields = [
+    { label: "Age", value: displayAge },
+    { label: "Gender", value: displayGender },
+    { label: "Hospital", value: selectedRecord.hospitalName },
+    { label: "Diagnosis", value: symptoms },
+    ...(isIPDRecord
+      ? [
+          { label: "Date of Admission", value: formattedAdmissionDate || "--" },
+          { label: "Date of Discharge", value: formattedDischargeDate || "--" },
+        ]
+      : [
+          { label: "Visit Date", value: formattedVisitDate },
+        ]),
+    { label: "K/C/O", value: selectedRecord["K/C/O"] ?? "--" },
+  ];
   const renderTabContent = () => {
     const tabContentMap = {
       "medical-records": (
@@ -256,60 +351,53 @@ const MedicalRecordsDetailsPreview = ({ selectedRecord, onClose, user }) => {
               Close
             </button>
           </div>
-            <ProfileCard
+          <ProfileCard
             initials={(selectedRecord?.patientName && selectedRecord.patientName.charAt(0)) || user?.firstName?.charAt(0) || "N"}
             name={selectedRecord?.patientName || `${user?.firstName || "N/A"} ${user?.lastName || ""}`}
-            fields={[
-              { label: "Age", value: displayAge },
-              { label: "Gender", value: displayGender },
-              { label: "Hospital", value: selectedRecord.hospitalName },
-              { label: "Diagnosis", value: selectedRecord.diagnosis },
-              { label: "Visit Date", value: selectedRecord.dateOfVisit || selectedRecord.dateOfAdmission || selectedRecord.dateOfConsultation },
-              { label: "K/C/O", value: selectedRecord["K/C/O"] ?? "--" },
-            ]}
+            fields={profileFields}
           />
-         <section className="mb-6">
-  <h4 className="text-xl font-semibold text-gray-800 mb-4">Vitals Summary</h4>
-  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-3 p-2">
-    {[
-      { key: "Blood Pressure", icon: Heart, color: "red" },
-      { key: "Heart Rate", icon: Activity, color: "blue" },
-      { key: "Temperature", icon: Thermometer, color: "orange" },
-      { key: "SpO2", icon: Activity, color: "emerald" },
-      { key: "Respiratory Rate", icon: Activity, color: "violet" },
-      { key: "Height", icon: Activity, color: "cyan" },
-      { key: "Weight", icon: Activity, color: "amber" },
-    ].map(({ key, icon: Icon, color }) => {
-      const colorMap = {
-        red: "red",
-        blue: "blue",
-        orange: "orange",
-        emerald: "emerald",
-        violet: "violet",
-        cyan: "cyan",
-        amber: "amber",
-      };
-      const c = colorMap[color];
-      const value = (selectedRecord.vitals || {})[key] ?? "--";
-      return (
-        <div
-          key={key}
-          className={`bg-${c}-50 border-l-4 border-${c}-500 p-3 rounded-lg shadow-sm flex flex-col justify-between hover:shadow-md transition`}
-        >
-          <div className="flex items-center gap-2 mb-1">
-            {Icon && <Icon size={16} className={`text-${c}-500`} />}
-            <span className={`text-xs md:text-sm font-medium text-${c}-700 truncate`}>
-              {key}
-            </span>
-          </div>
-          <div className={`text-sm md:text-base font-semibold text-${c}-800 truncate`}>
-            {value || "--"}
-          </div>
-        </div>
-      );
-    })}
-  </div>
-</section>
+          <section className="mb-6">
+            <h4 className="text-xl font-semibold text-gray-800 mb-4">Vitals Summary</h4>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-3 p-2">
+              {[
+                { key: "Blood Pressure", icon: Heart, color: "red" },
+                { key: "Heart Rate", icon: Activity, color: "blue" },
+                { key: "Temperature", icon: Thermometer, color: "orange" },
+                { key: "SpO2", icon: Activity, color: "emerald" },
+                { key: "Respiratory Rate", icon: Activity, color: "violet" },
+                { key: "Height", icon: Activity, color: "cyan" },
+                { key: "Weight", icon: Activity, color: "amber" },
+              ].map(({ key, icon: Icon, color }) => {
+                const colorMap = {
+                  red: "red",
+                  blue: "blue",
+                  orange: "orange",
+                  emerald: "emerald",
+                  violet: "violet",
+                  cyan: "cyan",
+                  amber: "amber",
+                };
+                const c = colorMap[color];
+                const value = (selectedRecord.vitals || {})[key] ?? "--";
+                return (
+                  <div
+                    key={key}
+                    className={`bg-${c}-50 border-l-4 border-${c}-500 p-3 rounded-lg shadow-sm flex flex-col justify-between hover:shadow-md transition`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      {Icon && <Icon size={16} className={`text-${c}-500`} />}
+                      <span className={`text-xs md:text-sm font-medium text-${c}-700 truncate`}>
+                        {key}
+                      </span>
+                    </div>
+                    <div className={`text-sm md:text-base font-semibold text-${c}-800 truncate`}>
+                      {value || "--"}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
           <section className="mb-6">
             <h4 className="text-xl font-semibold text-gray-800 mb-4">Medical Information</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -318,6 +406,7 @@ const MedicalRecordsDetailsPreview = ({ selectedRecord, onClose, user }) => {
                 { key: "pastHistory", label: "Past History" },
                 { key: "plan", label: "Treatment Plan" },
                 { key: "advice", label: "Medical Advice" },
+                ...(isIPD ? [{ key: "dischargeSummary", label: "Discharge Summary" }] : []),
               ]
                 .map((field) => {
                   const value = (selectedRecord?.medicalDetails || {})[field.key];
@@ -370,39 +459,34 @@ const MedicalRecordsDetailsPreview = ({ selectedRecord, onClose, user }) => {
     </div>
   );
 };
+
 const SecondOpinion = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const user = useSelector((state) => state.auth.user);
   const { clickedRecord, recordTab } = useMedicalRecords();
-  
-  // Console logging for useMedicalRecords values
-  console.log("=== useMedicalRecords() Values ===");
-  console.log("clickedRecord:", clickedRecord);
-  console.log("recordTab:", recordTab);
-  console.log("=====================================");
-  
   const printContentRef = useRef();
   const selectedRecordBase = location.state?.selectedRecord || {
-    patientName: "John Doe", age: "45", sex: "Male", id: "P001", hospitalName: "General Hospital", diagnosis: "Chest Pain", dateOfVisit: "2024-01-15", "K/C/O": "Hypertension", vitals: { bp: "140/90", pulse: "80", temp: "98.6" }, medicalDetails: {
-      chiefComplaint: "Chest pain since 2 days", pastHistory: "Hypertension for 5 years", examination: "Tenderness over chest",
-    }, prescriptionsData: [{ date: "2024-01-15", doctorName: "Dr. Smith", medicines: "Aspirin 75mg", instructions: "Once daily", }], labTestsData: [{ date: "2024-01-15", testName: "ECG", result: "Normal", normalRange: "Normal", status: "Normal", }],
+    patientName: "Kavya Patil",
+    age: "30",
+    sex: "--",
+    id: "P001",
+    hospitalName: "AV Hospital",
+    diagnosis: "Headache",
+    dateOfVisit: "20251121",
+    "K/C/O": "--",
+    vitals: { bp: "120/80", pulse: "72", temp: "98.6" },
+    medicalDetails: {
+      chiefComplaint: "Headache since 2 days",
+      pastHistory: "No significant past history",
+      examination: "Normal",
+    },
+    prescriptionsData: [],
+    labTestsData: [],
   };
-  // Extract recordId from the selected record (similar to MedicalRecordDetails)
   const recordId = selectedRecordBase?.recordId || selectedRecordBase?.id || selectedRecordBase?.recordID || clickedRecord?.recordId || clickedRecord?.id || clickedRecord?.recordID;
-
-  // Debug logging for recordId
-  console.log("SecondOpinion recordId extraction:", {
-    selectedRecordBase,
-    clickedRecord,
-    recordId,
-    recordTab
-  });
-
-  // Create recordQueryParams based on recordTab and recordId (similar to MedicalRecordDetails)
   const recordQueryParams = useMemo(() => {
     if (!recordId) {
-      console.log("No recordId found, returning undefined recordQueryParams");
       return undefined;
     }
     const tab = String(recordTab || "").toUpperCase();
@@ -411,53 +495,21 @@ const SecondOpinion = () => {
     else if (tab === "IPD") params = { ipdRecordId: recordId };
     else if (tab === "VIRTUAL") params = { virtualRecordId: recordId };
     else params = undefined;
-
-    console.log("Generated recordQueryParams:", { tab, recordId, params });
     return params;
   }, [recordId, recordTab]);
-  // Fetch patient medical info for this second opinion view, using the same params pattern as MedicalRecordDetails
-  useEffect(() => {
-    const pid = selectedRecordBase?.patientId || selectedRecordBase?.id || user?.patientId || user?.id;
-    if (!pid) {
-      console.log("SecondOpinion: No patientId available for getPatientMedicalInfo");
-      return;
-    }
 
-    let mounted = true;
-    (async () => {
-      console.log("SecondOpinion: calling getPatientMedicalInfo with", {
-        patientId: pid,
-        recordQueryParams,
-      });
-      const response = await getPatientMedicalInfo(pid, recordQueryParams);
-      
-      const payload = response?.data?.data ?? response?.data;
-      if (!mounted) return;
-      console.log("SecondOpinion: fetched medical info payload", {
-        patientId: pid,
-        recordQueryParams,
-        payload,
-      });
-    })();
-
-    return () => {
-      mounted = false;
-    };
-  }, [selectedRecordBase, user, recordQueryParams]);
   const [prescriptionsData, setPrescriptionsData] = useState([]);
   const [prescriptionError, setPrescriptionError] = useState(null);
   const [labTestsData, setLabTestsData] = useState([]);
   const [labError, setLabError] = useState(null);
   const [vitalsData, setVitalsData] = useState({});
+  const [patientBasics, setPatientBasics] = useState({ gender: null, dob: null, age: null });
 
-  // Fetch patient vitals for this second opinion view
   useEffect(() => {
     const pid = selectedRecordBase?.patientId || selectedRecordBase?.id || user?.patientId || user?.id;
     if (!pid) {
-      console.log("SecondOpinion: No patientId available for getPatientVitalById");
       return;
     }
-
     let mounted = true;
     (async () => {
       try {
@@ -465,18 +517,10 @@ const SecondOpinion = () => {
           ...(recordQueryParams || {}),
           consultationType: recordTab,
         };
-        console.log("SecondOpinion: fetchVitalsData called with", {
-          patientId: pid,
-          vitalsParams,
-        });
-
         const response = await getPatientVitalById(pid, vitalsParams);
-        console.log("SecondOpinion: raw vitals response", response?.data);
-
         const payload = response?.data?.data ?? response?.data;
         const patientVitals = Array.isArray(payload) ? payload[0] ?? null : payload;
         if (!mounted) return;
-
         if (patientVitals) {
           const formatted = {
             "Blood Pressure": patientVitals.bloodPressure || patientVitals.blood_pressure || "--",
@@ -487,73 +531,114 @@ const SecondOpinion = () => {
             "Height": patientVitals.height || "--",
             "Weight": patientVitals.weight || "--",
           };
-          console.log("SecondOpinion: formatted vitals for display", formatted);
           setVitalsData(formatted);
         } else {
-          console.log("SecondOpinion: no vitals found in response");
           setVitalsData({});
         }
       } catch (err) {
-        console.error("SecondOpinion: failed to fetch vitals", err);
         if (!mounted) return;
         setVitalsData({});
       }
     })();
-
     return () => {
       mounted = false;
     };
   }, [selectedRecordBase, user, recordQueryParams, recordTab]);
 
-  // Fetch patient prescriptions for this second opinion view
   useEffect(() => {
     const pid = selectedRecordBase?.patientId || selectedRecordBase?.id || user?.patientId || user?.id;
     if (!pid) return;
-
     let mounted = true;
     (async () => {
       try {
-        console.log("SecondOpinion: fetchPatientPrescriptions called with", {
-          patientId: pid,
-          recordQueryParams,
+        const res = await getPatientById(pid);
+        const data = res?.data?.data || res?.data || {};
+        const dob = data.dob || data.dateOfBirth;
+        const gender = data.gender || data.sex;
+        const age = calculateAgeFromDob(dob);
+        if (!mounted) return;
+        setPatientBasics({
+          gender: gender || "--",
+          dob: dob || null,
+          age: age ?? (selectedRecordBase?.age || null),
         });
+      } catch (e) {
+        if (!mounted) return;
+        setPatientBasics((prev) => ({
+          ...prev,
+          age: prev.age ?? (selectedRecordBase?.age || null),
+          gender: prev.gender || selectedRecordBase?.sex || selectedRecordBase?.gender || "--",
+        }));
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [selectedRecordBase, user]);
+
+  useEffect(() => {
+    const pid = selectedRecordBase?.patientId || selectedRecordBase?.id || user?.patientId || user?.id;
+    if (!pid) return;
+    let mounted = true;
+    (async () => {
+      try {
         const response = await getPatientPrescriptionsData(pid, recordQueryParams);
-        console.log("SecondOpinion: raw prescriptions response", response.data);
         let prescriptions = response.data?.data || response.data;
         if (!Array.isArray(prescriptions)) {
           prescriptions = prescriptions ? [prescriptions] : [];
         }
         const formatted = prescriptions.map((prescription) => {
-          const medicines = Array.isArray(prescription.medicines)
-            ? prescription.medicines
-            : prescription.medicines
-            ? [prescription.medicines]
-            : [];
+          let medicinesText = "";
+          let instructionsText = "";
+
+          if (Array.isArray(prescription.medicines)) {
+            const medsArray = prescription.medicines;
+            medicinesText = medsArray
+              .map((med) => {
+                const name = med.medicineName || med.name || "";
+                const dosage = med.dosage ? `${med.dosage}` : "";
+                const unit = med.dosageUnit || "";
+                const duration = med.duration || "";
+                const parts = [name, dosage && unit ? `${dosage} ${unit}` : dosage || unit, duration && `for ${duration}`]
+                  .filter(Boolean)
+                  .join(" ");
+                return parts || null;
+              })
+              .filter(Boolean)
+              .join(", ");
+
+            instructionsText = medsArray
+              .map((med) => (med.intake ? `Take ${med.intake}.` : null))
+              .filter(Boolean)
+              .join(" ");
+          } else {
+            if (typeof prescription.medicines === "string") {
+              medicinesText = prescription.medicines;
+            }
+            if (typeof prescription.instructions === "string") {
+              instructionsText = prescription.instructions;
+            }
+          }
+
           return {
             id: prescription.id || prescription.prescriptionId,
             date: prescription.prescribedAt
               ? new Date(prescription.prescribedAt).toLocaleDateString("en-GB")
-              : "N/A",
+              : prescription.date || "N/A",
             doctorName: prescription.doctorName || "N/A",
-            medicines: medicines
-              .map((med) => `${med.medicineName} - ${med.dosage} ${med.dosageUnit} for ${med.duration}`)
-              .join(", "),
-            instructions: medicines
-              .map((med) => `Take ${med.intake}.`)
-              .join(" "),
+            medicines: medicinesText || "N/A",
+            instructions: instructionsText || "N/A",
           };
         });
         if (!mounted) return;
         setPrescriptionsData(formatted);
         setPrescriptionError(null);
       } catch (err) {
-        console.error("SecondOpinion: failed to fetch patient prescriptions", err);
         if (!mounted) return;
         setPrescriptionError(err.response?.data?.message || "Failed to fetch prescriptions.");
         setPrescriptionsData([]);
       }
     })();
-
     return () => {
       mounted = false;
     };
@@ -562,16 +647,10 @@ const SecondOpinion = () => {
   useEffect(() => {
     const pid = selectedRecordBase?.patientId || selectedRecordBase?.id || user?.patientId || user?.id;
     if (!pid) return;
-
     let mounted = true;
     (async () => {
       try {
-        console.log("SecondOpinion: fetchLabScans called with", {
-          patientId: pid,
-          recordQueryParams,
-        });
         const response = await getLabScanByPatient(pid, recordQueryParams);
-        console.log("SecondOpinion: raw lab scans response", response.data);
         let labScans = response.data?.data || response.data;
         if (!Array.isArray(labScans)) {
           labScans = labScans ? [labScans] : [];
@@ -592,13 +671,11 @@ const SecondOpinion = () => {
         setLabTestsData(formatted);
         setLabError(null);
       } catch (err) {
-        console.error("SecondOpinion: failed to fetch lab scans", err);
         if (!mounted) return;
         setLabError(err.response?.data?.message || "Failed to fetch lab scans.");
         setLabTestsData([]);
       }
     })();
-
     return () => {
       mounted = false;
     };
@@ -606,21 +683,56 @@ const SecondOpinion = () => {
 
   const selectedRecord = {
     ...selectedRecordBase,
-    // Use raw age from the record (no DOB recomputation here)
-    age: selectedRecordBase?.age,
-    // Use sex/gender directly from the record
-    sex: selectedRecordBase?.sex || selectedRecordBase?.gender || "--",
-    // Use prescriptions fetched for this view when available, otherwise fall back
+    age: patientBasics.age ?? selectedRecordBase?.age,
+    sex: patientBasics.gender || selectedRecordBase?.sex || selectedRecordBase?.gender || "--",
     prescriptionsData: prescriptionsData.length ? prescriptionsData : (selectedRecordBase?.prescriptionsData || []),
     clinicalNotes: selectedRecordBase?.clinicalNotes || [],
     vitals: Object.keys(vitalsData || {}).length ? vitalsData : (selectedRecordBase.vitals || {}),
     medicalDetails: selectedRecordBase.medicalDetails || {},
     labTestsData: labTestsData.length ? labTestsData : (selectedRecordBase.labTestsData || []),
   };
-
-  // Display-friendly values (fallbacks when data missing)
   const displayAge = (selectedRecord.age !== null && selectedRecord.age !== undefined && selectedRecord.age !== "") ? String(selectedRecord.age) : "--";
   const displayGender = (selectedRecord.sex && selectedRecord.sex !== "--") ? selectedRecord.sex : "--";
+  const symptoms = clickedRecord?.symptomNames?.join(", ") || "--";
+  const rawVisitDate = selectedRecord.dateOfVisit || selectedRecord.dateOfAdmission || selectedRecord.dateOfConsultation;
+  const formatVisitDate = (value) => {
+    if (!value) return "--";
+    if (typeof value === "string" && /^\d{8}$/.test(value)) {
+      const year = value.slice(0, 4);
+      const month = value.slice(4, 6);
+      const day = value.slice(6, 8);
+      return `${day}/${month}/${year}`;
+    }
+    const d = new Date(value);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString("en-GB");
+    }
+    return String(value);
+  };
+  const formattedVisitDate = formatVisitDate(rawVisitDate);
+  const isIPD = String(recordTab || "").toUpperCase() === "IPD";
+  const isIPDRecord = isIPD || !!selectedRecord.ipdRecordId;
+  const admissionSource = selectedRecord.dateOfAdmission || clickedRecord?.dateOfAdmission;
+  const dischargeSource = selectedRecord.dateOfDischarge || clickedRecord?.dateOfDischarge;
+  const formattedAdmissionDate = isIPDRecord ? formatVisitDate(admissionSource) : null;
+  const formattedDischargeDate = isIPDRecord ? formatVisitDate(dischargeSource) : null;
+
+  const profileFields = [
+    { label: "Age", value: displayAge },
+    { label: "Gender", value: displayGender },
+    { label: "Hospital", value: selectedRecord.hospitalName },
+    { label: "Diagnosis", value: symptoms },
+    ...(isIPDRecord
+      ? [
+          { label: "Date of Admission", value: formattedAdmissionDate || "--" },
+          { label: "Date of Discharge", value: formattedDischargeDate || "--" },
+        ]
+      : [
+          { label: "Visit Date", value: formattedVisitDate },
+        ]),
+    { label: "K/C/O", value: selectedRecord["K/C/O"] ?? "--" },
+  ];
+
   const [formData, setFormData] = useState({
     selectedDoctor: "",
     urgencyLevel: "",
@@ -633,18 +745,23 @@ const SecondOpinion = () => {
   const [showPrintPreview, setShowPrintPreview] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isSending, setIsSending] = useState({ whatsapp: false, email: false });
-  // doctors list (fetched from API). fallback to a small static list while loading/failure
   const [doctors, setDoctors] = useState(["Dr. Rajesh Kumar (Cardiologist)", "Dr. Priya Sharma (Physician)", "Dr. Amit Patel (Neurologist)", "Dr. Sunita Reddy (Gastroenterologist)"]);
   const [doctorsLoading, setDoctorsLoading] = useState(false);
-  // fetch doctors from API and map to display strings
+  const [urgencyLevels, setUrgencyLevels] = useState([
+  
+  ]);
+  const [consultationModes, setConsultationModes] = useState([
+   
+  ]);
+  const [urgencyLoading, setUrgencyLoading] = useState(false);
+  const [consultLoading, setConsultLoading] = useState(false);
+
   useEffect(() => {
     let mounted = true;
     (async () => {
       setDoctorsLoading(true);
       try {
         const res = await getAllDoctors();
-        console.debug('getAllDoctors response:', res?.data);
-        if (!mounted) return;
         const list = Array.isArray(res?.data) ? res.data.map(d => {
           const nameParts = [d.firstName, d.middleName, d.lastName].filter(Boolean).join(' ');
           const spec = d.specialization || d.specializationName || '';
@@ -660,21 +777,7 @@ const SecondOpinion = () => {
     })();
     return () => { mounted = false; };
   }, []);
-  // fetched options (fall back to sensible defaults)
-  const [urgencyLevels, setUrgencyLevels] = useState([
-    { label: "Normal (3-5 days)", value: "normal" },
-    { label: "Urgent (1-2 days)", value: "urgent" },
-    { label: "Critical (Same day)", value: "critical" },
-  ]);
-  const [consultationModes, setConsultationModes] = useState([
-    { label: "In-person Visit", value: "in-person" },
-    { label: "Teleconsultation", value: "teleconsultation" },
-    { label: "Email Report", value: "email" },
-    { label: "Phone Consultation", value: "phone" },
-  ]);
-  const [urgencyLoading, setUrgencyLoading] = useState(false);
-  const [consultLoading, setConsultLoading] = useState(false);
-  // Load urgency levels and consultation modes from API (if available)
+
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -686,32 +789,23 @@ const SecondOpinion = () => {
           getConsultationModes().catch(() => ({ data: [] })),
         ]);
         if (!mounted) return;
-        // Debug responses to help diagnose why defaults might show
-        console.debug('getUrgencyLevels response:', uRes?.data);
-        console.debug('getConsultationModes response:', cRes?.data);
-  const mapToOptions = (arr, labelKeys = ["label", "name", "modeName", "urgencyLevelName", "consultationModeName", "urgencyTiming", "displayName", "title"], valueKeys = ["value", "id", "code"]) => {
+        const mapToOptions = (arr, labelKeys = ["label", "name", "modeName", "urgencyLevelName", "consultationModeName", "urgencyTiming", "displayName", "title"], valueKeys = ["value", "id", "code"]) => {
           if (!Array.isArray(arr)) return [];
           return arr.map((item) => {
-            // simple primitives
-            if (typeof item === 'string' || typeof item === 'number') return { label: String(item), value: item };
-            // try common label fields that are strings
             let label = null;
             for (const k of labelKeys) {
               const v = item?.[k];
               if (typeof v === 'string' || typeof v === 'number') { label = v; break; }
             }
-            // fallback: pick the first string/number property on the object
             if (!label) {
               for (const k of Object.keys(item || {})) {
                 const v = item[k];
                 if (typeof v === 'string' || typeof v === 'number') { label = v; break; }
               }
             }
-            // last resort: serialize the object (avoid [object Object])
             if (!label) {
               try { label = JSON.stringify(item); } catch (e) { label = String(item); }
             }
-            // determine value field
             let value = null;
             for (const k of valueKeys) {
               if (item?.[k] !== undefined) { value = item[k]; break; }
@@ -735,12 +829,14 @@ const SecondOpinion = () => {
     })();
     return () => { mounted = false; };
   }, []);
+
   const handleInputChange = (field, value) => setFormData((prev) => ({ ...prev, [field]: value }));
   const handleDoctorSelect = (doctor) => { setFormData((prev) => ({ ...prev, selectedDoctor: doctor })); setIsDropdownOpen(false); };
   const handleBack = () => navigate(-1);
   const isFormValid = () => {
     return formData.selectedDoctor && formData.urgencyLevel && formData.preferredMode;
   };
+  const isWhatsappValid = /^\d{10}$/.test((formData.contactPhone || "").trim());
   const handlePreview = () => {
     if (!isFormValid()) {
       toast.error("Please fill in all required fields (Doctor, Urgency Level, and Preferred Consultation Mode).");
@@ -758,7 +854,7 @@ const SecondOpinion = () => {
       patientId: selectedRecord.id,
       HospitalName: selectedRecord.hospitalName,
       Diagnosis: selectedRecord.diagnosis,
-      VisitDate: selectedRecord.dateOfVisit || selectedRecord.dateOfAdmission || selectedRecord.dateOfConsultation,
+      VisitDate: formattedVisitDate,
     },
   });
   const generateMessageContent = () => {
@@ -782,7 +878,7 @@ const SecondOpinion = () => {
               <div>Age: ${ (selectedRecord.age !== null && selectedRecord.age !== undefined && selectedRecord.age !== "") ? selectedRecord.age : "--" }</div>
               <div>Gender: ${ (selectedRecord.sex && selectedRecord.sex !== "--") ? selectedRecord.sex : "--" }</div>
               <div>Hospital: ${selectedRecord.hospitalName}</div>
-              <div>Diagnosis: ${selectedRecord.diagnosis}</div>
+              <div>Diagnosis: ${symptoms}</div>
               <div>K/C/O: ${selectedRecord["K/C/O"] ?? "--"}</div>
             </div>
           </div>
@@ -817,7 +913,7 @@ const SecondOpinion = () => {
               }).join("")}
             </div>
           </div>
-            <div style="margin-bottom: 24px;">
+          <div style="margin-bottom: 24px;">
             <h4 style="font-size: 18px; font-weight: bold; color: #0E1630; margin-bottom: 10px;">Medical Information</h4>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
               ${Object.entries(selectedRecord?.medicalDetails || {})
@@ -891,8 +987,12 @@ const SecondOpinion = () => {
         <div><strong>Gender:</strong> <span style='color:#0E1630;'>${requestData.patientInfo.Sex}</span></div>
         <div><strong>Patient ID:</strong> <span style='color:#0E1630;'>${requestData.patientInfo.patientId}</span></div>
         <div><strong>Hospital:</strong> <span style='color:#0E1630;'>${requestData.patientInfo.HospitalName}</span></div>
-        <div><strong>Diagnosis:</strong> <span style='color:#0E1630;'>${requestData.patientInfo.Diagnosis}</span></div>
+        <div><strong>Diagnosis:</strong> <span style='color:#0E1630;'>${symptoms}</span></div>
         <div><strong>Visit Date:</strong> <span style='color:#0E1630;'>${requestData.patientInfo.VisitDate}</span></div>
+        ${isIPDRecord
+          ? `<div><strong>Date of Admission:</strong> <span style='color:#0E1630;'>${formattedAdmissionDate || '--'}</span></div>
+             <div><strong>Date of Discharge:</strong> <span style='color:#0E1630;'>${formattedDischargeDate || '--'}</span></div>`
+          : ''}
         <div><strong>K/C/O:</strong> <span style='color:#0E1630;'>${selectedRecord["K/C/O"] ?? "--"}</span></div>
       </div>
     `;
@@ -1096,12 +1196,13 @@ const SecondOpinion = () => {
         selectedRecord={selectedRecord}
         onClose={() => setShowMedicalRecords(false)}
         user={user}
+        symptoms={symptoms}
+        recordTab={recordTab}
       />
     );
   }
   return (
     <div className="p-4 sm:p-6 space-y-6">
-    
       <div className="text-left mb-8">
         <div className="inline-flex items-center gap-3">
           <Stethoscope size={32} className="primary-color" />
@@ -1120,18 +1221,11 @@ const SecondOpinion = () => {
           <button onClick={() => setShowMedicalRecords(true)} className="mt-4 sm:mt-0 view-btn px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Preview Medical Records</button>
         </div>
       </div>
-         <ProfileCard
-            initials={(selectedRecord?.patientName && selectedRecord.patientName.charAt(0)) || user?.firstName?.charAt(0) || "N"}
-            name={selectedRecord?.patientName || `${user?.firstName || "N/A"} ${user?.lastName || ""}`}
-            fields={[
-              { label: "Age", value: selectedRecord.age },
-              { label: "Gender", value: selectedRecord.sex },
-              { label: "Hospital", value: selectedRecord.hospitalName },
-              { label: "Diagnosis", value: selectedRecord.diagnosis },
-              { label: "Visit Date", value: selectedRecord.dateOfVisit || selectedRecord.dateOfAdmission || selectedRecord.dateOfConsultation },
-              { label: "K/C/O", value: selectedRecord["K/C/O"] ?? "--" },
-            ]}
-          />
+      <ProfileCard
+        initials={(selectedRecord?.patientName && selectedRecord.patientName.charAt(0)) || user?.firstName?.charAt(0) || "N"}
+        name={selectedRecord?.patientName || `${user?.firstName || "N/A"} ${user?.lastName || ""}`}
+        fields={profileFields}
+      />
       <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <div>
@@ -1167,7 +1261,7 @@ const SecondOpinion = () => {
                 <>
                   <option value="">Select urgency level</option>
                   {urgencyLevels.map((level) => (
-                    <option key={level.value} value={level.value}>{level.label}</option>
+                    <option key={level.value} value={level.label}>{level.label}</option>
                   ))}
                 </>
               )}
@@ -1188,7 +1282,7 @@ const SecondOpinion = () => {
                 <>
                   <option value="">Select consultation mode</option>
                   {consultationModes.map((mode) => (
-                    <option key={mode.value} value={mode.value}>{mode.label}</option>
+                    <option key={mode.value} value={mode.label}>{mode.label}</option>
                   ))}
                 </>
               )}
@@ -1231,7 +1325,7 @@ const SecondOpinion = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-4 sm:p-6">
               <div>
                 <div className="bg-white border border-gray-300 rounded-lg shadow-lg overflow-hidden text-sm" style={{ fontFamily: "Times, serif" }}>
-                  <PrintContent requestData={generateRequestData()} selectedRecord={selectedRecord} formData={formData} user={user} />
+                  <PrintContent requestData={generateRequestData()} selectedRecord={selectedRecord} formData={formData} user={user} symptoms={symptoms} />
                 </div>
               </div>
               <div className="space-y-6">
@@ -1241,7 +1335,14 @@ const SecondOpinion = () => {
                   <div className="grid grid-cols-1 gap-6">
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2"><Phone size={16} className="inline mr-2" />WhatsApp Number</label>
-                      <input type="tel" value={formData.contactPhone} onChange={(e) => handleInputChange("contactPhone", e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" />
+                      <input
+                        type="tel"
+                        value={formData.contactPhone}
+                        onChange={(e) => handleInputChange("contactPhone", e.target.value)}
+                        className={`w-full p-3 rounded-lg border ${
+                          isWhatsappValid ? "border-green-500 focus:border-green-500" : "border-gray-300 focus:border-blue-500"
+                        }`}
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2"><AtSign size={16} className="inline mr-2" />Email Address</label>
@@ -1276,4 +1377,5 @@ const SecondOpinion = () => {
     </div>
   );
 };
-export default SecondOpinion; 
+
+export default SecondOpinion;
