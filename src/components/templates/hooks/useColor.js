@@ -1,21 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useColorContext } from '../../../contexts/ColorContext';
 
 export const useColor = (initialColor = '#2563eb') => {
-  const [selectedColor, setSelectedColor] = useState(initialColor);
+  const { selectedColor, setSelectedColor, recentColors, addToRecentColors, clearRecentColors } = useColorContext();
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
-  const [recentColors, setRecentColors] = useState([]);
 
   // Load recent colors from localStorage on mount
   useEffect(() => {
     const savedColors = localStorage.getItem('recentTemplateColors');
     if (savedColors) {
       try {
-        setRecentColors(JSON.parse(savedColors));
+        const parsedColors = JSON.parse(savedColors);
+        parsedColors.forEach(color => addToRecentColors(color));
       } catch (error) {
         console.error('Error loading recent colors:', error);
       }
     }
-  }, []);
+  }, [addToRecentColors]);
 
   // Save recent colors to localStorage whenever they change
   useEffect(() => {
@@ -23,17 +24,10 @@ export const useColor = (initialColor = '#2563eb') => {
   }, [recentColors]);
 
   const handleColorChange = useCallback((color) => {
+    console.log("HANDLING COLOR", color)
     const hexColor = typeof color === 'string' ? color : color.hex;
     setSelectedColor(hexColor);
-    addToRecentColors(hexColor);
-  }, []);
-
-  const addToRecentColors = useCallback((color) => {
-    setRecentColors(prev => {
-      const filtered = prev.filter(c => c !== color);
-      return [color, ...filtered].slice(0, 8); // Keep only 8 most recent
-    });
-  }, []);
+  }, [setSelectedColor]);
 
   const toggleColorPicker = useCallback(() => {
     setIsColorPickerOpen(prev => !prev);
@@ -49,8 +43,7 @@ export const useColor = (initialColor = '#2563eb') => {
 
   const resetColor = useCallback(() => {
     setSelectedColor('#2563eb');
-    addToRecentColors('#2563eb');
-  }, [addToRecentColors]);
+  }, [setSelectedColor]);
 
   const getContrastColor = useCallback((hexColor) => {
     if (!hexColor || typeof hexColor !== 'string') return '#000000';
@@ -85,7 +78,7 @@ export const useColor = (initialColor = '#2563eb') => {
     recentColors,
     
     // Actions
-    setSelectedColor: handleColorChange,
+    setSelectedColor,
     setIsColorPickerOpen,
     
     // Methods

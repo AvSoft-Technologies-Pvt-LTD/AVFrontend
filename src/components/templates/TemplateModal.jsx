@@ -1,33 +1,33 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  X, 
-  Palette, 
-  Search, 
+import React, { useState, useEffect } from "react";
+import {
+  X,
+  Palette,
+  Search,
   Grid,
   Star,
   Clock,
   Check,
   Eye,
   Play,
-  ChevronDown
-} from 'lucide-react';
+  ChevronDown,
+} from "lucide-react";
 
 // Import components and hooks
-import TemplateCard from './TemplateCard';
-import TemplatePreview from './TemplatePreview';
-import ColorPicker from './ColorPicker';
-import { useTemplates } from './hooks/useTemplates';
-import { useColor } from './hooks/useColor';
-import { usePreview } from './hooks/usePreview';
-import { templateCategories, defaultUserData } from './data/templateData';
+import TemplateCard from "./TemplateCard";
+import TemplatePreview from "./TemplatePreview";
+import ColorPicker from "./ColorPicker";
+import { useTemplates } from "./hooks/useTemplates";
+import { useColor } from "./hooks/useColor";
+import { usePreview } from "./hooks/usePreview";
+import { defaultUserData } from "./data/templateData";
 
-const TemplateModal = ({ 
-  isOpen, 
-  onClose, 
-  onSelectTemplate, 
+const TemplateModal = ({
+  isOpen,
+  onClose,
+  onSelectTemplate,
   selectedTemplate,
   userData: propUserData,
-  patientData 
+  patientData,
 }) => {
   // State management
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
@@ -44,13 +44,20 @@ const TemplateModal = ({
     setSearchTerm,
     sortBy,
     setSortBy,
-    loading
+    loading,
   } = useTemplates();
 
-  const {
-    selectedColor,
-    handleColorChange
-  } = useColor();
+  const { selectedColor, handleColorChange } = useColor();
+
+  
+    // Calculate brightness to determine text color
+  const hexColor = selectedColor.replace("#", "");
+  const r = parseInt(hexColor.substr(0, 2), 16);
+  const g = parseInt(hexColor.substr(2, 2), 16);
+  const b = parseInt(hexColor.substr(4, 2), 16);
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+
+  const textColor = brightness > 128 ? "#000000" : "#FFFFFF";
 
   const {
     previewData,
@@ -58,24 +65,26 @@ const TemplateModal = ({
     generatePreview,
     closePreview,
     downloadPreview,
-    isGenerating
+    isGenerating,
   } = usePreview();
+
+  console.log("SELECTED UPDATED COLOR", selectedColor);
 
   // Merge user data with defaults
   const userData = {
     ...defaultUserData,
     ...propUserData,
-    patientName: patientData?.fullName || 'Patient Name',
-    age: patientData?.age || 'Age',
-    gender: patientData?.gender || 'Gender',
-    contact: patientData?.contact || 'Contact Information'
+    patientName: patientData?.fullName || "Patient Name",
+    age: patientData?.age || "Age",
+    gender: patientData?.gender || "Gender",
+    contact: patientData?.contact || "Contact Information",
   };
 
   // Load recent templates from localStorage
   useEffect(() => {
-    const savedRecent = localStorage.getItem('recentTemplates');
-    const savedFavorites = localStorage.getItem('favoriteTemplates');
-    
+    const savedRecent = localStorage.getItem("recentTemplates");
+    const savedFavorites = localStorage.getItem("favoriteTemplates");
+
     if (savedRecent) {
       setRecentTemplates(JSON.parse(savedRecent));
     }
@@ -88,26 +97,26 @@ const TemplateModal = ({
   const addToRecentTemplates = (template) => {
     const updatedRecent = [
       template,
-      ...recentTemplates.filter(t => t.id !== template.id)
+      ...recentTemplates.filter((t) => t.id !== template.id),
     ].slice(0, 5); // Keep only 5 most recent
-    
+
     setRecentTemplates(updatedRecent);
-    localStorage.setItem('recentTemplates', JSON.stringify(updatedRecent));
+    localStorage.setItem("recentTemplates", JSON.stringify(updatedRecent));
   };
 
   // Toggle favorite template
   const toggleFavorite = (template) => {
-    const isFavorite = favoriteTemplates.some(t => t.id === template.id);
+    const isFavorite = favoriteTemplates.some((t) => t.id === template.id);
     let updatedFavorites;
-    
+
     if (isFavorite) {
-      updatedFavorites = favoriteTemplates.filter(t => t.id !== template.id);
+      updatedFavorites = favoriteTemplates.filter((t) => t.id !== template.id);
     } else {
       updatedFavorites = [template, ...favoriteTemplates];
     }
-    
+
     setFavoriteTavorites(updatedFavorites);
-    localStorage.setItem('favoriteTemplates', JSON.stringify(updatedFavorites));
+    localStorage.setItem("favoriteTemplates", JSON.stringify(updatedFavorites));
   };
 
   // Handle template selection
@@ -115,9 +124,9 @@ const TemplateModal = ({
     const templateWithColor = {
       ...template,
       customColor: selectedColor,
-      selectedAt: new Date().toISOString()
+      selectedAt: new Date().toISOString(),
     };
-    
+
     addToRecentTemplates(template);
     onSelectTemplate(templateWithColor);
     onClose();
@@ -135,9 +144,9 @@ const TemplateModal = ({
 
   // Filter templates based on current view
   const getDisplayTemplates = () => {
-    if (selectedCategory === 'recent') {
+    if (selectedCategory === "recent") {
       return recentTemplates;
-    } else if (selectedCategory === 'favorites') {
+    } else if (selectedCategory === "favorites") {
       return favoriteTemplates;
     }
     return templates;
@@ -159,20 +168,20 @@ const TemplateModal = ({
       Clock: () => <Clock size={16} />,
       Eye: () => <Eye size={16} />,
       Play: () => <Play size={16} />,
-      Check: () => <Check size={16} />
+      Check: () => <Check size={16} />,
     };
-    
+
     return icons[iconName] || icons.Grid;
   };
 
   if (!isOpen) return null;
+
 
   return (
     <>
       {/* Main Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-2 md:p-4">
         <div className="bg-white rounded-2xl shadow-2xl max-w-7xl w-full h-full md:h-auto md:max-h-[95vh] overflow-hidden flex flex-col">
-          
           {/* Modal Header */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 md:p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white gap-3">
             <div className="flex items-center gap-3">
@@ -188,10 +197,10 @@ const TemplateModal = ({
                 </p>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-2 md:gap-3 w-full sm:w-auto justify-between sm:justify-end">
               {/* Color Picker */}
-              <ColorPicker 
+              <ColorPicker
                 selectedColor={selectedColor}
                 onColorChange={handleColorChange}
                 size="small"
@@ -213,11 +222,14 @@ const TemplateModal = ({
           {/* Filters & Search Bar */}
           <div className="p-3 md:p-4 border-b border-gray-200 bg-gray-50/80">
             <div className="flex flex-col lg:flex-row gap-3 md:gap-4 items-start lg:items-center">
-              
               {/* Search Input */}
               <div className="flex-1 w-full lg:w-auto">
                 <div className="relative max-w-md">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} md:size={20} />
+                  <Search
+                    className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                    size={18}
+                    md:size={20}
+                  />
                   <input
                     type="text"
                     placeholder="Search templates by name, description..."
@@ -232,11 +244,11 @@ const TemplateModal = ({
               <div className="flex flex-wrap gap-2">
                 {/* All Categories Button */}
                 <button
-                  onClick={() => setSelectedCategory('all')}
+                  onClick={() => setSelectedCategory("all")}
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    selectedCategory === 'all' 
-                      ? 'bg-blue-600 text-white' 
-                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                    selectedCategory === "all"
+                      ? "bg-blue-600 text-white"
+                      : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
                   }`}
                 >
                   <Grid size={16} />
@@ -246,11 +258,11 @@ const TemplateModal = ({
                 {/* Recent Templates */}
                 {recentTemplates.length > 0 && (
                   <button
-                    onClick={() => setSelectedCategory('recent')}
+                    onClick={() => setSelectedCategory("recent")}
                     className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      selectedCategory === 'recent' 
-                        ? 'bg-blue-600 text-white' 
-                        : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                      selectedCategory === "recent"
+                        ? "bg-blue-600 text-white"
+                        : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
                     }`}
                   >
                     <Clock size={16} />
@@ -261,11 +273,11 @@ const TemplateModal = ({
                 {/* Favorite Templates */}
                 {favoriteTemplates.length > 0 && (
                   <button
-                    onClick={() => setSelectedCategory('favorites')}
+                    onClick={() => setSelectedCategory("favorites")}
                     className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      selectedCategory === 'favorites' 
-                        ? 'bg-blue-600 text-white' 
-                        : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                      selectedCategory === "favorites"
+                        ? "bg-blue-600 text-white"
+                        : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
                     }`}
                   >
                     <Star size={16} />
@@ -276,7 +288,9 @@ const TemplateModal = ({
                 {/* Category Dropdown */}
                 <div className="relative">
                   <button
-                    onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                    onClick={() =>
+                      setShowCategoryDropdown(!showCategoryDropdown)
+                    }
                     className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition-colors"
                   >
                     <span className="hidden sm:inline">Categories</span>
@@ -286,7 +300,9 @@ const TemplateModal = ({
 
                   {showCategoryDropdown && (
                     <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-300 rounded-lg shadow-lg z-10 py-1">
-                      {categories?.filter(cat => cat.value !== 'all')?.map(category => {
+                      {categories
+                        ?.filter((cat) => cat.value !== "all")
+                        ?.map((category) => {
                           const IconComponent = getIconComponent(category.icon);
                           return (
                             <button
@@ -345,16 +361,16 @@ const TemplateModal = ({
                   No templates found
                 </h3>
                 <p className="text-gray-600 max-w-md mx-auto">
-                  {selectedCategory === 'recent' 
+                  {selectedCategory === "recent"
                     ? "You haven't used any templates recently. Select a template to get started."
-                    : selectedCategory === 'favorites'
+                    : selectedCategory === "favorites"
                     ? "You don't have any favorite templates yet. Click the star icon to add templates to favorites."
-                    : "No templates match your search criteria. Try adjusting your filters or search term."
-                  }
+                    : "No templates match your search criteria. Try adjusting your filters or search term."}
                 </p>
-                {(selectedCategory === 'recent' || selectedCategory === 'favorites') && (
+                {(selectedCategory === "recent" ||
+                  selectedCategory === "favorites") && (
                   <button
-                    onClick={() => setSelectedCategory('all')}
+                    onClick={() => setSelectedCategory("all")}
                     className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                   >
                     Browse All Templates
@@ -368,33 +384,42 @@ const TemplateModal = ({
                 <div className="flex justify-between items-center mb-6">
                   <div>
                     <h3 className="text-lg font-semibold text-gray-800">
-                      {selectedCategory === 'recent' && 'Recently Used Templates'}
-                      {selectedCategory === 'favorites' && 'Favorite Templates'}
-                      {selectedCategory !== 'recent' && selectedCategory !== 'favorites' && 'Available Templates'}
+                      {selectedCategory === "recent" &&
+                        "Recently Used Templates"}
+                      {selectedCategory === "favorites" && "Favorite Templates"}
+                      {selectedCategory !== "recent" &&
+                        selectedCategory !== "favorites" &&
+                        "Available Templates"}
                     </h3>
                     <p className="text-sm text-gray-600">
-                      {displayTemplates.length} template{displayTemplates.length !== 1 ? 's' : ''} available
+                      {displayTemplates.length} template
+                      {displayTemplates.length !== 1 ? "s" : ""} available
                     </p>
                   </div>
-                  
-                  {selectedCategory === 'recent' && recentTemplates.length > 0 && (
-                    <button
-                      onClick={() => {
-                        setRecentTemplates([]);
-                        localStorage.removeItem('recentTemplates');
-                      }}
-                      className="px-3 py-1 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                      Clear Recent
-                    </button>
-                  )}
+
+                  {selectedCategory === "recent" &&
+                    recentTemplates.length > 0 && (
+                      <button
+                        onClick={() => {
+                          setRecentTemplates([]);
+                          localStorage.removeItem("recentTemplates");
+                        }}
+                        className="px-3 py-1 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        Clear Recent
+                      </button>
+                    )}
                 </div>
 
                 {/* Templates Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
                   {displayTemplates.map((template) => {
-                    const isFavorite = favoriteTemplates.some(t => t.id === template.id);
-                    const isRecent = recentTemplates.some(t => t.id === template.id);
+                    const isFavorite = favoriteTemplates.some(
+                      (t) => t.id === template.id
+                    );
+                    const isRecent = recentTemplates.some(
+                      (t) => t.id === template.id
+                    );
                     const isSelected = selectedTemplate?.id === template.id;
 
                     return (
@@ -410,6 +435,7 @@ const TemplateModal = ({
                         onQuickApply={handleQuickApply}
                         onToggleFavorite={toggleFavorite}
                         userData={userData}
+                        textColor={textColor}
                       />
                     );
                   })}
@@ -423,20 +449,27 @@ const TemplateModal = ({
             <div className="text-sm text-gray-600 w-full sm:w-auto">
               {selectedTemplate ? (
                 <div className="flex items-center gap-2">
-                  <div 
+                  <div
                     className="w-3 h-3 rounded-full"
                     style={{ backgroundColor: selectedColor }}
                   ></div>
                   <span>
-                    Selected: <strong className="hidden sm:inline">{selectedTemplate.name}</strong>
-                    <strong className="sm:hidden">{selectedTemplate?.name?.length > 20 ? selectedTemplate?.name?.substring(0, 20) + '...' : selectedTemplate?.name}</strong>
+                    Selected:{" "}
+                    <strong className="hidden sm:inline">
+                      {selectedTemplate.name}
+                    </strong>
+                    <strong className="sm:hidden">
+                      {selectedTemplate?.name?.length > 20
+                        ? selectedTemplate?.name?.substring(0, 20) + "..."
+                        : selectedTemplate?.name}
+                    </strong>
                   </span>
                 </div>
               ) : (
-                'No template selected'
+                "No template selected"
               )}
             </div>
-            
+
             <div className="flex gap-2 sm:gap-3 w-full sm:w-auto justify-end">
               <button
                 onClick={onClose}
@@ -445,7 +478,9 @@ const TemplateModal = ({
                 Cancel
               </button>
               <button
-                onClick={() => selectedTemplate && handleTemplateSelect(selectedTemplate)}
+                onClick={() =>
+                  selectedTemplate && handleTemplateSelect(selectedTemplate)
+                }
                 disabled={!selectedTemplate}
                 className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
               >
@@ -465,6 +500,7 @@ const TemplateModal = ({
           onUseTemplate={() => handleTemplateSelect(previewData.template)}
           onDownload={downloadPreview}
           selectedColor={selectedColor}
+          textColor={textColor}
         />
       )}
     </>

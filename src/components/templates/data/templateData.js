@@ -747,138 +747,16 @@ export const predefinedTemplates = [
   }
 ];
 
-// Template Categories with Icons and Metadata
-export const templateCategories = [
-  { 
-    id: 1, 
-    name: "All Templates", 
-    value: "all", 
-    icon: "Grid", 
-    description: "Browse all available medical templates",
-    color: "#6B7280",
-    count: predefinedTemplates.length
-  },
-  { 
-    id: 2, 
-    name: "Medical", 
-    value: "medical", 
-    icon: "Stethoscope", 
-    description: "General medical and prescription templates",
-    color: "#2563EB",
-    count: predefinedTemplates.filter(t => t.category === "medical").length
-  },
-  { 
-    id: 3, 
-    name: "Pediatric", 
-    value: "pediatric", 
-    icon: "Baby", 
-    description: "Child-friendly pediatric care templates",
-    color: "#F59E0B",
-    count: predefinedTemplates.filter(t => t.category === "pediatric").length
-  },
-  { 
-    id: 4, 
-    name: "Specialist", 
-    value: "specialist", 
-    icon: "Brain", 
-    description: "Specialized medical field templates",
-    color: "#8B5CF6",
-    count: predefinedTemplates.filter(t => t.category === "specialist").length
-  },
-  { 
-    id: 5, 
-    name: "Luxury", 
-    value: "luxury", 
-    icon: "Crown", 
-    description: "Premium and executive healthcare templates",
-    color: "#D97706",
-    count: predefinedTemplates.filter(t => t.category === "luxury").length
-  },
-  { 
-    id: 6, 
-    name: "Emergency", 
-    value: "emergency", 
-    icon: "Activity", 
-    description: "Emergency and critical care templates",
-    color: "#DC2626",
-    count: predefinedTemplates.filter(t => t.category === "emergency").length
-  },
-  { 
-    id: 7, 
-    name: "Dental", 
-    value: "dental", 
-    icon: "Tooth", 
-    description: "Dental and oral healthcare templates",
-    color: "#10B981",
-    count: predefinedTemplates.filter(t => t.category === "dental").length
-  },
-  { 
-    id: 8, 
-    name: "Physiotherapy", 
-    value: "physiotherapy", 
-    icon: "Activity", 
-    description: "Physiotherapy and rehabilitation templates",
-    color: "#3B82F6",
-    count: predefinedTemplates.filter(t => t.category === "physiotherapy").length
-  },
-  { 
-    id: 9, 
-    name: "Wellness", 
-    value: "wellness", 
-    icon: "Sparkles", 
-    description: "Wellness and holistic health templates",
-    color: "#EC4899",
-    count: predefinedTemplates.filter(t => t.category === "wellness").length
-  },
-  { 
-    id: 10, 
-    name: "Minimalist", 
-    value: "minimalist", 
-    icon: "Minimize", 
-    description: "Simple and minimal medical templates",
-    color: "#6B7280",
-    count: predefinedTemplates.filter(t => t.category === "minimalist").length
-  }
-];
-
-// Special Categories for UI
-export const specialCategories = [
-  {
-    id: 'recent',
-    name: 'Recently Used',
-    value: 'recent',
-    icon: 'Clock',
-    description: 'Templates you have used recently',
-    color: '#8B5CF6'
-  },
-  {
-    id: 'favorites',
-    name: 'Favorites',
-    value: 'favorites',
-    icon: 'Star',
-    description: 'Your favorite templates',
-    color: '#F59E0B'
-  },
-  {
-    id: 'popular',
-    name: 'Popular',
-    value: 'popular',
-    icon: 'TrendingUp',
-    description: 'Most commonly used templates',
-    color: '#EF4444'
-  }
-];
-
 // Default User Data Structure
 export const defaultUserData = {
   // Hospital/Clinic Information
   hospitalName: "AV MEDICAL CENTER",
   hospitalSubtitle: "Multi-Speciality Hospital",
   hospitalAddressLine1: "123 Health Street, Medical Complex",
-  hospitalAddressLine2: "Mumbai - 400001, Maharashtra, India",
-  hospitalCity: "Mumbai",
-  hospitalState: "Maharashtra",
-  hospitalPincode: "400001",
+  hospitalAddressLine2: "Dharwad - 580001, Karnataka, India",
+  hospitalCity: "Dharwad",
+  hospitalState: "Karnataka",
+  hospitalPincode: "580001",
   hospitalCountry: "India",
   hospitalPhone: "+91-22-12345678",
   hospitalEmail: "info@avmedicalcenter.com",
@@ -941,113 +819,11 @@ export const defaultUserData = {
   }
 };
 
-// Default Patient Data Structure
-export const defaultPatientData = {
-  // Basic Information
-  fullName: "Patient Name",
-  age: "Age",
-  gender: "Gender",
-  dateOfBirth: "Date of Birth",
-  contact: "Contact Number",
-  email: "patient@email.com",
-  emergencyContact: "Emergency Contact",
-  
-  // Address Information
-  address: "Patient Address",
-  city: "City",
-  state: "State",
-  pincode: "Pincode",
-  country: "Country",
-  
-  // Medical Information
-  bloodGroup: "Blood Group",
-  allergies: "Known Allergies",
-  currentMedications: "Current Medications",
-  pastMedicalHistory: "Past Medical History",
-  familyHistory: "Family Medical History",
-  surgicalHistory: "Surgical History",
-  
-  // Insurance Information
-  insuranceProvider: "Insurance Provider",
-  insuranceNumber: "Insurance Policy Number",
-  insuranceValidUntil: "Insurance Valid Until"
-};
 
-// Template Features and Capabilities
-export const templateFeatures = {
-  // Layout Features
-  layout: [
-    "Responsive Design",
-    "Print Optimized",
-    "Mobile Friendly",
-    "Accessibility Ready"
-  ],
-  
-  // Medical Features
-  medical: [
-    "Prescription Ready",
-    "Lab Results Section",
-    "Vital Signs Tracking",
-    "Progress Notes",
-    "Follow-up Planning"
-  ],
-  
-  // Customization Features
-  customization: [
-    "Color Customization",
-    "Logo Support",
-    "Section Reordering",
-    "Field Customization"
-  ],
-  
-  // Export Features
-  export: [
-    "PDF Export",
-    "Image Export",
-    "Print Ready",
-    "Digital Signature"
-  ]
-};
 
-// Helper Functions
-export const getTemplatesByCategory = (category) => {
-  if (category === 'all') return predefinedTemplates;
-  return predefinedTemplates.filter(template => template.category === category);
-};
-
-export const getPopularTemplates = () => {
-  return predefinedTemplates.filter(template => template.isPopular);
-};
-
-export const getTemplateById = (id) => {
-  return predefinedTemplates.find(template => template.id === id);
-};
-
-export const searchTemplates = (query) => {
-  const searchTerm = query.toLowerCase();
-  return predefinedTemplates.filter(template => 
-    template.name.toLowerCase().includes(searchTerm) ||
-    template.description.toLowerCase().includes(searchTerm) ||
-    template.tags.some(tag => tag.toLowerCase().includes(searchTerm))
-  );
-};
-
-export const getCategoryInfo = (categoryValue) => {
-  return templateCategories.find(cat => cat.value === categoryValue) || 
-         specialCategories.find(cat => cat.value === categoryValue);
-};
 
 // Export everything
 export default {
   predefinedTemplates,
-  templateCategories,
-  specialCategories,
   defaultUserData,
-  defaultPatientData,
-  templateFeatures,
-  getTemplatesByCategory,
-  getPopularTemplates,
-  getTemplateById,
-  searchTemplates,
-  getCategoryInfo
 };

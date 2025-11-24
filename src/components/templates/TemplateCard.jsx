@@ -29,6 +29,7 @@ const TemplateCard = ({
   onToggleFavorite,
   selectedColor,
   userData,
+  textColor,
 }) => {
   // Function to get the appropriate icon component
   const getIconComponent = (iconName) => {
@@ -42,7 +43,7 @@ const TemplateCard = ({
       Shield: Shield,
       Activity: Activity,
       Book: Book,
-    //   Tooth: Tooth,
+      //   Tooth: Tooth,
       Minimize: Minimize,
     };
 
@@ -75,12 +76,12 @@ const TemplateCard = ({
       {/* Template Preview Card */}
       <div
         className="bg-white border-2 border-gray-200 rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow"
-        style={{ backgroundColor: template.bgColor }}
+        style={{ backgroundColor: template.bgColor, color: textColor }}
       >
         {/* Card Header with Color Bar */}
         <div
           className="h-2 w-full"
-          style={{ backgroundColor: selectedColor }}
+          style={{ backgroundColor: selectedColor, color: textColor }}
         ></div>
 
         {/* Mini Template Preview */}
@@ -88,13 +89,13 @@ const TemplateCard = ({
           {/* Template Header Preview */}
           <div
             className="h-16 flex flex-col justify-center p-3 rounded-lg mb-3 text-white"
-            style={{ backgroundColor: selectedColor }}
+            style={{ backgroundColor: selectedColor, color: textColor }}
           >
             <div className="text-white text-xs font-bold text-center">
-              <div className="text-sm truncate">
+              <div className="text-sm truncate" style={{ color: textColor }}>
                 {userData?.hospitalName || "Your Hospital"}
               </div>
-              <div className="text-xs opacity-90 truncate">
+              <div className="text-xs opacity-90 truncate" style={{ color: textColor }}>
                 {userData?.hospitalSubtitle || "Medical Center"}
               </div>
             </div>

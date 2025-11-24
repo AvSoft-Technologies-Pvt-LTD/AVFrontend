@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useColorContext } from "../../contexts/ColorContext";
 import {
   ArrowLeft,
   Save,
@@ -57,6 +58,7 @@ const ImageAnnotation = () => {
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [showTemplateDropdown, setShowTemplateDropdown] = useState(false);
   const [templateLoading, setTemplateLoading] = useState(false);
+  const [isTemplateDataLoading, setIsTemplateDataLoading] = useState(false);
   const [editableFields, setEditableFields] = useState({});
   const [hospitalFields, setHospitalFields] = useState({});
   const [editingField, setEditingField] = useState(null);
@@ -68,7 +70,7 @@ const ImageAnnotation = () => {
   const [activeSection, setActiveSection] = useState("medical"); // "medical" or "hospital"
   const [previewAnnotatedImage, setPreviewAnnotatedImage] = useState(null);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
-  const [selectedColor, setSelectedColor] = useState("#2563eb");
+  const { selectedColor } = useColorContext();
   const livePreviewRef = useRef(null);
   const overlayContainerRef = useRef(null);
   const [showSidebar, setShowSidebar] = useState(true);
@@ -85,7 +87,9 @@ const ImageAnnotation = () => {
     chiefComplaint: { left: 6, top: 34, width: 88, height: 8 },
     historyOfPresentIllness: { left: 6, top: 44, width: 88, height: 14 },
     physicalExamination: { left: 6, top: 60, width: 88, height: 8 },
-    treatmentPlan: { left: 6, top: 70, width: 88, height: 10 },
+    provisionalDiagnosis: { left: 6, top: 70, width: 88, height: 8 },
+    treatmentPlan: { left: 6, top: 80, width: 88, height: 10 },
+    additionalNotes: { left: 6, top: 92, width: 88, height: 8 },
   }));
   const draggingRef = useRef({
     field: null,
@@ -197,20 +201,21 @@ const ImageAnnotation = () => {
 
   // Initialize hospital fields with default values
   useEffect(() => {
-    console.log("User data for hospital fields:", user);
+    console.log("User data for hospital fields:", hospitalFields);
+    console.log("User data for editable fields:", editableFields);
     if (user) {
       setHospitalFields({
-        hospitalName: "AV MEDICAL CENTER",
-        hospitalSubtitle: "Multi-Speciality Hospital",
-        hospitalAddressLine1: "123 Health Street, Medical Complex",
-        hospitalAddressLine2: "Mumbai - 400001, Maharashtra",
-        hospitalPhone: "022-12345678",
-        hospitalEmail: "info@citymedical.com",
-        doctorFullName: user.name || "Dr. Haris Patel",
-        doctorDepartment: "Cardiology",
-        doctorLicense: "MMC-12345",
-        doctorContact: user.contact || "9876543210",
-        doctorQualifications: "MD, DM Cardiology",
+        hospitalName: editableFields.hospitalName || hospitalFields.hospitalName || "AV MEDICAL CENTER here",
+        hospitalSubtitle: editableFields.hospitalSubtitle || hospitalFields.hospitalSubtitle || "Multi-Speciality Hospital",
+        hospitalAddressLine1: editableFields.hospitalAddressLine1 || hospitalFields.hospitalAddressLine1 || "123 Health Street, Medical Complex",
+        hospitalAddressLine2: editableFields.hospitalAddressLine2 || hospitalFields.hospitalAddressLine2 || "Dharwad - 580001, Karnataka",
+        hospitalPhone: editableFields.hospitalPhone || hospitalFields.hospitalPhone || "022-12345678",
+        hospitalEmail: editableFields.hospitalEmail || hospitalFields.hospitalEmail || "info@avmedicalcenter.com",
+        doctorFullName: editableFields.doctorName || hospitalFields.doctorFullName || user.name,
+        doctorDepartment: editableFields.doctorDepartment || hospitalFields.doctorDepartment,
+        doctorLicense: editableFields.doctorLicense || hospitalFields.doctorLicense,
+        doctorContact: editableFields.doctorContact || hospitalFields.doctorContact,
+        doctorQualifications: editableFields.doctorQualifications || hospitalFields.doctorQualifications,
       });
     }
   }, [user]);
@@ -323,9 +328,9 @@ const ImageAnnotation = () => {
     setTemplatePrintId(null);
   };
   const handleTemplateSelect = async (template) => {
-    console.log("Selected template type:", template);
+    // console.log("Selected template type:", template);
     try {
-      console.log("Selected template:", template);
+      // console.log("Selected template:", template);
 
       // Check if it's a predefined template (templateTypeId === 6)
       if (template?.templateTypeId === 6) {
@@ -345,7 +350,7 @@ const ImageAnnotation = () => {
 
   // Function to generate predefined template layout on canvas
   const generatePredefinedTemplateLayout = async (template, ctx, canvas) => {
-    console.log("Selected template:", template.bgColor);
+    // console.log("Selected template:", template.bgColor);
     try {
       setTemplateLoading(true);
 
@@ -372,11 +377,23 @@ const ImageAnnotation = () => {
       // Draw Header
       if (sections.header) {
         // Header background with template color
-        ctx.fillStyle = template.bgColor || "#F8FAFC";
+        ctx.fillStyle = selectedColor || "#F8FAFC";
         ctx.fillRect(0, 0, canvas.width, 120);
 
+        // Calculate brightness to determine text color
+        const headerColor = selectedColor || "#F8FAFC";
+        const hexColor = headerColor.replace('#', '');
+        const r = parseInt(hexColor.substr(0, 2), 16);
+        const g = parseInt(hexColor.substr(2, 2), 16);
+        const b = parseInt(hexColor.substr(4, 2), 16);
+        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+        
+        // Set text color based on background brightness
+        const textColor = brightness > 128 ? '#1F2937' : '#FFFFFF';
+        const subtitleColor = brightness > 128 ? '#6B7280' : '#FFFFFF';
+
         // Hospital name
-        ctx.fillStyle = "#1F2937";
+        ctx.fillStyle = textColor;
         ctx.font = "bold 24px Arial";
         ctx.textAlign = "center";
         ctx.fillText(
@@ -387,7 +404,7 @@ const ImageAnnotation = () => {
 
         // Hospital subtitle
         ctx.font = "14px Arial";
-        ctx.fillStyle = "#6B7280";
+        ctx.fillStyle = subtitleColor;
         ctx.fillText(
           userData.hospitalSubtitle || "Multi-Speciality Hospital",
           canvas.width / 2,
@@ -396,6 +413,7 @@ const ImageAnnotation = () => {
 
         // Hospital address
         ctx.font = "12px Arial";
+        ctx.fillStyle = subtitleColor;
         ctx.fillText(
           `${userData.hospitalAddressLine1 || "123 Health Street"}, ${
             userData.hospitalCity || "Mumbai"
@@ -480,32 +498,30 @@ const ImageAnnotation = () => {
               switch (sectionKey) {
                 case "chiefComplaint":
                 case "complaint":
-                  content =
-                    editableFields.chiefComplaint ||
-                    "Patient complaints and symptoms...";
+                  content = editableFields.chiefComplaint || "";
                   break;
                 case "historyOfPresentIllness":
                 case "assessment":
-                  content =
-                    editableFields.historyOfPresentIllness ||
-                    "History of present illness...";
+                  content = editableFields.historyOfPresentIllness || "";
                   break;
                 case "physicalExamination":
                 case "examination":
-                  content =
-                    editableFields.physicalExamination ||
-                    "Physical examination findings...";
+                  content = editableFields.physicalExamination || "";
                   break;
+                case "provisionalDiagnosis":
                 case "diagnosis":
-                  content =
-                    editableFields.provisionalDiagnosis || "Diagnosis...";
+                  content = editableFields.provisionalDiagnosis || "";
                   break;
                 case "treatmentPlan":
                 case "plan":
-                  content = editableFields.treatmentPlan || "Treatment plan...";
+                  content = editableFields.treatmentPlan || "";
+                  break;
+                case "additionalNotes":
+                case "notes":
+                  content = editableFields.additionalNotes || "";
                   break;
                 default:
-                  content = "Enter details here...";
+                  content = "";
               }
 
               // Wrap text if needed
@@ -542,13 +558,14 @@ const ImageAnnotation = () => {
         // Doctor signature line
         ctx.strokeStyle = "#374151";
         ctx.beginPath();
-        ctx.moveTo(margin, currentY);
-        ctx.lineTo(margin + 200, currentY);
+        ctx.moveTo(margin, currentY + 25);
+        ctx.lineTo(margin + 200, currentY + 25);
         ctx.stroke();
 
         ctx.fillStyle = "#6B7280";
         ctx.font = "12px Arial";
-        ctx.fillText("Doctor Signature", margin, currentY + 20);
+        ctx.backgroundColor = "#000";
+        ctx.fillText("Doctor Signature", margin, currentY + 50);
 
         // Date
         const visitDate =
@@ -556,19 +573,19 @@ const ImageAnnotation = () => {
         ctx.fillText(
           `Date: ${visitDate}`,
           canvas.width - margin - 150,
-          currentY
+          currentY + 35
         );
 
         // Doctor info
         ctx.fillText(
           userData.doctorFullName || user?.name || "Dr. ___________________",
           margin,
-          currentY + 40
+          currentY + 70
         );
         ctx.fillText(
           userData.doctorDepartment || "Department",
           margin,
-          currentY + 55
+          currentY + 85
         );
       }
 
@@ -583,15 +600,18 @@ const ImageAnnotation = () => {
   };
 
   const handlePredefinedTemplate = async (template) => {
+    setIsTemplateDataLoading(true);
     try {
-      let url = `/template-prints/patient/${patient.patientId}/template-type/${
-        template.templateTypeId
-      }?context=${activeTab == "VIRTUAL" ? "OPD" : "OPD"}`;
-      console.log("Selected url :", JSON.stringify(url));
-      const response = await axiosInstance.get(url);
-
+      let url = `/template-prints/patient/${patient.patientId}/template-type/${template.templateTypeId}?context=${activeTab}`;
+      // console.log("Selected url:", url);
+      
       setSelectedTemplate(template);
       setSelectedTemplateType("6"); // Set to predefined template type
+      
+      // Clear existing fields while loading
+      setEditableFields({});
+      
+      const response = await axiosInstance.get(url);
 
       // Extract and initialize editable fields from template data
       const templateData = response.data;
@@ -634,7 +654,7 @@ const ImageAnnotation = () => {
           hospitalPincode: templateData.hospitalPincode || prev.hospitalPincode,
           hospitalPhone: templateData.hospitalPhone || prev.hospitalPhone,
           hospitalEmail: templateData.hospitalEmail || prev.hospitalEmail,
-          doctorFullName: templateData.doctorFullName || prev.doctorFullName,
+          doctorFullName: templateData.doctorName || prev.doctorName,
           doctorDepartment:
             templateData.doctorDepartment || prev.doctorDepartment,
           doctorLicense: templateData.doctorLicense || prev.doctorLicense,
@@ -646,31 +666,42 @@ const ImageAnnotation = () => {
 
       // Generate predefined template layout instead of loading image
       const canvas = canvasRef.current;
-      const ctx = canvas.getContext("2d");
-      await generatePredefinedTemplateLayout(template, ctx, canvas);
+      if (canvas) {
+        const ctx = canvas.getContext("2d");
+        await generatePredefinedTemplateLayout(template, ctx, canvas);
+        
+        // Ensure drawing context is preserved
+        ctx.strokeStyle = currentColor;
+        ctx.lineWidth = lineWidth;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+      }
     } catch (err) {
       console.error("Error loading predefined template:", err);
       toast.error("Unable to load predefined template");
       throw err;
+    } finally {
+      setIsTemplateDataLoading(false);
     }
   };
   const handleUploadedTemplate = async (template) => {
-    console.log("Uploaded template:", template);
+    setIsTemplateDataLoading(true);
+    // console.log("Uploaded template:", template);
     try {
-      let url = `/template-prints/patient/${
-        patient.patientId
-      }/template-type/${selectedTemplateType}?context=${
-        activeTab === "VIRTUAL" ? "OPD" : "OPD"
-      }`;
-      console.log("Selected url:", url);
-      const response = await axiosInstance.get(url);
-
+      let url = `/template-prints/patient/${patient.patientId}/template-type/${selectedTemplateType}?context=${activeTab}`;
+      // console.log("Selected url:", url);
+      
       setSelectedTemplate(template);
       setShowTemplateDropdown(false);
-
+      
+      // Clear existing fields while loading
+      setEditableFields({});
+      
+      const response = await axiosInstance.get(url);
       // Extract and initialize editable fields from template data
       const templateData = response.data;
       if (templateData) {
+        console.log("RESPONSE FROM UPLOADED",templateData)
         // Set the template print ID for PUT request
         setTemplatePrintId(templateData.id || null);
 
@@ -708,9 +739,9 @@ const ImageAnnotation = () => {
           hospitalPincode: templateData.hospitalPincode || prev.hospitalPincode,
           hospitalPhone: templateData.hospitalPhone || prev.hospitalPhone,
           hospitalEmail: templateData.hospitalEmail || prev.hospitalEmail,
-          doctorFullName: templateData.doctorFullName || prev.doctorFullName,
+          doctorFullName: templateData.doctorName || prev.doctorFullName,
           doctorDepartment:
-            templateData.doctorDepartment || prev.doctorDepartment,
+            templateData.doctorDepartment || prev.doctorDepartment || user?.department,
           doctorLicense: templateData.doctorLicense || prev.doctorLicense,
           doctorContact: templateData.doctorContact || prev.doctorContact,
           doctorQualifications:
@@ -739,6 +770,13 @@ const ImageAnnotation = () => {
         canvas.height = img.height;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0);
+        
+        // Ensure drawing context is preserved
+        ctx.strokeStyle = currentColor;
+        ctx.lineWidth = lineWidth;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        
         saveToHistory();
         cleanup();
       };
@@ -756,7 +794,6 @@ const ImageAnnotation = () => {
         template.fileUrlPath ||
         template.fileUrl;
       const fileType = template.fileType || template.mimetype || template.type;
-
 
       const normalizedPath =
         filePath && typeof filePath === "string"
@@ -792,7 +829,7 @@ const ImageAnnotation = () => {
       if (typeof imageSource === "string") {
         if (imageSource.startsWith("data:")) {
           img.src = imageSource;
-          console.log("Image source is data URL", imageSource);
+          // console.log("Image source is data URL", imageSource);
         } else if (imageSource.startsWith("/")) {
           setTemplateLoading(true);
           const cleaned = imageSource.replace(/^\/+/, "");
@@ -826,18 +863,19 @@ const ImageAnnotation = () => {
 
   const handleFieldSave = (fieldName, value, section = "medical") => {
     if (section === "medical") {
-      setEditableFieldsWithHistory((prev) => ({
+      setEditableFields((prev) => ({
         ...prev,
         [fieldName]: value,
       }));
       setEditingField(null);
-    } else {
-      setHospitalFieldsWithHistory((prev) => ({
-        ...prev,
-        [fieldName]: value,
-      }));
-      setEditingHospitalField(null);
     }
+    // else {
+    //   setHospitalFieldsWithHistory((prev) => ({
+    //     ...prev,
+    //     [fieldName]: value,
+    //   }));
+    //   setEditingHospitalField(null);
+    // }
 
     // Save to history after a small delay to batch rapid changes
     setTimeout(() => {
@@ -926,14 +964,14 @@ const ImageAnnotation = () => {
           hospitalPincode: hospitalFields.hospitalPincode,
           hospitalPhone: hospitalFields.hospitalPhone,
           hospitalEmail: hospitalFields.hospitalEmail,
-          doctorFullName: hospitalFields.doctorFullName,
+          doctorFullName: editableFields.doctorName || hospitalFields.doctorFullName,
           doctorDepartment: hospitalFields.doctorDepartment,
           doctorLicense: hospitalFields.doctorLicense,
           doctorContact: hospitalFields.doctorContact,
           doctorQualifications: hospitalFields.doctorQualifications,
         };
 
-        console.log("Saving payload:", payload);
+        // console.log("Saving payload:", payload);
 
         // Make PUT request to update template print
         let url = `/template-prints/${templatePrintId || ""}`;
@@ -942,12 +980,13 @@ const ImageAnnotation = () => {
           url = `/template-prints`;
           delete payload.id; // Remove id for POST request
         }
-        console.log("Saving to URL:", url);
+        // console.log("Saving to URL:", url);
         const response = templatePrintId
           ? await axiosInstance.put(url, payload)
           : await axiosInstance.post(url, payload);
-
+console.log("RESPONSE OF PUT",response.data)
         if (response.data) {
+          setSaving(false)
           toast.success("Template saved successfully!");
 
           // Update the template print ID if it was created
@@ -967,6 +1006,7 @@ const ImageAnnotation = () => {
             template: selectedTemplate,
             timestamp: new Date().toISOString(),
             savedData: savedData,
+            selectedColor: selectedColor,
           };
 
           setPrintData(printData);
@@ -1039,11 +1079,56 @@ const ImageAnnotation = () => {
 
         img.onload = () => {
           tempCtx.drawImage(img, 0, 0);
+          
+          // Draw header with selected color for predefined templates
+          if (selectedTemplateType === "6") {
+            tempCtx.fillStyle = selectedColor;
+            tempCtx.fillRect(0, 0, tempCanvas.width, 120);
+            
+            // Calculate brightness to determine text color
+            const hexColor = selectedColor.replace('#', '');
+            const r = parseInt(hexColor.substr(0, 2), 16);
+            const g = parseInt(hexColor.substr(2, 2), 16);
+            const b = parseInt(hexColor.substr(4, 2), 16);
+            const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+            
+            // Set text color based on background brightness
+            const textColor = brightness > 128 ? '#000000' : '#FFFFFF';
+            tempCtx.fillStyle = textColor;
+            
+            // Draw hospital name in header
+            if (hospitalFields.hospitalName) {
+              tempCtx.font = "bold 24px Arial";
+              tempCtx.textAlign = "center";
+              tempCtx.fillText(hospitalFields.hospitalName, tempCanvas.width / 2, 40);
+            }
+            
+            // Draw hospital subtitle in header
+            if (hospitalFields.hospitalSubtitle) {
+              tempCtx.font = "16px Arial";
+              tempCtx.fillText(hospitalFields.hospitalSubtitle, tempCanvas.width / 2, 65);
+            }
+            
+            // Draw contact info in header
+            tempCtx.font = "12px Arial";
+            tempCtx.fillText(
+              `${hospitalFields.hospitalPhone || "+91-22-12345678"} | ${
+                hospitalFields.hospitalEmail || "info@avmedical.com"
+              }`,
+              tempCanvas.width / 2,
+              90
+            );
+            
+            // Reset text color to black for other content
+            tempCtx.fillStyle = "#000000";
+            tempCtx.textAlign = "left";
+          } else {
+            tempCtx.fillStyle = "#000000";
+          }
 
           // tempCtx.font = "bold 20px Arial";
           tempCtx.font =
             selectedTemplateType === "6" ? "bold 0px Arial" : "bold 14px Arial";
-          tempCtx.fillStyle = "#000000";
 
           Object.keys(overlayBoxes).forEach((key) => {
             const box = overlayBoxes[key];
@@ -1087,6 +1172,7 @@ const ImageAnnotation = () => {
             patient: patient,
             template: selectedTemplate,
             timestamp: new Date().toISOString(),
+            selectedColor: selectedColor,
           };
 
           setPrintData(printData);
@@ -1216,7 +1302,7 @@ const ImageAnnotation = () => {
     };
 
     setHistory((prevHistory) => {
-      const newHistory = prevHistory.slice(0, historyIndex + 1);
+      const newHistory = prevHistory?.slice(0, historyIndex + 1);
       newHistory.push(currentState);
       setHistoryIndex((prev) => prev + 1);
       return newHistory;
@@ -1228,7 +1314,7 @@ const ImageAnnotation = () => {
     if (typeof updater === "function") {
       if (stateName === "editableFields" || stateName === "hospitalFields") {
         setHistory((prevHistory) => {
-          const newHistory = prevHistory.slice(0, historyIndex + 1);
+          const newHistory = prevHistory?.slice(0, historyIndex + 1);
           const currentState = {
             canvasState: canvasRef.current?.toDataURL() || "",
             editableFields: { ...editableFields },
@@ -1338,8 +1424,13 @@ const ImageAnnotation = () => {
     if (currentTool !== "pen") return;
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left - pan.x) / zoom;
-    const y = (e.clientY - rect.top - pan.y) / zoom;
+    
+    // Calculate scaling factor due to object-contain
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
 
     setIsDrawing(true);
     setLastX(x);
@@ -1359,8 +1450,14 @@ const ImageAnnotation = () => {
     if (!isDrawing || currentTool !== "pen") return;
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left - pan.x) / zoom;
-    const y = (e.clientY - rect.top - pan.y) / zoom;
+    
+    // Calculate scaling factor due to object-contain
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+    
     const ctx = canvas.getContext("2d");
     ctx.lineTo(x, y);
     ctx.stroke();
@@ -1510,19 +1607,19 @@ const ImageAnnotation = () => {
               />
             )}
             <div className="flex space-x-2">
-              <button
+              {/* <button
                 onClick={() => handleFieldSave(fieldName, value, section)}
                 className="flex items-center px-3 py-1 bg-green-500 text-white rounded-md hover:bg-green-600"
               >
                 <Check className="w-4 h-4 mr-1" />
                 Save
-              </button>
+              </button> */}
               <button
                 onClick={() => handleFieldCancel(section)}
                 className="flex items-center px-3 py-1 bg-gray-500 text-white rounded-md hover:bg-gray-600"
               >
-                <X className="w-4 h-4 mr-1" />
-                Cancel
+                {/* <X className="w-4 h-4 mr-1" /> */}
+                Done
               </button>
             </div>
           </div>
@@ -1589,8 +1686,14 @@ const ImageAnnotation = () => {
           const canvas = canvasRef.current;
           if (canvas) {
             const rect = canvas.getBoundingClientRect();
-            const x = (e.clientX - rect.left - pan.x) / zoom;
-            const y = (e.clientY - rect.top - pan.y) / zoom;
+            
+            // Calculate scaling factor due to object-contain
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+            
             setLastX(x);
             setLastY(y);
           }
@@ -1802,12 +1905,12 @@ const ImageAnnotation = () => {
           >
             <Pencil className="w-5 h-5" />
           </button>
-          <button
-            onClick={handleDownload}
+          {/* <button
+            onClick={handleDownloadImage}
             className="p-2 rounded-lg border-2 border-gray-200 hover:border-gray-300"
           >
             <Download className="w-5 h-5" />
-          </button>
+          </button> */}
           <button
             onClick={undo}
             className="p-2 rounded-lg border-2 border-gray-200 hover:border-gray-300"
@@ -1947,7 +2050,7 @@ const ImageAnnotation = () => {
           </div>
         </div>
       </div>
-      <button
+{    selectedTemplateType !== "6"&&  <button
         onClick={() => setShowSidebar(!showSidebar)}
         className="flex items-center gap-0 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors border border-gray-200 text-sm font-medium"
       >
@@ -1959,7 +2062,7 @@ const ImageAnnotation = () => {
         <span className="hidden sm:inline">
           {showSidebar ? "Hide" : "Show"}
         </span>
-      </button>
+      </button>}
       <div className="flex-1 flex flex-col md:flex-row p-4 gap-4">
         {/* Hide Medical Data/Hospital section for predefined templates */}
         {selectedTemplateType !== "6" && showSidebar && (
@@ -2110,34 +2213,6 @@ const ImageAnnotation = () => {
                 )}
               </>
             )}
-
-            <div className="mt-6 space-y-3">
-              <button
-                onClick={handleSaveAnnotations}
-                disabled={saving}
-                className="w-full flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-2" />
-                    Save All Changes
-                  </>
-                )}
-              </button>
-
-              <button
-                onClick={handlePrintPreview}
-                className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                <Printer className="w-4 h-4 mr-2" />
-                Print Preview
-              </button>
-            </div>
           </div>
         )}
 
@@ -2146,9 +2221,15 @@ const ImageAnnotation = () => {
             <div className="relative w-full h-full">
               <canvas
                 ref={canvasRef}
+                onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseLeave}
                 className="border border-gray-300 w-full h-full object-contain"
-                style={{ cursor: "crosshair" }}
+                style={{
+                  opacity: selectedTemplateType !== "6" ? 0.2 : 1,
+                  cursor: "crosshair",
+                }}
               />
 
               {/* Hide overlay inputs for predefined templates */}
@@ -2239,13 +2320,38 @@ const ImageAnnotation = () => {
                   onClose={() => setShowTemplateModal(false)}
                   onSelectTemplate={handleTemplateSelect}
                   selectedTemplate={selectedTemplate}
-                  selectedColor={selectedColor}
-                  setSelectedColor={setSelectedColor}
                 />
               )}
             </div>
           </div>
         </div>
+      </div>
+      <div className="mt-6 mb-5 mr-5 ml-5 flex justify-center space-x-3">
+        <button
+          onClick={handleSaveAnnotations}
+          disabled={saving}
+          className="flex items-center justify-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed text-sm"
+        >
+          {saving ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <Save className="w-4 h-4 mr-2" />
+              Save All Changes
+            </>
+          )}
+        </button>
+
+        {/* <button
+          onClick={handlePrintPreview}
+          className="flex items-center justify-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+        >
+          <Printer className="w-4 h-4 mr-2" />
+          Print Preview
+        </button> */}
       </div>
     </div>
   );

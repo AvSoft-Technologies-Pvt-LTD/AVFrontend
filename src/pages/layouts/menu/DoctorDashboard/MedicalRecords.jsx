@@ -407,7 +407,7 @@ const DrMedicalRecords = () => {
     if (selectedPatient) {
       fetchAllRecords();
     }
-  }, [user?.doctorId, selectedPatient, activeTab]);
+  }, [user?.doctorId, selectedPatient]);
 
   useEffect(() => {
     fetchMasterData();

@@ -49,6 +49,7 @@ import Frontdesk from "./components/FrontendDesk";
 import TokenDisplay from "./components/Token-Display";
 import BedRoomList from "./pages/layouts/menu/DoctorDashboard/bed-manangement/BedRoomList"
 import ImageAnnotationCanvas from "./components/microcomponents/ImageAnnotationCanvas";
+import { ColorProvider } from "./contexts/ColorContext";
 import BedMaster from "./pages/layouts/menu/DoctorDashboard/bed-manangement/BedMaster";
 // ---------------------- NEW Scheduler Imports ----------------------
 import Scheduler from "./pages/layouts/menu/DoctorDashboard/scheduler/Scheduler";
@@ -233,7 +234,11 @@ const App = () => {
           <Route path="/doctordashboard" element={<DashboardLayout />}>
             <Route index element={<Overview />} />
             {sharedRoutes}
-            <Route path="template" element={<ImageAnnotationCanvas />} />
+            <Route path="template" element={
+              <ColorProvider>
+                <ImageAnnotationCanvas />
+              </ColorProvider>
+            } />
             <Route path="bedroom-management/bedmaster" element={<BedMaster />} />
 <Route path="scheduler" element={<Scheduler />} />
     <Route path="scheduler/availability" element={<AvailabilityOverviewPage />} />

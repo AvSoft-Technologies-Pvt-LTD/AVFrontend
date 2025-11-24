@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from "react-router-dom";
 import { useSelector } from 'react-redux';
 import { CircleUser, Heart, Users, ClipboardCheck, Pencil, Phone, Calendar, Droplet } from 'lucide-react';
@@ -29,7 +29,7 @@ const initialUserData = {
 
 const defaultFamilyMember = { name: '', relation: '', number: '', diseases: [], email: '' };
 
-const ProfileDetail = ({ icon: Icon, label, value, className = "" }) => (
+const ProfileDetail = React.memo(({ icon: Icon, label, value, className = "" }) => (
   <div className={`flex items-center gap-3 ${className}`}>
     <div className="w-12 h-12 rounded-xl flex items-center justify-center">
       <Icon className="w-6 h-6 text-[var(--primary-color)]" />
@@ -39,7 +39,7 @@ const ProfileDetail = ({ icon: Icon, label, value, className = "" }) => (
       <p className="text-lg font-bold text-gray-900">{value || "NA"}</p>
     </div>
   </div>
-);
+));
 
 const SECTIONS = [
   { id: 'basic', name: 'Basic Details', icon: CircleUser },
@@ -51,6 +51,8 @@ const SECTIONS = [
 function Dashboard() {
   const { user, patientId: reduxPatientId } = useSelector((state) => state.auth);
   const navigate = useNavigate();
+  
+  // State declarations
   const [userData, setUserData] = useState(initialUserData);
   const [activeSection, setActiveSection] = useState('basic');
   const [showModal, setShowModal] = useState(false);
@@ -86,6 +88,205 @@ function Dashboard() {
     policyEndDate: '',
     primaryHolder: false,
   });
+
+  // API data loading state
+  const [apiDataLoaded, setApiDataLoaded] = useState({
+    masterData: false,
+    patientData: false,
+    healthData: false
+  });
+
+  // Memoized master data fetcher
+  const fetchMasterData = useCallback(async () => {
+    try {
+      const [coverageRes, healthConditionsRes, familyRelationsRes, bloodGroupsRes, surgeriesRes, allergiesRes] = await Promise.all([
+        getCoverageTypes().catch(() => ({ data: [] })),
+        getHealthConditions().catch(() => ({ data: [] })),
+        getRelations().catch(() => ({ data: [] })),
+        getBloodGroups().catch(() => ({ data: [] })),
+        getAllSurgeries().catch(() => ({ data: [] })),
+        getAllAllergies().catch(() => ({ data: [] })),
+      ]);
+
+      setBloodGroups(bloodGroupsRes.data?.map((item) => ({
+        label: item.bloodGroupName || 'Unknown',
+        value: item.id,
+      })) || []);
+
+      setSurgeries(surgeriesRes.data?.map((item) => ({
+        label: item.surgeryName || 'Unknown',
+        value: item.id,
+      })) || []);
+
+      setAllergies(allergiesRes.data?.map((item) => ({
+        label: item.allergyName || 'Unknown',
+        value: item.id,
+      })) || []);
+
+      setFamilyRelations(familyRelationsRes.data?.map((item) => ({
+        label: item.relationName || 'Unknown',
+        value: item.id,
+      })) || []);
+
+      setHealthConditions(healthConditionsRes.data?.map((item) => ({
+        label: item.healthConditionName || 'Unknown',
+        value: item.id,
+      })) || []);
+
+      setCoverageTypes(coverageRes.data?.map((item) => ({
+        label: item.coverageTypeName || 'Unknown',
+        value: item.id,
+      })) || []);
+
+      setApiDataLoaded(prev => ({ ...prev, masterData: true }));
+    } catch (error) {
+      console.error('Failed to fetch master data:', error);
+      showFeedback('Failed to load master data. Some features may be limited.', 'warning');
+    }
+  }, []);
+
+  // Memoized patient data fetcher
+  const fetchPatientData = useCallback(async (patientId) => {
+    if (!patientId) return;
+
+    try {
+      const [patientRes, familyRes, healthRes, additionalRes] = await Promise.all([
+        getPatientById(patientId).catch(() => ({ data: null })),
+        getFamilyMembersByPatient(patientId).catch(() => ({ data: [] })),
+        getPersonalHealthByPatientId(patientId).catch(() => ({ data: null })),
+        getAdditionalDetailsByPatientId(patientId).catch(() => ({ data: null })),
+      ]);
+
+      const currentPatient = patientRes.data;
+      if (currentPatient) {
+        setPatientData(currentPatient);
+        const dob = currentPatient.dob ? new Date(currentPatient.dob[0], currentPatient.dob[1] - 1, currentPatient.dob[2]) : null;
+        let photoUrl = null;
+        
+        if (currentPatient.photo) {
+          try {
+            const photoResponse = await getPatientPhoto(currentPatient.photo);
+            photoUrl = URL.createObjectURL(photoResponse.data);
+          } catch (err) {
+            console.error('Failed to fetch photo:', err);
+          }
+        }
+
+        setProfileData({
+          name: `${currentPatient.firstName || 'Guest'} ${currentPatient.lastName || ''}`.trim(),
+          firstName: currentPatient.firstName || '',
+          lastName: currentPatient.lastName || '',
+          dob: dob ? dob.toISOString().split('T')[0] : null,
+          gender: currentPatient.gender || '',
+          phone: currentPatient.phone || '',
+          email: currentPatient.email || '',
+          photo: photoUrl,
+          address: currentPatient.address || '',
+          city: currentPatient.city || '',
+          state: currentPatient.state || '',
+          pincode: currentPatient.pincode || '',
+          emergencyContact: currentPatient.emergencyContact || '',
+          registrationDate: currentPatient.createdAt || currentPatient.registrationDate || ''
+        });
+      }
+
+      // Process family members
+      const mappedFamilyMembers = familyRes.data?.map((member) => ({
+        id: member.id,
+        name: member.memberName || 'Unknown',
+        relation: member.relationName || 'Unknown',
+        relationId: member.relationId,
+        number: member.phoneNumber || '',
+        diseases: member.healthConditions?.map((hc) => hc.healthConditionName) || [],
+        healthConditionIds: member.healthConditions?.map((hc) => hc.id) || [],
+      })) || [];
+
+      // Process personal health data
+      let personalHealthData = {};
+      if (healthRes.data) {
+        personalHealthData = {
+          id: healthRes.data.id,
+          height: healthRes.data.height || '',
+          weight: healthRes.data.weight || '',
+          bloodGroupId: healthRes.data.bloodGroupId,
+          bloodGroupName: healthRes.data.bloodGroupName || '',
+          isSmokerUser: healthRes.data.isSmoker || false,
+          smokingDuration: healthRes.data.yearsSmoking || '',
+          isAlcoholicUser: healthRes.data.isAlcoholic || false,
+          alcoholDuration: healthRes.data.yearsAlcoholic || '',
+          isTobaccoUser: healthRes.data.isTobacco || false,
+          tobaccoDuration: healthRes.data.yearsTobacco || '',
+          allergies: healthRes.data.allergyNames || [],
+          surgeries: healthRes.data.surgeryNames || [],
+          allergyDuration: healthRes.data.allergySinceYears || healthRes.data.yearsAllergy || '',
+          surgeryDuration: healthRes.data.surgerySinceYears || healthRes.data.yearsSurgery || '',
+        };
+        setHasPersonalHealthData(true);
+      }
+
+      setUserData(prev => ({ ...prev, ...personalHealthData, familyMembers: mappedFamilyMembers }));
+
+      // Process additional details
+      if (additionalRes.data) {
+        setAdditionalDetails({
+          insuranceProviderName: additionalRes.data.insuranceProviderName || '',
+          policyNum: additionalRes.data.policyNum || '',
+          coverageTypeId: additionalRes.data.coverageTypeId || '',
+          coverageAmount: additionalRes.data.coverageAmount || '',
+          policyStartDate: additionalRes.data.policyStartDate || '',
+          policyEndDate: additionalRes.data.policyEndDate || '',
+          primaryHolder: additionalRes.data.primaryHolder || false,
+        });
+      }
+
+      setApiDataLoaded(prev => ({ ...prev, patientData: true, healthData: true }));
+    } catch (err) {
+      console.error('Failed to fetch patient data:', err);
+      showFeedback('Failed to load patient data. Some features may be limited.', 'warning');
+    }
+  }, []);
+
+  // Health card check
+  const checkHealthCardExistence = useCallback(async (patientId) => {
+    if (!patientId) return;
+    try {
+      await getHealthCardByPatientId(patientId);
+      setHasHealthCard(true);
+    } catch (error) {
+      setHasHealthCard(false);
+    }
+  }, []);
+
+  // Main data fetcher
+  const fetchAllData = useCallback(async () => {
+    if (!user?.patientId) return;
+    
+    setLoading(true);
+    setApiDataLoaded({ masterData: false, patientData: false, healthData: false });
+
+    try {
+      const patientId = reduxPatientId;
+      
+      // Fetch all data in parallel where possible
+      await Promise.all([
+        fetchMasterData(),
+        fetchPatientData(patientId),
+        checkHealthCardExistence(patientId)
+      ]);
+      
+    } catch (err) {
+      console.error('Failed to fetch data:', err);
+      showFeedback('Failed to load data. Some features may be limited.', 'warning');
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.patientId, reduxPatientId, fetchMasterData, fetchPatientData, checkHealthCardExistence]);
+
+  // Feedback handler
+  const showFeedback = useCallback((message, type = 'success') => {
+    setFeedbackMessage({ show: true, message, type });
+    setTimeout(() => setFeedbackMessage({ show: false, message: '', type: '' }), 3000);
+  }, []);
 
   // Memoized fields
   const basePersonalFields = useMemo(() => [
@@ -166,12 +367,8 @@ function Dashboard() {
     { name: 'endDate', label: 'End Date', type: 'date', colSpan: 1.5 },
   ], [coverageTypes]);
 
-  const showFeedback = (message, type = 'success') => {
-    setFeedbackMessage({ show: true, message, type });
-    setTimeout(() => setFeedbackMessage({ show: false, message: '', type: '' }), 3000);
-  };
-
-  const getSectionCompletionStatus = () => {
+  // Section completion status
+  const getSectionCompletionStatus = useCallback(() => {
     const basicComplete = Boolean(
       (patientData || user)?.firstName &&
       (patientData || user)?.lastName &&
@@ -190,9 +387,10 @@ function Dashboard() {
       personal: personalComplete,
       family: familyComplete,
     };
-  };
+  }, [patientData, user, userData]);
 
-  const handleHealthCardAction = async () => {
+  // Health card handler
+  const handleHealthCardAction = useCallback(async () => {
     const patientId = patientData?.id || reduxPatientId;
     if (!patientId) {
       showFeedback('Patient ID is required', 'error');
@@ -200,13 +398,11 @@ function Dashboard() {
     }
 
     if (!hasHealthCard) {
-      // Generate health card for first-time patient
       try {
         setLoadingHealthCard(true);
-        const response = await generateHealthCard(patientId);
+        await generateHealthCard(patientId);
         showFeedback('Health card generated successfully!', 'success');
         setHasHealthCard(true);
-        // Open modal to show the generated card
         setShowHealthCardModal(true);
       } catch (error) {
         console.error('Error generating health card:', error);
@@ -215,178 +411,12 @@ function Dashboard() {
         setLoadingHealthCard(false);
       }
     } else {
-      // View existing health card
       setShowHealthCardModal(true);
     }
-  };
+  }, [patientData?.id, reduxPatientId, hasHealthCard, showFeedback]);
 
-  const checkHealthCardExistence = async (patientId) => {
-    if (!patientId) return;
-    try {
-      await getHealthCardByPatientId(patientId);
-      setHasHealthCard(true);
-    } catch (error) {
-      setHasHealthCard(false);
-    }
-  };
-
-  const fetchAllData = async () => {
-    if (!user?.patientId) return;
-    setLoading(true);
-    try {
-      const [coverageRes, healthConditionsRes, familyRelationsRes, bloodGroupsRes, surgeriesRes, allergiesRes] = await Promise.all([
-        getCoverageTypes().catch(() => ({ data: [] })),
-        getHealthConditions().catch(() => ({ data: [] })),
-        getRelations().catch(() => ({ data: [] })),
-        getBloodGroups().catch(() => ({ data: [] })),
-        getAllSurgeries().catch(() => ({ data: [] })),
-        getAllAllergies().catch(() => ({ data: [] })),
-      ]);
-
-      setBloodGroups(
-        bloodGroupsRes.data?.map((item) => ({
-          label: item.bloodGroupName || 'Unknown',
-          value: item.id,
-        })) || []
-      );
-
-      setSurgeries(
-        surgeriesRes.data?.map((item) => ({
-          label: item.surgeryName || 'Unknown',
-          value: item.id,
-        })) || []
-      );
-
-      setAllergies(
-        allergiesRes.data?.map((item) => ({
-          label: item.allergyName || 'Unknown',
-          value: item.id,
-        })) || []
-      );
-
-      setFamilyRelations(
-        familyRelationsRes.data?.map((item) => ({
-          label: item.relationName || 'Unknown',
-          value: item.id,
-        })) || []
-      );
-
-      setHealthConditions(
-        healthConditionsRes.data?.map((item) => ({
-          label: item.healthConditionName || 'Unknown',
-          value: item.id,
-        })) || []
-      );
-
-      setCoverageTypes(
-        coverageRes.data?.map((item) => ({
-          label: item.coverageTypeName || 'Unknown',
-          value: item.id,
-        })) || []
-      );
-
-      const patientId = reduxPatientId;
-      if (patientId) {
-        // Check if health card exists
-        await checkHealthCardExistence(patientId);
-        
-        const [patientRes, familyRes, healthRes, additionalRes] = await Promise.all([
-          getPatientById(patientId).catch(() => ({ data: null })),
-          getFamilyMembersByPatient(patientId).catch(() => ({ data: [] })),
-          getPersonalHealthByPatientId(patientId).catch(() => ({ data: null })),
-          getAdditionalDetailsByPatientId(patientId).catch(() => ({ data: null })),
-        ]);
-
-        const currentPatient = patientRes.data;
-        if (currentPatient) {
-          setPatientData(currentPatient);
-          const dob = currentPatient.dob ? new Date(currentPatient.dob[0], currentPatient.dob[1] - 1, currentPatient.dob[2]) : null;
-          let photoUrl = null;
-          if (currentPatient.photo) {
-            try {
-              const photoResponse = await getPatientPhoto(currentPatient.photo);
-              photoUrl = URL.createObjectURL(photoResponse.data);
-            } catch (err) {
-              console.error('Failed to fetch photo:', err);
-            }
-          }
-          setProfileData({
-            name: `${currentPatient.firstName || 'Guest'} ${currentPatient.lastName || ''}`.trim(),
-            firstName: currentPatient.firstName || '',
-            lastName: currentPatient.lastName || '',
-            dob: dob ? dob.toISOString().split('T')[0] : null,
-            gender: currentPatient.gender || '',
-            phone: currentPatient.phone || '',
-            email: currentPatient.email || '',
-            photo: photoUrl,
-            address: currentPatient.address || '',
-            city: currentPatient.city || '',
-            state: currentPatient.state || '',
-            pincode: currentPatient.pincode || '',
-            emergencyContact: currentPatient.emergencyContact || '',
-            registrationDate: currentPatient.createdAt || currentPatient.registrationDate || ''
-          });
-        }
-
-        const mappedFamilyMembers = familyRes.data?.map((member) => ({
-          id: member.id,
-          name: member.memberName || 'Unknown',
-          relation: member.relationName || 'Unknown',
-          relationId: member.relationId,
-          number: member.phoneNumber || '',
-          diseases: member.healthConditions?.map((hc) => hc.healthConditionName) || [],
-          healthConditionIds: member.healthConditions?.map((hc) => hc.id) || [],
-        })) || [];
-
-        let personalHealthData = {};
-        if (healthRes.data) {
-          personalHealthData = {
-            id: healthRes.data.id,
-            height: healthRes.data.height || '',
-            weight: healthRes.data.weight || '',
-            bloodGroupId: healthRes.data.bloodGroupId,
-            bloodGroupName: healthRes.data.bloodGroupName || '',
-            isSmokerUser: healthRes.data.isSmoker || false,
-            smokingDuration: healthRes.data.yearsSmoking || '',
-            isAlcoholicUser: healthRes.data.isAlcoholic || false,
-            alcoholDuration: healthRes.data.yearsAlcoholic || '',
-            isTobaccoUser: healthRes.data.isTobacco || false,
-            tobaccoDuration: healthRes.data.yearsTobacco || '',
-            allergies: healthRes.data.allergyNames || [],
-            surgeries: healthRes.data.surgeryNames || [],
-            allergyDuration: healthRes.data.allergySinceYears || healthRes.data.yearsAllergy || '',
-            surgeryDuration: healthRes.data.surgerySinceYears || healthRes.data.yearsSurgery || '',
-          };
-          setHasPersonalHealthData(true);
-        }
-
-        setUserData(prev => ({ ...prev, ...personalHealthData, familyMembers: mappedFamilyMembers }));
-
-        if (additionalRes.data) {
-          setAdditionalDetails({
-            insuranceProviderName: additionalRes.data.insuranceProviderName || '',
-            policyNum: additionalRes.data.policyNum || '',
-            coverageTypeId: additionalRes.data.coverageTypeId || '',
-            coverageAmount: additionalRes.data.coverageAmount || '',
-            policyStartDate: additionalRes.data.policyStartDate || '',
-            policyEndDate: additionalRes.data.policyEndDate || '',
-            primaryHolder: additionalRes.data.primaryHolder || false,
-          });
-        }
-      }
-    } catch (err) {
-      console.error('Failed to fetch data:', err);
-      showFeedback('Failed to load data. Some features may be limited.', 'warning');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchAllData();
-  }, [user, reduxPatientId]);
-
-  const saveUserData = async (updatedData) => {
+  // Save user data
+  const saveUserData = useCallback(async (updatedData) => {
     const patientId = patientData?.id || reduxPatientId;
     if (!patientId) return showFeedback('Please login to save data', 'error');
     if (!updatedData.height || !updatedData.weight) return showFeedback('Height and weight are required', 'error');
@@ -403,12 +433,10 @@ function Dashboard() {
         ? updatedData.surgeries.map((surgery) => Number(surgery.value || surgery))
         : [];
 
-      // Validate that if allergyIds are provided, allergyDuration must be > 0
       if (allergyIds.length > 0 && (!updatedData.allergyDuration || Number(updatedData.allergyDuration) <= 0)) {
         return showFeedback('Allergy duration must be greater than 0 when allergies are selected', 'error');
       }
 
-      // Validate that if surgeryIds are provided, surgeryDuration must be > 0
       if (surgeryIds.length > 0 && (!updatedData.surgeryDuration || Number(updatedData.surgeryDuration) <= 0)) {
         return showFeedback('Surgery duration must be greater than 0 when surgeries are selected', 'error');
       }
@@ -476,9 +504,10 @@ function Dashboard() {
       showFeedback(`Failed to save data: ${err.response?.data?.message || err.message}`, 'error');
       return false;
     }
-  };
+  }, [patientData?.id, reduxPatientId, hasPersonalHealthData, bloodGroups, showFeedback]);
 
-  const openModal = (section, data = null) => {
+  // Modal handlers
+  const openModal = useCallback((section, data = null) => {
     setActiveSection(section);
     setShowModal(true);
     setModalMode(data ? 'edit' : 'add');
@@ -486,7 +515,6 @@ function Dashboard() {
     if (section === 'personal') {
       setModalFields(basePersonalFields);
       
-      // Convert allergy names back to IDs for the multiselect
       const allergyIds = userData.allergies && Array.isArray(userData.allergies)
         ? userData.allergies.map(allergyName => {
             const allergy = allergies.find(a => a.label === allergyName);
@@ -494,7 +522,6 @@ function Dashboard() {
           })
         : [];
       
-      // Convert surgery names back to IDs for the multiselect  
       const surgeryIds = userData.surgeries && Array.isArray(userData.surgeries)
         ? userData.surgeries.map(surgeryName => {
             const surgery = surgeries.find(s => s.label === surgeryName);
@@ -517,16 +544,9 @@ function Dashboard() {
         isTobaccoUser: userData.isTobaccoUser || false,
         tobaccoDuration: userData.tobaccoDuration || '',
       });
+      setModalTitle('Personal Health Details');
     } else if (section === 'family') {
-      setModalFields(
-        familyFields.map((field) =>
-          field.name === 'relation'
-            ? { ...field, options: familyRelations }
-            : field.name === 'diseases'
-              ? { ...field, options: healthConditions }
-              : field
-        )
-      );
+      setModalFields(familyFields);
       if (data) {
         setModalData({
           name: data.name,
@@ -546,6 +566,7 @@ function Dashboard() {
         });
         setEditFamilyMember(null);
       }
+      setModalTitle(data ? 'Edit Family Member' : 'Add Family Member');
     } else if (section === 'additional') {
       setModalFields(additionalFields);
       setModalData({
@@ -561,20 +582,11 @@ function Dashboard() {
           : '',
         primaryHolder: additionalDetails.primaryHolder ? 'Yes' : 'No',
       });
+      setModalTitle('Additional Details');
     }
+  }, [basePersonalFields, familyFields, additionalFields, userData, allergies, surgeries, healthConditions, familyRelations, additionalDetails]);
 
-    setModalTitle(
-      section === 'personal'
-        ? 'Personal Health Details'
-        : section === 'family'
-          ? data
-            ? 'Edit Family Member'
-            : 'Add Family Member'
-          : 'Additional Details'
-    );
-  };
-
-  const handleModalSave = async (formValues) => {
+  const handleModalSave = useCallback(async (formValues) => {
     const patientId = patientData?.id || reduxPatientId;
 
     if (activeSection === 'personal') {
@@ -591,6 +603,7 @@ function Dashboard() {
       await saveUserData({ ...userData, ...cleanedValues });
     } else if (activeSection === 'family') {
       if (!formValues.name || !formValues.relation) return showFeedback('Name and relation are required', 'error');
+      
       const healthConditionIds = formValues.diseases?.map(disease => {
         if (typeof disease === 'object' && disease.value) return Number(disease.value);
         const found = healthConditions.find(hc => hc.label === disease || hc.value === disease);
@@ -643,6 +656,7 @@ function Dashboard() {
           policyEndDate: new Date(formValues.endDate).toISOString(),
           primaryHolder: formValues.primaryHolder === 'Yes',
         };
+        
         let response;
         if (additionalDetails.insuranceProviderName) {
           response = await updateAdditionalDetails(patientId, payload);
@@ -658,9 +672,9 @@ function Dashboard() {
     }
     setShowModal(false);
     setModalData({});
-  };
+  }, [activeSection, patientData?.id, reduxPatientId, userData, editFamilyMember, healthConditions, additionalDetails, saveUserData, showFeedback]);
 
-  const handleModalDelete = async (formValues) => {
+  const handleModalDelete = useCallback(async (formValues) => {
     const patientId = patientData?.id || reduxPatientId;
     if (activeSection === 'family' && (formValues?.id || editFamilyMember?.id)) {
       const deleteId = formValues?.id || editFamilyMember?.id;
@@ -687,25 +701,24 @@ function Dashboard() {
     }
     setShowModal(false);
     setEditFamilyMember(null);
-  };
+  }, [activeSection, patientData?.id, reduxPatientId, editFamilyMember, showFeedback]);
 
-  const completionStatus = getSectionCompletionStatus();
+  // Calculate profile completion
   useEffect(() => {
+    const completionStatus = getSectionCompletionStatus();
     const completedSections = Object.values(completionStatus).filter(Boolean).length;
     const totalSections = Object.keys(completionStatus).length;
     const completion = Math.round((completedSections / totalSections) * 100);
     setProfileCompletion(completion);
-  }, [userData, user, completionStatus, additionalDetails]);
+  }, [userData, user, additionalDetails, getSectionCompletionStatus]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[var(--primary-color)]"></div>
-      </div>
-    );
-  }
+  // Initial data fetch
+  useEffect(() => {
+    fetchAllData();
+  }, [fetchAllData]);
 
-  const profileDetails = [
+  // Memoized profile details
+  const profileDetails = useMemo(() => [
     { icon: profileData.gender?.toLowerCase() === 'female' ? GiFemale : GiMale, label: 'Gender', value: profileData.gender },
     { icon: Phone, label: 'Phone No.', value: profileData.phone },
     {
@@ -716,14 +729,26 @@ function Dashboard() {
         : 'NA'
     },
     { icon: Droplet, label: 'Blood Group', value: userData.bloodGroupName }
-  ];
+  ], [profileData.gender, profileData.phone, profileData.dob, userData.bloodGroupName]);
 
-  const modalConfig = {
+  // Memoized modal config
+  const modalConfig = useMemo(() => ({
     mode: modalMode,
     title: modalTitle,
     data: modalData,
     fields: modalFields
-  };
+  }), [modalMode, modalTitle, modalData, modalFields]);
+
+  // Completion status for sections
+  const completionStatus = useMemo(() => getSectionCompletionStatus(), [getSectionCompletionStatus]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[var(--primary-color)]"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-2 sm:p-6 max-w-full mx-auto">
@@ -746,6 +771,7 @@ function Dashboard() {
           </button>
         </div>
       </div>
+
       {/* Unified Profile Card - Responsive */}
       <div className="bg-white rounded-lg shadow-sm p-2 md:p-4 mb-6">
         <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
@@ -768,6 +794,7 @@ function Dashboard() {
               {`${profileData.firstName || "NA"} ${profileData.lastName || "NA"}`.trim()}
             </h2>
           </div>
+
           {/* Details and Progress */}
           <div className="flex-1 w-full">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-0 mb-0 md:mt-6 md:mb-4">
@@ -775,6 +802,7 @@ function Dashboard() {
                 <ProfileDetail key={index} {...detail} />
               ))}
             </div>
+
             {/* Progress Bar */}
             <div className="flex items-center gap-3">
               <div className="relative w-full h-2 bg-[var(--primary-color)] rounded-full">
@@ -790,6 +818,7 @@ function Dashboard() {
           </div>
         </div>
       </div>
+
       {/* Section Tabs */}
       <div className="overflow-x-auto custom-scrollbar">
         <div className="flex gap-2 sm:gap-4 min-w-max">
@@ -807,6 +836,7 @@ function Dashboard() {
           ))}
         </div>
       </div>
+
       {/* Feedback Message */}
       {feedbackMessage.show && (
         <div className={`fixed top-4 right-4 z-50 p-3 sm:p-4 rounded-lg shadow-lg ${feedbackMessage.type === 'success' ? 'bg-green-100 text-green-800' :
@@ -815,6 +845,7 @@ function Dashboard() {
           {feedbackMessage.message}
         </div>
       )}
+
       {/* Modals */}
       <ReusableModal
         isOpen={showModal}
@@ -864,6 +895,7 @@ function Dashboard() {
           )
         }
       />
+
       {/* Health Card Modal */}
       {showHealthCardModal && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
@@ -880,6 +912,7 @@ function Dashboard() {
           </div>
         </div>
       )}
+
       <div className="mt-6 sm:mt-8">
         <DashboardOverview />
       </div>
@@ -887,4 +920,4 @@ function Dashboard() {
   );
 }
 
-export default Dashboard;
+export default React.memo(Dashboard);

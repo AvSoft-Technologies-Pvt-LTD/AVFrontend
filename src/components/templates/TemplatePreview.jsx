@@ -2,7 +2,7 @@ import React, { useRef } from 'react';
 import { X, Download, Check } from 'lucide-react';
 import html2canvas from 'html2canvas';
 
-const TemplatePreview = ({ previewData, onClose, onUseTemplate }) => {
+const TemplatePreview = ({ previewData, onClose, onUseTemplate, selectedColor, textColor }) => {
   const previewRef = useRef(null);
 
   const handleDownload = async () => {
@@ -63,7 +63,7 @@ const TemplatePreview = ({ previewData, onClose, onUseTemplate }) => {
               {/* Header Section */}
               <div 
                 className="text-center py-6 rounded-lg mb-6 text-white"
-                style={{ backgroundColor: previewData.color }}
+                style={{ backgroundColor: previewData.color, color: textColor }}
               >
                 <h1 className="text-2xl font-bold mb-2">
                   {previewData.elements.header.title}
