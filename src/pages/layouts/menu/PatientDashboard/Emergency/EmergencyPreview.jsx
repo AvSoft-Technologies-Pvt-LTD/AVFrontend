@@ -1,7 +1,9 @@
 // File: EmergencyPreview.jsx
-import React from "react";
+import React, { useState } from "react";
 import { format } from "date-fns";
 import * as Lucide from "lucide-react";
+import { createAmbulanceBooking } from "../../../../../utils/CrudService";
+import { toast } from "react-toastify";
 
 /**
  * EmergencyPreview
@@ -25,11 +27,109 @@ const EmergencyPreview = ({
   pickup,
   pickupSearch,
   selectedHospital,
+  hospitalId,
   equip = [],
   date,
   calculateEquipmentTotal,
   getIcon,
+  patientId,
+  onBookingSuccess,
 }) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmitBooking = async (event) => {
+    event.preventDefault();
+    console.log('Submit button clicked');
+    
+    if (!patientId) {
+      console.error('Patient ID is missing');
+      toast.error("Patient ID is required");
+      return;
+    }
+
+    // Check if pickup is empty or just whitespace
+    const pickupLocation = pickup || pickupSearch;
+    
+    if (!type || !cat || !pickupLocation || !selectedHospital || !date) {
+      console.error('Missing required fields:', { 
+        type, 
+        cat, 
+        pickup: pickupLocation, 
+        selectedHospital, 
+        date 
+      });
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    const bookingData = {
+      patientId,
+      pickupLocation: pickupLocation || pickupSearch,
+      destination: hospitalName,
+      hospitalId: hospitalId || 1,
+      ambulanceTypeId: type,
+      categoryId: cat,
+      equipments: equip.map(eqId => ({
+        equipmentId: eqId,
+        quantity: 1
+      })),
+      date: format(date, "yyyy-MM-dd"),
+      totalAmount: totalEquipmentCost || 0.1
+    };
+
+    console.log('Submitting booking data:', JSON.stringify(bookingData, null, 2));
+
+    try {
+      console.log('Calling createAmbulanceBooking API...');
+      setIsSubmitting(true);
+      
+      // Test with a simple fetch first
+      console.log('Testing direct fetch...');
+      try {
+        const testResponse = await fetch('http://localhost:8080/api/ambulance/bookings', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify(bookingData)
+        });
+        
+        const testResult = await testResponse.json();
+        console.log('Direct fetch response:', testResult);
+        
+        if (!testResponse.ok) {
+          throw new Error(testResult.message || 'Failed to book ambulance');
+        }
+        
+        toast.success("Ambulance booked successfully!");
+        if (onBookingSuccess) {
+          onBookingSuccess(testResult);
+        }
+        return;
+      } catch (testError) {
+        console.error('Direct fetch error:', testError);
+        throw testError; // Let it be caught by the outer catch
+      }
+      
+      // Original axios call (kept for reference)
+      // const response = await createAmbulanceBooking(bookingData);
+      // console.log('API Response:', response);
+      // toast.success("Ambulance booked successfully!");
+      // if (onBookingSuccess) {
+      //   onBookingSuccess(response.data);
+      // }
+    } catch (error) {
+      console.error("Error booking ambulance:", error);
+      const errorMessage = error.response?.data?.message || 
+                         error.message || 
+                         "Failed to book ambulance. Please try again.";
+      console.error('Error details:', error.response?.data);
+      toast.error(errorMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
   // If no data yet, show placeholder so parent can render safely
   if (!data) {
     return (
@@ -92,7 +192,13 @@ const EmergencyPreview = ({
   };
 
   return (
-    <div className="space-y-3 sm:space-y-4 lg:space-y-6">
+    <form 
+      onSubmit={(e) => {
+        e.preventDefault();
+        handleSubmitBooking();
+      }}
+      className="space-y-3 sm:space-y-4 lg:space-y-6"
+    >
       <div className="bg-gradient-to-r from-[#01B07A] to-[#1A223F] rounded-xl p-3 sm:p-4 lg:p-6 mb-3 sm:mb-4 lg:mb-6 text-white">
         <div className="flex items-center gap-2 sm:gap-2.5 lg:gap-3 mb-2 sm:mb-3 lg:mb-4">
           <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-white/20 rounded-full flex items-center justify-center">
@@ -197,7 +303,32 @@ const EmergencyPreview = ({
           </div>
         )}
       </div>
-    </div>
+
+      {/* Submit Button */}
+      <div className="mt-6 flex justify-end">
+        <button
+          onClick={handleSubmitBooking}
+          disabled={isSubmitting}
+          className={`px-6 py-3 rounded-lg font-medium text-white transition-colors ${
+            isSubmitting 
+              ? 'bg-gray-400 cursor-not-allowed' 
+              : 'bg-gradient-to-r from-[#01B07A] to-[#1A223F] hover:from-[#01a06f] hover:to-[#141a32]'
+          }`}
+        >
+          {isSubmitting ? (
+            <div className="flex items-center justify-center gap-2">
+              <Lucide.Loader2 className="animate-spin w-4 h-4" />
+              <span>Booking...</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Lucide.CheckCircle className="w-5 h-5" />
+              <span>Confirm Booking</span>
+            </div>
+          )}
+        </button>
+      </div>
+    </form>
   );
 };
 

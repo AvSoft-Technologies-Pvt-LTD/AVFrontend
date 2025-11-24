@@ -18,6 +18,7 @@ import {
   FileText,
 } from "lucide-react";
 import jsPDF from "jspdf";
+import { trackLabAppointment } from "../../../../../utils/CrudService";
 import html2canvas from "html2canvas";
 import AVLogo from "../../../../../assets/AV.png";
 
@@ -34,23 +35,48 @@ const TrackAppointment = () => {
     return () => clearInterval(interval);
   }, [bookingId]);
 
-  const fetchAppointment = async () => {
-    try {
-      const res = await getLabAppointmentProgress(bookingId);
-      const data = res?.data;
-
-      if (!data) {
-        throw new Error("Appointment not found");
-      }
-
-      setAppointment(data);
-      setLoading(false);
-    } catch (error) {
-      console.error("Error fetching appointment:", error);
-      alert("Failed to fetch appointment details. Please try again later.");
-      setLoading(false);
+const fetchAppointment = async () => {
+  try {
+    setLoading(true);
+    console.log('Fetching appointment with bookingId:', bookingId); // Debug log
+    const res = await trackLabAppointment(bookingId);
+    console.log('API Response:', res); // Debug log
+    
+    if (!res) {
+      throw new Error("No response from server");
     }
-  };
+
+    const data = res?.data;
+    console.log('Response data:', data); // Debug log
+
+    if (!data) {
+      throw new Error("Appointment not found");
+    }
+
+    // Map the API response to match your component's expected data structure
+    const mappedAppointment = {
+      ...data,
+      labName: data.labName || "AV Diagnostic Center",
+      location: data.labAddress || "123 Health Street, Medical Complex, Mumbai",
+      testTitle: data.testName || data.testTitle || "Lab Test",
+      date: data.appointmentDate || data.date || new Date().toISOString(),
+      time: data.appointmentTime || data.time || "10:00 AM - 11:00 AM",
+      status: data.status || "Appointment Confirmed",
+      reportTime: data.estimatedReportTime || "24-48 hours",
+      amountPaid: data.amount || data.amountPaid || "0.00",
+      paymentStatus: data.paymentStatus || "Pending",
+      bookingId: data.bookingId || bookingId,
+      labPhone: data.labContact || "+91 98765 43210",
+    };
+
+    setAppointment(mappedAppointment);
+  } catch (error) {
+    console.error("Error fetching appointment:", error);
+    // You might want to show an error message to the user here
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleDownloadReport = async () => {
     const input = printRef.current;

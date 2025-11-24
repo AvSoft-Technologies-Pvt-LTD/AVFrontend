@@ -14,7 +14,7 @@ import {
   getAllAmbulanceEquipments,
   getAllAmbulanceCategories,
   getAllHospitals,
-   // <-- POST /ambulance/bookings
+  createAmbulanceBooking, // <-- POST /ambulance/bookings
 } from "../../../../../utils/CrudService";
 
 import { useNavigate } from "react-router-dom";
@@ -315,17 +315,22 @@ useEffect(() => {
   };
 
   // ----- submit / payment flows -----
-  const handleSubmit = async () => {
-    if (!data) {
-      toast.error("Booking data not ready");
-      return;
-    }
-    if (!type || !cat || !(pickup || pickupSearch) || !selectedHospitalId) {
-      toast.warning("Please select type, category, pickup, and hospital.");
-      return;
-    }
+  const handleSubmit = async (e) => {
+    e?.preventDefault();
 
-    const payload = buildBookingPayload();
+    const payload = {
+      patientId: getPatientId(), // Assuming user is in context
+      pickupLocation: pickupSearch || pickup,
+      hospitalId: selectedHospital?.id,
+      ambulanceTypeId: type,
+      categoryId: cat,
+      equipments: equip.map((id) => ({
+        equipmentId: id,
+        quantity: 1,
+      })),
+      date: format(date, "yyyy-MM-dd"),
+      totalAmount: calculateEquipmentTotal(),
+    };
 
     // more friendly validation before sending
     if (!payload.patientId) return toast.warning("Missing patient profile.");
@@ -335,16 +340,22 @@ useEffect(() => {
     if (!payload.categoryId) return toast.warning("Choose category.");
 
     try {
-      await createAmbulanceBooking(payload);
+      console.log('Submitting booking:', payload);
+      const response = await createAmbulanceBooking(payload);
+      console.log('Booking response:', response);
       toast.success("Booking submitted successfully!");
       resetForm();
+      
+      // If you need to do something after successful booking, you can add it here
+      // For example, navigate to a success page or show a confirmation
+      
     } catch (err) {
       console.error("Booking submit failed:", err?.response || err);
       const msg =
         err?.response?.data?.message ||
         err?.response?.data?.error ||
         (typeof err?.response?.data === "string" ? err.response.data : "") ||
-        "Failed to submit booking.";
+        "Failed to submit booking. Please try again.";
       toast.error(msg);
     }
   };
@@ -395,55 +406,55 @@ useEffect(() => {
   const handleBack = () => setStep((p) => Math.max(p - 1, 0));
 
   // ----- render helpers -----
-  const renderNavigationButtons = () => (
-    <div className="flex justify-between items-center mt-6 pt-6 border-t border-gray-200">
-      <button
-        onClick={handleBack}
-        disabled={step === 0}
-        className={`flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
-          step === 0
-            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-            : "bg-gray-100 hover:bg-gray-200 text-gray-800 hover:text-gray-900 hover:shadow-md"
-        }`}
-      >
-        <Lucide.ArrowLeft size={16} />
-        <span className="hidden sm:inline">Back</span>
-      </button>
+  // const renderNavigationButtons = () => (
+  //   <div className="flex justify-between items-center mt-6 pt-6 border-t border-gray-200">
+  //     <button
+  //       onClick={handleBack}
+  //       disabled={step === 0}
+  //       className={`flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+  //         step === 0
+  //           ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+  //           : "bg-gray-100 hover:bg-gray-200 text-gray-800 hover:text-gray-900 hover:shadow-md"
+  //       }`}
+  //     >
+  //       <Lucide.ArrowLeft size={16} />
+  //       <span className="hidden sm:inline">Back</span>
+  //     </button>
 
-      {step < 1 ? (
-        <button
-          onClick={handleNext}
-          className={`flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
-            canGoNext()
-              ? "bg-[var(--accent-color)] hover:bg-opacity-90 text-white shadow-md hover:shadow-lg"
-              : "bg-gray-200 text-gray-400 cursor-not-allowed"
-          }`}
-          disabled={!canGoNext()}
-        >
-          <span className="hidden sm:inline">Next</span>
-          <Lucide.ArrowRight size={16} />
-        </button>
-      ) : (
-        <div className="flex gap-2">
-          <button
-            onClick={handleSubmit}
-            className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all duration-200 font-medium shadow-lg text-sm"
-          >
-            <Lucide.Check size={16} /> Submit Booking
-          </button>
-          {calculateEquipmentTotal() > 0 && (
-            <button
-              onClick={handlePayNow}
-              className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all duration-200 font-medium shadow-lg text-sm"
-            >
-              <Lucide.CreditCard size={16} />
-              Pay Now ₹{calculateEquipmentTotal()}
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
+  //     {step < 1 ? (
+  //       <button
+  //         onClick={handleNext}
+  //         className={`flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+  //           canGoNext()
+  //             ? "bg-[var(--accent-color)] hover:bg-opacity-90 text-white shadow-md hover:shadow-lg"
+  //             : "bg-gray-200 text-gray-400 cursor-not-allowed"
+  //         }`}
+  //         disabled={!canGoNext()}
+  //       >
+  //         <span className="hidden sm:inline">Next</span>
+  //         <Lucide.ArrowRight size={16} />
+  //       </button>
+  //     ) : (
+  //       <div className="flex gap-2">
+  //         <button
+  //           onClick={handleSubmit}
+  //           className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all duration-200 font-medium shadow-lg text-sm"
+  //         >
+  //           <Lucide.Check size={16} /> Submit Booking
+  //         </button>
+  //         {calculateEquipmentTotal() > 0 && (
+  //           <button
+  //             onClick={handlePayNow}
+  //             className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all duration-200 font-medium shadow-lg text-sm"
+  //           >
+  //             <Lucide.CreditCard size={16} />
+  //             Pay Now ₹{calculateEquipmentTotal()}
+  //           </button>
+  //         )}
+  //       </div>
+  //     )}
+  //   </div>
+  // );
 
   const renderStep = () => {
     if (loading || !data) {
@@ -763,6 +774,14 @@ useEffect(() => {
         data={data}
         type={type}
         cat={cat}
+        patientId={getPatientId()}
+        hospitalId={selectedHospital?.id}
+        onBookingSuccess={(bookingData) => {
+          console.log('Booking successful:', bookingData);
+          // You can add navigation or other success actions here
+          // For example:
+          // navigate(`/booking-confirmation/${bookingData.id}`);
+        }}
         pickup={pickup}
         pickupSearch={pickupSearch}
         selectedHospital={selectedHospital}
@@ -855,7 +874,47 @@ useEffect(() => {
 
           <div className="px-3 py-3 sm:px-4 sm:py-4 lg:px-6 lg:py-6 relative">
             {renderStep()}
-            {renderNavigationButtons()}
+            <div className="flex justify-between items-center mt-6 pt-6 border-t border-gray-200">
+              <button
+                onClick={handleBack}
+                disabled={step === 0}
+                className={`flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  step === 0
+                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                    : "bg-gray-100 hover:bg-gray-200 text-gray-800 hover:text-gray-900 hover:shadow-md"
+                }`}
+              >
+                <Lucide.ArrowLeft size={16} />
+                <span className="hidden sm:inline">Back</span>
+              </button>
+
+              {step < 1 ? (
+                <button
+                  onClick={handleNext}
+                  className={`flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    canGoNext()
+                      ? "bg-[var(--accent-color)] hover:bg-opacity-90 text-white shadow-md hover:shadow-lg"
+                      : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  }`}
+                  disabled={!canGoNext()}
+                >
+                  <span className="hidden sm:inline">Next</span>
+                  <Lucide.ArrowRight size={16} />
+                </button>
+              ) : (
+                <div className="flex gap-2">
+                  {calculateEquipmentTotal() > 0 && (
+                    <button
+                      onClick={handlePayNow}
+                      className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all duration-200 font-medium shadow-lg text-sm"
+                    >
+                      <Lucide.CreditCard size={16} />
+                      Pay Now ₹{calculateEquipmentTotal()}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

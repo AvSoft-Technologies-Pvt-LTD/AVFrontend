@@ -40,6 +40,7 @@ const PaymentGateway = ({
   const [isMobile, setIsMobile] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [discountAmount, setDiscountAmount] = useState(0);
+  const [errors, setErrors] = useState({});
 
   // Effects
   useEffect(() => {
@@ -75,6 +76,7 @@ const PaymentGateway = ({
     setCurrentStep("method-selection");
     setOtp("");
     setQrCodeGenerated(false);
+    setErrors({});
   };
 
   const handleOtpVerify = async () => {
@@ -91,8 +93,8 @@ const PaymentGateway = ({
         upiMode: selectedMethod === "upi" ? upiPaymentOption : "",
         name: selectedMethod === "card" ? cardData.name : "",
       };
-
-      await onPay(selectedMethod, data);
+      const delay = new Promise((resolve) => setTimeout(resolve, 4000));
+      await Promise.all([onPay(selectedMethod, data), delay]);
       setCurrentStep("success");
     } catch (error) {
       alert(error?.message || "Payment verification failed. Please try again.");
@@ -103,7 +105,54 @@ const PaymentGateway = ({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const newErrors = {};
 
+    if (selectedMethod === "upi" && upiPaymentOption === "id") {
+      if (!upiId.trim()) {
+        newErrors.upiId = "UPI ID is required";
+      } else {
+        const upiPattern = /^[\w.-]+@[\w.-]+$/;
+        if (!upiPattern.test(upiId.trim())) {
+          newErrors.upiId = "Enter a valid UPI ID (e.g. name@bank)";
+        }
+      }
+    }
+
+    if (selectedMethod === "card") {
+      const number = cardData.number.replace(/\s+/g, "");
+      const name = cardData.name.trim();
+      const expiry = cardData.expiry.trim();
+      const cvv = cardData.cvv.trim();
+
+      if (!number) {
+        newErrors.cardNumber = "Card number is required";
+      } else if (!/^\d{16}$/.test(number)) {
+        newErrors.cardNumber = "Card number must be 16 digits";
+      }
+
+      if (!name) {
+        newErrors.cardName = "Cardholder name is required";
+      }
+
+      if (!expiry) {
+        newErrors.expiry = "Expiry date is required";
+      } else if (!/^(0[1-9]|1[0-2])\/(\d{2})$/.test(expiry)) {
+        newErrors.expiry = "Use MM/YY format";
+      }
+
+      if (!cvv) {
+        newErrors.cvv = "CVV is required";
+      } else if (!/^\d{3}$/.test(cvv)) {
+        newErrors.cvv = "CVV must be 3 digits";
+      }
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    setErrors({});
     setLoading(true);
     try {
       const baseData =
@@ -573,10 +622,18 @@ const PaymentGateway = ({
                                   type="text"
                                   placeholder="example@okhdfc"
                                   value={upiId}
-                                  onChange={(e) => setUpiId(e.target.value)}
+                                  onChange={(e) => {
+                                    setUpiId(e.target.value);
+                                    setErrors((prev) => ({ ...prev, upiId: "" }));
+                                  }}
                                   className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[color:var(--primary-color,#20B2AA)] focus:border-[color:var(--primary-color,#20B2AA)]"
                                   required
                                 />
+                                {errors.upiId && (
+                                  <p className="mt-1 text-xs text-red-600">
+                                    {errors.upiId}
+                                  </p>
+                                )}
                               </div>
                               <button
                                 type="submit"
@@ -608,15 +665,29 @@ const PaymentGateway = ({
                                     : "John Doe"
                                 }
                                 value={cardData[field]}
-                                onChange={(e) =>
+                                onChange={(e) => {
                                   setCardData({
                                     ...cardData,
                                     [field]: e.target.value,
-                                  })
-                                }
+                                  });
+                                  setErrors((prev) => ({
+                                    ...prev,
+                                    [field === "number" ? "cardNumber" : "cardName"]: "",
+                                  }));
+                                }}
                                 className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[color:var(--primary-color,#20B2AA)] focus:border-[color:var(--primary-color,#20B2AA)]"
                                 required
                               />
+                              {field === "number" && errors.cardNumber && (
+                                <p className="mt-1 text-xs text-red-600">
+                                  {errors.cardNumber}
+                                </p>
+                              )}
+                              {field === "name" && errors.cardName && (
+                                <p className="mt-1 text-xs text-red-600">
+                                  {errors.cardName}
+                                </p>
+                              )}
                             </div>
                           ))}
                           <div className="grid grid-cols-2 gap-4">
@@ -631,15 +702,29 @@ const PaymentGateway = ({
                                     field === "expiry" ? "MM/YY" : "123"
                                   }
                                   value={cardData[field]}
-                                  onChange={(e) =>
+                                  onChange={(e) => {
                                     setCardData({
                                       ...cardData,
                                       [field]: e.target.value,
-                                    })
-                                  }
+                                    });
+                                    setErrors((prev) => ({
+                                      ...prev,
+                                      [field]: "",
+                                    }));
+                                  }}
                                   className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[color:var(--primary-color,#20B2AA)] focus:border-[color:var(--primary-color,#20B2AA)]"
                                   required
                                 />
+                                {field === "expiry" && errors.expiry && (
+                                  <p className="mt-1 text-xs text-red-600">
+                                    {errors.expiry}
+                                  </p>
+                                )}
+                                {field === "cvv" && errors.cvv && (
+                                  <p className="mt-1 text-xs text-red-600">
+                                    {errors.cvv}
+                                  </p>
+                                )}
                               </div>
                             ))}
                           </div>
@@ -764,14 +849,17 @@ const PaymentGateway = ({
                     <p className="text-xs text-gray-500">Demo OTP: 1234</p>
                     <button
                       onClick={handleOtpVerify}
-                      disabled={otp.length !== 4}
-                      className={`w-full py-3 rounded-lg font-medium transition-colors ${
-                        otp.length === 4
+                      disabled={otp.length !== 4 || loading}
+                      className={`w-full py-3 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors ${
+                        otp.length === 4 && !loading
                           ? "bg-[color:var(--primary-color,#20B2AA)] text-white hover:bg-[color:var(--primary-color,#20B2AA)]/90"
                           : "bg-gray-300 text-gray-500 cursor-not-allowed"
                       }`}
                     >
-                      {loading ? "Verifying..." : "Verify & Pay"}
+                      {loading && (
+                        <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                      )}
+                      <span>{loading ? "Verifying..." : "Verify & Pay"}</span>
                     </button>
                   </div>
                 )}
@@ -1161,10 +1249,18 @@ const PaymentGateway = ({
                                     type="text"
                                     placeholder="example@okhdfc"
                                     value={upiId}
-                                    onChange={(e) => setUpiId(e.target.value)}
+                                    onChange={(e) => {
+                                      setUpiId(e.target.value);
+                                      setErrors((prev) => ({ ...prev, upiId: "" }));
+                                    }}
                                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[color:var(--primary-color,#20B2AA)] focus:border-[color:var(--primary-color,#20B2AA)]"
                                     required
                                   />
+                                  {errors.upiId && (
+                                    <p className="mt-1 text-xs text-red-600">
+                                      {errors.upiId}
+                                    </p>
+                                  )}
                                 </div>
                                 <button
                                   type="submit"
@@ -1203,15 +1299,30 @@ const PaymentGateway = ({
                                       : "John Doe"
                                   }
                                   value={cardData[field]}
-                                  onChange={(e) =>
+                                  onChange={(e) => {
                                     setCardData({
                                       ...cardData,
                                       [field]: e.target.value,
-                                    })
-                                  }
+                                    });
+                                    setErrors((prev) => ({
+                                      ...prev,
+                                      [field === "number" ? "cardNumber" : "cardName"]:
+                                        "",
+                                    }));
+                                  }}
                                   className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[color:var(--primary-color,#20B2AA)] focus:border-[color:var(--primary-color,#20B2AA)]"
                                   required
                                 />
+                                {field === "number" && errors.cardNumber && (
+                                  <p className="mt-1 text-xs text-red-600">
+                                    {errors.cardNumber}
+                                  </p>
+                                )}
+                                {field === "name" && errors.cardName && (
+                                  <p className="mt-1 text-xs text-red-600">
+                                    {errors.cardName}
+                                  </p>
+                                )}
                               </div>
                             ))}
                             <div className="grid grid-cols-2 gap-4">
@@ -1226,15 +1337,29 @@ const PaymentGateway = ({
                                       field === "expiry" ? "MM/YY" : "123"
                                     }
                                     value={cardData[field]}
-                                    onChange={(e) =>
+                                    onChange={(e) => {
                                       setCardData({
                                         ...cardData,
                                         [field]: e.target.value,
-                                      })
-                                    }
+                                      });
+                                      setErrors((prev) => ({
+                                        ...prev,
+                                        [field]: "",
+                                      }));
+                                    }}
                                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[color:var(--primary-color,#20B2AA)] focus:border-[color:var(--primary-color,#20B2AA)]"
                                     required
                                   />
+                                  {field === "expiry" && errors.expiry && (
+                                    <p className="mt-1 text-xs text-red-600">
+                                      {errors.expiry}
+                                    </p>
+                                  )}
+                                  {field === "cvv" && errors.cvv && (
+                                    <p className="mt-1 text-xs text-red-600">
+                                      {errors.cvv}
+                                    </p>
+                                  )}
                                 </div>
                               ))}
                             </div>
@@ -1376,14 +1501,17 @@ const PaymentGateway = ({
                       </p>
                       <button
                         onClick={handleOtpVerify}
-                        disabled={otp.length !== 4}
-                        className={`w-full py-3 rounded-lg font-medium transition-colors ${
-                          otp.length === 4
+                        disabled={otp.length !== 4 || loading}
+                        className={`w-full py-3 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors ${
+                          otp.length === 4 && !loading
                             ? "bg-[color:var(--primary-color,#20B2AA)] text-white hover:bg-[color:var(--primary-color,#20B2AA)]/90"
                             : "bg-gray-300 text-gray-500 cursor-not-allowed"
                         }`}
                       >
-                        {loading ? "Verifying..." : "Verify & Pay"}
+                        {loading && (
+                          <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                        )}
+                        <span>{loading ? "Verifying..." : "Verify & Pay"}</span>
                       </button>
                     </div>
                   )}

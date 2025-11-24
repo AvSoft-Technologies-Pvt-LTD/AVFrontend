@@ -369,6 +369,9 @@ export const searchAmbulanceList = (keyword) =>
 export const getSpecializationsWardsSummaryForIpdAdmission = () =>
   axiosInstance.get('/specializations/wards/summary/ipd-addmission');
 
+// Get all ambulance bookings
+export const getAllAmbulanceBookings = () =>
+  axiosInstance.get('/ambulance/bookings');
 
 /* -----------------------------
    VIRTUAL APPOINTMENTS (CRUD)
@@ -510,6 +513,10 @@ export const deleteLabCart = (cartId) =>
 // available labs
 export const getLabDetails = () =>
   axiosInstance.get('/lab-details');
+
+// Track Lab Appointment by Booking ID
+export const trackLabAppointment = (bookingId) =>
+  axiosInstance.get(`/lab/appointments/progress/tracking/track-appointment/${bookingId}`);
 
 
 // --- Lab catalog detail APIs ---
