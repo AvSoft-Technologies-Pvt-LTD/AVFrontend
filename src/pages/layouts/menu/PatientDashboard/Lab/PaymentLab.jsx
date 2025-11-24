@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Clock, MapPin, DollarSign, CreditCard, CheckCircle, FileText } from "lucide-react";
-import { createLabPayment } from "../../../../../utils/CrudService";
+import { createLabPayment, verifyLabPayment } from "../../../../../utils/CrudService";
 import PaymentGateway from "../../../../../components/microcomponents/PaymentGatway";
 
 const PaymentPage = () => {
@@ -36,30 +36,61 @@ const PaymentPage = () => {
       return;
     }
 
+    const action = data?.action || "verify"; // 'create' or 'verify'
     const normalizedMethod =
-      selectedMethod === "netbanking" ? "net" : selectedMethod;
-
-    const paymentPayload = {
-      appointmentId: backendBookingId || String(appointmentId),
-      method: normalizedMethod,
-      upiId: selectedMethod === "upi" ? data?.upiId || "" : "",
-      cardNumber: selectedMethod === "card" ? data?.number || "" : "",
-      expiry: selectedMethod === "card" ? data?.expiry || "" : "",
-      cvv: selectedMethod === "card" ? data?.cvv || "" : "",
-      selectedBank: selectedMethod === "netbanking" ? data?.bank || "" : "",
-      patientid: 1,
-    };
+      selectedMethod === "netbanking" ? "Netbanking" : selectedMethod;
 
     try {
       setLoading(true);
-      await createLabPayment(paymentPayload);
+
+      if (action === "create") {
+        // Step 1: create payment when Pay button is clicked
+        const paymentPayload = {
+          appointmentId: backendBookingId || String(appointmentId),
+          method: normalizedMethod,
+          patientid: patientIdFromAppointment || data?.patientid || 1,
+          upiId: selectedMethod === "upi" ? data?.upiId || "" : "",
+          upiMode: selectedMethod === "upi" ? data?.upiMode || "" : "",
+          cardNumber: selectedMethod === "card" ? data?.number || "" : "",
+          expiry: selectedMethod === "card" ? data?.expiry || "" : "",
+          cvv: selectedMethod === "card" ? data?.cvv || "" : "",
+          cardHolderName:
+            selectedMethod === "card" ? data?.cardHolderName || data?.name || "" : "",
+          selectedBank:
+            selectedMethod === "netbanking" ? data?.bank || "" : "",
+          selectedWallet:
+            selectedMethod === "wallet" ? data?.selectedWallet || data?.wallet || "" : "",
+        };
+
+        await createLabPayment(paymentPayload);
+        return; // do not mark success here; wait for verify step
+      }
+
+      // Step 2: verify payment when Verify & Pay is clicked
+      const verifyPayload = {
+        appointmentId: backendBookingId || String(appointmentId),
+        method: normalizedMethod,
+        patientid: patientIdFromAppointment || data?.patientid || 1,
+        otp: data?.otp || "",
+        upiMode: selectedMethod === "upi" ? data?.upiMode || "" : "",
+        cardHolderName: data?.cardHolderName || data?.name || "",
+      };
+
+      const verifyRes = await verifyLabPayment(verifyPayload);
+      const verifyStatus = verifyRes?.data?.status;
+      const verifyMessage = verifyRes?.data?.message;
+
+      if (verifyStatus && String(verifyStatus).toUpperCase() === "FAILED") {
+        throw new Error(verifyMessage || "Invalid OTP");
+      }
+
       setSuccess(true);
       setBookingId(
         backendBookingId || bookingDetails?.appointment?.bookingId || ""
       );
     } catch (err) {
-      console.error("Lab payment failed", err?.response?.data || err.message);
-      alert("Payment failed!");
+      console.error("Payment error:", err?.response?.data || err.message);
+      throw err;
     } finally {
       setLoading(false);
     }
@@ -96,3 +127,4 @@ const PaymentPage = () => {
 };
 
 export default PaymentPage;
+

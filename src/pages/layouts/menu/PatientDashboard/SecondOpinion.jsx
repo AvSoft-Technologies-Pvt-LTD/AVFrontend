@@ -1,6 +1,5 @@
 
-
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
 import axios from "axios";
@@ -8,11 +7,13 @@ import axios from "axios";
 import html2pdf from "html2pdf.js";
 import emailjs from "emailjs-com";
 import DynamicTable from "../../../../components/microcomponents/DynamicTable";
-import { ArrowLeft, User, Stethoscope, ChevronDown, X, Printer, CheckCircle, FileText, Pill, TestTube, Mail, MessageCircle, Send, Phone, AtSign } from "lucide-react";
+import { ArrowLeft, User, Stethoscope, ChevronDown, X, Printer, CheckCircle, FileText, Pill, TestTube, Mail, MessageCircle, Send, Phone, AtSign, Activity, Heart, Thermometer } from "lucide-react";
+
 import { useSelector } from "react-redux";
 import ProfileCard from "../../../../components/microcomponents/ProfileCard";
 import { useMedicalRecords } from "../../../../context-api/MedicalRecordsContext";
-import { getPatientById, getUrgencyLevels, getConsultationModes, getAllDoctors, getPatientPrescriptions, getPatientMedicalInfo, getLabScanByPatient } from "../../../../utils/masterService";
+import { getPatientById, getUrgencyLevels, getConsultationModes, getAllDoctors, getPatientMedicalInfo, getPatientPrescriptionsData, getLabScanByPatient, getPatientVitalById } from "../../../../utils/masterService";
+
 const PrintContent = ({ requestData, selectedRecord, formData, user }) => (                                                                                                                                                   
   <div style={{ fontFamily: "Arial, sans-serif", maxWidth: "800px", margin: "0 auto", padding: "20px" }}>
     <div className="header" style={{ textAlign: "center", borderBottom: "2px solid #333", paddingBottom: "20px", marginBottom: "30px" }}>
@@ -89,6 +90,7 @@ const PrintContent = ({ requestData, selectedRecord, formData, user }) => (
         <div style={{ marginBottom: "24px" }}>
           <h4 style={{ fontSize: "18px", fontWeight: "bold", color: "#0E1630", marginBottom: "10px" }}>Medical Information</h4>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "12px" }}>
+          
             {Object.entries(selectedRecord?.medicalDetails || {})
               .filter(([key]) => !["id", "doctorId", "context", "patientId", "createdAt", "updatedAt", "createdBy", "updatedBy"].includes(key))
               .map(([label, value]) => {
@@ -209,7 +211,7 @@ const MedicalRecordsDetailsPreview = ({ selectedRecord, onClose, user }) => {
             { header: "Medicines", accessor: "medicines" },
             { header: "Instructions", accessor: "instructions" },
           ]}
-          data={selectedRecord?.prescriptionsData || []}
+          data={selectedRecord.prescriptionsData || []}
         />
       ),
       "lab-tests": (
@@ -229,7 +231,7 @@ const MedicalRecordsDetailsPreview = ({ selectedRecord, onClose, user }) => {
               ),
             },
           ]}
-          data={selectedRecord?.labTestsData || []}
+          data={selectedRecord.labTestsData || []}
         />
       ),
     };
@@ -268,49 +270,40 @@ const MedicalRecordsDetailsPreview = ({ selectedRecord, onClose, user }) => {
           />
          <section className="mb-6">
   <h4 className="text-xl font-semibold text-gray-800 mb-4">Vitals Summary</h4>
-  <div className="flex flex-wrap gap-3">
-    {Object.entries(selectedRecord.vitals || {}).map(([key, value], idx) => {
-      const colors = {
-        "Blood Pressure": "#fee2e2",
-        "Heart Rate": "#dbeafe",
-        "Temperature": "#fff7ed",
-        "SpO2": "#dcfce7",
-        "Respiratory Rate": "#ecfeff",
-        "Height": "#fef3c7",
-        "Weight": "#f3e8ff"
+  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-3 p-2">
+    {[
+      { key: "Blood Pressure", icon: Heart, color: "red" },
+      { key: "Heart Rate", icon: Activity, color: "blue" },
+      { key: "Temperature", icon: Thermometer, color: "orange" },
+      { key: "SpO2", icon: Activity, color: "emerald" },
+      { key: "Respiratory Rate", icon: Activity, color: "violet" },
+      { key: "Height", icon: Activity, color: "cyan" },
+      { key: "Weight", icon: Activity, color: "amber" },
+    ].map(({ key, icon: Icon, color }) => {
+      const colorMap = {
+        red: "red",
+        blue: "blue",
+        orange: "orange",
+        emerald: "emerald",
+        violet: "violet",
+        cyan: "cyan",
+        amber: "amber",
       };
-      const border = colors[key] || "#f5f3ff";
-      
-      // Add units to the values based on the vital type
-      const getFormattedValue = (key, value) => {
-        if (!value) return "--";
-        switch(key) {
-          case "Blood Pressure": return value + " mmHg";
-          case "Heart Rate": return value + " bpm";
-          case "Temperature": return value + " °F";
-          case "SpO2": return value + " %";
-          case "Respiratory Rate": return value + " /min";
-          case "Height": return value + " cm";
-          case "Weight": return value + " kg";
-          default: return value;
-        }
-      };
+      const c = colorMap[color];
+      const value = (selectedRecord.vitals || {})[key] ?? "--";
       return (
         <div
           key={key}
-          className="rounded-lg p-3"
-          style={{
-            minWidth: 160,
-            borderLeft: `4px solid ${border}`,
-            background: "#fff",
-            boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
-          }}
+          className={`bg-${c}-50 border-l-4 border-${c}-500 p-3 rounded-lg shadow-sm flex flex-col justify-between hover:shadow-md transition`}
         >
-          <div className="text-xs font-medium text-gray-600 mb-1">
-            {key}
+          <div className="flex items-center gap-2 mb-1">
+            {Icon && <Icon size={16} className={`text-${c}-500`} />}
+            <span className={`text-xs md:text-sm font-medium text-${c}-700 truncate`}>
+              {key}
+            </span>
           </div>
-          <div className="text-sm font-semibold text-gray-800">
-            {getFormattedValue(key, value)}
+          <div className={`text-sm md:text-base font-semibold text-${c}-800 truncate`}>
+            {value || "--"}
           </div>
         </div>
       );
@@ -320,20 +313,23 @@ const MedicalRecordsDetailsPreview = ({ selectedRecord, onClose, user }) => {
           <section className="mb-6">
             <h4 className="text-xl font-semibold text-gray-800 mb-4">Medical Information</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {Object.entries(selectedRecord?.medicalDetails || {})
-                .filter(([label, value]) => {
-                  // Only show these 4 specific fields
-                  const allowedFields = ["Chief Complaint", "Past History", "Medical Advice", "Treatment Plan"];
-                  return allowedFields.includes(label) && value && String(value).trim() !== '';
-                })
-                .map(([label, value]) => {
+              {[
+                { key: "chiefComplaint", label: "Chief Complaint" },
+                { key: "pastHistory", label: "Past History" },
+                { key: "plan", label: "Treatment Plan" },
+                { key: "advice", label: "Medical Advice" },
+              ]
+                .map((field) => {
+                  const value = (selectedRecord?.medicalDetails || {})[field.key];
+                  if (!value || String(value).trim() === "") return null;
                   return (
-                    <div key={label} className="bg-white p-6 rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
-                      <div className="font-bold text-sm text-gray-600 mb-2">{label}</div>
-                      <div className="cc-scrollbar text-gray-800 text-sm">{value || "N/A"}</div>
+                    <div key={field.key} className="bg-white p-6 rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
+                      <div className="font-bold text-sm text-gray-600 mb-2">{field.label}</div>
+                      <div className="cc-scrollbar text-gray-800 text-sm">{value}</div>
                     </div>
                   );
-                })}
+                })
+                .filter(Boolean)}
             </div>
           </section>
           <section className="mb-6">
@@ -378,317 +374,253 @@ const SecondOpinion = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const user = useSelector((state) => state.auth.user);
-  const { clickedRecord, activeTab } = useMedicalRecords();
+  const { clickedRecord, recordTab } = useMedicalRecords();
+  
+  // Console logging for useMedicalRecords values
+  console.log("=== useMedicalRecords() Values ===");
+  console.log("clickedRecord:", clickedRecord);
+  console.log("recordTab:", recordTab);
+  console.log("=====================================");
+  
   const printContentRef = useRef();
   const selectedRecordBase = location.state?.selectedRecord || {
     patientName: "John Doe", age: "45", sex: "Male", id: "P001", hospitalName: "General Hospital", diagnosis: "Chest Pain", dateOfVisit: "2024-01-15", "K/C/O": "Hypertension", vitals: { bp: "140/90", pulse: "80", temp: "98.6" }, medicalDetails: {
       chiefComplaint: "Chest pain since 2 days", pastHistory: "Hypertension for 5 years", examination: "Tenderness over chest",
     }, prescriptionsData: [{ date: "2024-01-15", doctorName: "Dr. Smith", medicines: "Aspirin 75mg", instructions: "Once daily", }], labTestsData: [{ date: "2024-01-15", testName: "ECG", result: "Normal", normalRange: "Normal", status: "Normal", }],
   };
-  const [fetchedPatient, setFetchedPatient] = useState(null);
-  // Helper: compute age (years) from DOB string or Date
-  const computeAgeFromDob = (dob) => {
-    if (!dob) return null;
-    try {
-      // Normalize common formats: DD/MM/YYYY, DD-MM-YYYY, YYYY-MM-DD
-      let d;
-      if (typeof dob === "number") {
-        d = new Date(dob);
-      } else if (/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/.test(dob)) {
-        // dd/mm/yyyy or dd-mm-yyyy
-        const parts = dob.split(/[-\/]/);
-        d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`); // yyyy-mm-dd
-      } else if (/^\d{4}[\-]\d{2}[\-]\d{2}$/.test(dob)) {
-        d = new Date(dob);
-      } else {
-        d = new Date(dob);
-      }
-      if (isNaN(d.getTime())) return null;
-      const now = new Date();
-      let age = now.getFullYear() - d.getFullYear();
-      const m = now.getMonth() - d.getMonth();
-      if (m < 0 || (m === 0 && now.getDate() < d.getDate())) {
-        age--;
-      }
-      return age;
-    } catch (e) {
-      return null;
-    }
-  };
-  // Helper: format various date representations into a readable string
-  const formatDateValue = (val) => {
-    if (!val && val !== 0) return "--";
-    try {
-      // If it's already a Date
-      if (val instanceof Date && !isNaN(val.getTime())) {
-        return val.toLocaleString();
-      }
-      // If it's an array: [YYYY, MM, DD, hh, mm, ss, fraction]
-      if (Array.isArray(val) && val.length >= 3) {
-        const year = Number(val[0]);
-        const month = Number(val[1]) - 1; // JS months 0-indexed
-        const day = Number(val[2]);
-        const hour = Number(val[3] || 0);
-        const minute = Number(val[4] || 0);
-        const second = Number(val[5] || 0);
-        let milli = 0;
-        if (val[6] !== undefined && val[6] !== null) {
-          const f = Number(val[6]);
-          // if very large, it's likely nanoseconds -> convert to ms
-          if (f > 1e6) milli = Math.round(f / 1e6);
-          else if (f > 1e3) milli = Math.round(f / 1e3); // microseconds
-          else milli = Math.round(f);
-        }
-        const d = new Date(year, month, day, hour, minute, second, milli);
-        if (!isNaN(d.getTime())) return d.toLocaleString();
-      }
-      // If it's a number (timestamp ms)
-      if (typeof val === 'number') {
-        const d = new Date(val);
-        if (!isNaN(d.getTime())) return d.toLocaleString();
-      }
-      // If it's an ISO string or parseable
-      const parsed = new Date(val);
-      if (!isNaN(parsed.getTime())) return parsed.toLocaleString();
-      // Fallback to string
-      return String(val);
-    } catch (e) {
-      return String(val);
-    }
-  };
+  // Extract recordId from the selected record (similar to MedicalRecordDetails)
+  const recordId = selectedRecordBase?.recordId || selectedRecordBase?.id || selectedRecordBase?.recordID || clickedRecord?.recordId || clickedRecord?.id || clickedRecord?.recordID;
 
-  // Map raw medical info object from API into display-friendly key/value pairs
-  // Only extract the four fields requested by the user: Chief Complaint, Past History,
-  // Medical Advice and Treatment Plan. This keeps the UI focused and avoids showing
-  // other patient-uploaded fields.
-  const mapMedicalDataToDetails = (medicalData = {}) => {
-    if (!medicalData || typeof medicalData !== 'object') return {};
-    
-    console.log("Raw medical data for mapping:", medicalData);
-    
-    const mappings = {
-      chiefComplaint: 'Chief Complaint',
-      'chief_complaint': 'Chief Complaint',
-      pastHistory: 'Past History',
-      'past_history': 'Past History',
-      advice: 'Medical Advice',
-      'medical_advice': 'Medical Advice',
-      treatmentPlan: 'Treatment Plan',
-      plan: 'Treatment Plan',
-      'treatment_plan': 'Treatment Plan',
-      planOfTreatment: 'Treatment Plan'
-    };
+  // Debug logging for recordId
+  console.log("SecondOpinion recordId extraction:", {
+    selectedRecordBase,
+    clickedRecord,
+    recordId,
+    recordTab
+  });
 
-    const result = {};
-    Object.entries(mappings).forEach(([key, label]) => {
-      const val = medicalData?.[key];
-      if (val !== undefined && val !== null && String(val).trim() !== '') {
-        result[label] = val;
-        console.log(`Mapped ${key} -> ${label}:`, val);
-      }
-    });
-    
-    console.log("Processed medical details:", result);
-    return result;
-  };
-  // Determine best DOB source: check record -> fetched patient -> logged-in user's dob
-  const dobSource = selectedRecordBase?.dob || selectedRecordBase?.dateOfBirth || fetchedPatient?.dob || fetchedPatient?.dateOfBirth || user?.dob;
-  const computedAgeFromDob = computeAgeFromDob(dobSource);
-  // Fallback gender resolution: record.sex -> record.gender -> fetchedPatient -> user
-  const resolvedGender = selectedRecordBase?.sex || selectedRecordBase?.gender || fetchedPatient?.gender || fetchedPatient?.sex || user?.gender || user?.sex || "--";
-  const [prescriptions, setPrescriptions] = useState([]);
-  const [clinicalNotes, setClinicalNotes] = useState([]);
-  const [ipdVitals, setIpdVitals] = useState(null);
-  const [patientMedicalInfo, setPatientMedicalInfo] = useState(null);
-  // Processed, display-ready medical details (mapped labels) from patient-uploaded data
-  const [patientMedicalDetails, setPatientMedicalDetails] = useState({});
-  const [labScanData, setLabScanData] = useState([]);
-  // Fetch patient details by id to supplement missing DOB/gender in selectedRecordBase
+  // Create recordQueryParams based on recordTab and recordId (similar to MedicalRecordDetails)
+  const recordQueryParams = useMemo(() => {
+    if (!recordId) {
+      console.log("No recordId found, returning undefined recordQueryParams");
+      return undefined;
+    }
+    const tab = String(recordTab || "").toUpperCase();
+    let params;
+    if (tab === "OPD") params = { opdRecordId: recordId };
+    else if (tab === "IPD") params = { ipdRecordId: recordId };
+    else if (tab === "VIRTUAL") params = { virtualRecordId: recordId };
+    else params = undefined;
+
+    console.log("Generated recordQueryParams:", { tab, recordId, params });
+    return params;
+  }, [recordId, recordTab]);
+  // Fetch patient medical info for this second opinion view, using the same params pattern as MedicalRecordDetails
   useEffect(() => {
     const pid = selectedRecordBase?.patientId || selectedRecordBase?.id || user?.patientId || user?.id;
-    if (!pid) return;
+    if (!pid) {
+      console.log("SecondOpinion: No patientId available for getPatientMedicalInfo");
+      return;
+    }
+
+    let mounted = true;
+    (async () => {
+      console.log("SecondOpinion: calling getPatientMedicalInfo with", {
+        patientId: pid,
+        recordQueryParams,
+      });
+      const response = await getPatientMedicalInfo(pid, recordQueryParams);
+      
+      const payload = response?.data?.data ?? response?.data;
+      if (!mounted) return;
+      console.log("SecondOpinion: fetched medical info payload", {
+        patientId: pid,
+        recordQueryParams,
+        payload,
+      });
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [selectedRecordBase, user, recordQueryParams]);
+  const [prescriptionsData, setPrescriptionsData] = useState([]);
+  const [prescriptionError, setPrescriptionError] = useState(null);
+  const [labTestsData, setLabTestsData] = useState([]);
+  const [labError, setLabError] = useState(null);
+  const [vitalsData, setVitalsData] = useState({});
+
+  // Fetch patient vitals for this second opinion view
+  useEffect(() => {
+    const pid = selectedRecordBase?.patientId || selectedRecordBase?.id || user?.patientId || user?.id;
+    if (!pid) {
+      console.log("SecondOpinion: No patientId available for getPatientVitalById");
+      return;
+    }
+
     let mounted = true;
     (async () => {
       try {
-        const res = await getPatientById(pid);
-        if (mounted) setFetchedPatient(res?.data || null);
+        const vitalsParams = {
+          ...(recordQueryParams || {}),
+          consultationType: recordTab,
+        };
+        console.log("SecondOpinion: fetchVitalsData called with", {
+          patientId: pid,
+          vitalsParams,
+        });
+
+        const response = await getPatientVitalById(pid, vitalsParams);
+        console.log("SecondOpinion: raw vitals response", response?.data);
+
+        const payload = response?.data?.data ?? response?.data;
+        const patientVitals = Array.isArray(payload) ? payload[0] ?? null : payload;
+        if (!mounted) return;
+
+        if (patientVitals) {
+          const formatted = {
+            "Blood Pressure": patientVitals.bloodPressure || patientVitals.blood_pressure || "--",
+            "Heart Rate": patientVitals.heartRate || patientVitals.heart_rate || "--",
+            "Temperature": patientVitals.temperature || patientVitals.temp || "--",
+            "SpO2": patientVitals.spO2 || patientVitals.spo2 || "--",
+            "Respiratory Rate": patientVitals.respiratoryRate || patientVitals.respiratory_rate || "--",
+            "Height": patientVitals.height || "--",
+            "Weight": patientVitals.weight || "--",
+          };
+          console.log("SecondOpinion: formatted vitals for display", formatted);
+          setVitalsData(formatted);
+        } else {
+          console.log("SecondOpinion: no vitals found in response");
+          setVitalsData({});
+        }
       } catch (err) {
-        console.debug('SecondOpinion: getPatientById failed for', pid, err?.message || err);
-        if (mounted) setFetchedPatient(null);
+        console.error("SecondOpinion: failed to fetch vitals", err);
+        if (!mounted) return;
+        setVitalsData({});
       }
     })();
-    return () => { mounted = false; };
-  }, [selectedRecordBase, user]);
-  // Merge fetched doctor-specific data into selectedRecord for UI (no UI changes)
-  const computedVitals = (() => {
-    // Priority: ipdVitals (doctor-entered) -> patientMedicalInfo.vitals -> selectedRecordBase.vitals
-    if (ipdVitals) {
-      const vitalsSource = Array.isArray(ipdVitals) && ipdVitals.length ? ipdVitals[0] : ipdVitals;
-      if (typeof vitalsSource === "object" && vitalsSource !== null) {
-        console.log("Raw vitals source (ipd):", vitalsSource);
-        const filteredVitals = {
-          "Blood Pressure": vitalsSource.bloodPressure,
-          "Heart Rate": vitalsSource.heartRate,
-          "Temperature": vitalsSource.temperature,
-          "SpO2": vitalsSource.spo2,
-          "Respiratory Rate": vitalsSource.respiratoryRate,
-          "Height": vitalsSource.height,
-          "Weight": vitalsSource.weight
-        };
-        return Object.fromEntries(Object.entries(filteredVitals).filter(([_, value]) => value !== undefined && value !== null));
+
+    return () => {
+      mounted = false;
+    };
+  }, [selectedRecordBase, user, recordQueryParams, recordTab]);
+
+  // Fetch patient prescriptions for this second opinion view
+  useEffect(() => {
+    const pid = selectedRecordBase?.patientId || selectedRecordBase?.id || user?.patientId || user?.id;
+    if (!pid) return;
+
+    let mounted = true;
+    (async () => {
+      try {
+        console.log("SecondOpinion: fetchPatientPrescriptions called with", {
+          patientId: pid,
+          recordQueryParams,
+        });
+        const response = await getPatientPrescriptionsData(pid, recordQueryParams);
+        console.log("SecondOpinion: raw prescriptions response", response.data);
+        let prescriptions = response.data?.data || response.data;
+        if (!Array.isArray(prescriptions)) {
+          prescriptions = prescriptions ? [prescriptions] : [];
+        }
+        const formatted = prescriptions.map((prescription) => {
+          const medicines = Array.isArray(prescription.medicines)
+            ? prescription.medicines
+            : prescription.medicines
+            ? [prescription.medicines]
+            : [];
+          return {
+            id: prescription.id || prescription.prescriptionId,
+            date: prescription.prescribedAt
+              ? new Date(prescription.prescribedAt).toLocaleDateString("en-GB")
+              : "N/A",
+            doctorName: prescription.doctorName || "N/A",
+            medicines: medicines
+              .map((med) => `${med.medicineName} - ${med.dosage} ${med.dosageUnit} for ${med.duration}`)
+              .join(", "),
+            instructions: medicines
+              .map((med) => `Take ${med.intake}.`)
+              .join(" "),
+          };
+        });
+        if (!mounted) return;
+        setPrescriptionsData(formatted);
+        setPrescriptionError(null);
+      } catch (err) {
+        console.error("SecondOpinion: failed to fetch patient prescriptions", err);
+        if (!mounted) return;
+        setPrescriptionError(err.response?.data?.message || "Failed to fetch prescriptions.");
+        setPrescriptionsData([]);
       }
-    }
+    })();
 
-    if (patientMedicalInfo && patientMedicalInfo.vitals && typeof patientMedicalInfo.vitals === 'object') {
-      console.log("Raw vitals source (patient):", patientMedicalInfo.vitals);
-      const filteredVitals = Object.entries(patientMedicalInfo.vitals).reduce((acc, [k, v]) => {
-        if (v === undefined || v === null) return acc;
-        const formattedKey = k.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase()).trim();
-        acc[formattedKey] = v;
-        return acc;
-      }, {});
-      return filteredVitals;
-    }
+    return () => {
+      mounted = false;
+    };
+  }, [selectedRecordBase, user, recordQueryParams]);
 
-    return selectedRecordBase.vitals || {};
-  })();
-  // Normalize prescriptions: ensure `date` is a friendly string (handle array timestamps like [YYYY,MM,DD,hh,mm,ss,ns])
-  const rawPrescriptions = prescriptions.length ? prescriptions : selectedRecordBase?.prescriptionsData || [];
-  const normalizedPrescriptions = (Array.isArray(rawPrescriptions) ? rawPrescriptions : []).map((p) => {
-    // common fields: date, prescribedAt, prescribed_at
-    const src = p.date ?? p.prescribedAt ?? p.prescribed_at ?? p.prescribedAtDate ?? p.prescribedAtTimestamp;
-    const formatted = formatDateValue(src);
-    return { ...p, date: formatted };
-  });
+  useEffect(() => {
+    const pid = selectedRecordBase?.patientId || selectedRecordBase?.id || user?.patientId || user?.id;
+    if (!pid) return;
+
+    let mounted = true;
+    (async () => {
+      try {
+        console.log("SecondOpinion: fetchLabScans called with", {
+          patientId: pid,
+          recordQueryParams,
+        });
+        const response = await getLabScanByPatient(pid, recordQueryParams);
+        console.log("SecondOpinion: raw lab scans response", response.data);
+        let labScans = response.data?.data || response.data;
+        if (!Array.isArray(labScans)) {
+          labScans = labScans ? [labScans] : [];
+        }
+        const formatted = labScans.map((labScan) => {
+          return {
+            id: labScan.id || labScan.labScanId,
+            date: labScan.scanDate
+              ? new Date(labScan.scanDate).toLocaleDateString("en-GB")
+              : "N/A",
+            testName: labScan.testName || "N/A",
+            result: labScan.result || "N/A",
+            normalRange: labScan.normalRange || "N/A",
+            status: labScan.status || "N/A",
+          };
+        });
+        if (!mounted) return;
+        setLabTestsData(formatted);
+        setLabError(null);
+      } catch (err) {
+        console.error("SecondOpinion: failed to fetch lab scans", err);
+        if (!mounted) return;
+        setLabError(err.response?.data?.message || "Failed to fetch lab scans.");
+        setLabTestsData([]);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [selectedRecordBase, user, recordQueryParams]);
+
   const selectedRecord = {
     ...selectedRecordBase,
-    // Prefer computed age from DOB when available, otherwise fall back to provided age
-    age: (computedAgeFromDob !== null && computedAgeFromDob !== undefined) ? computedAgeFromDob : selectedRecordBase.age,
-    // Resolved gender (record or user)
-    sex: resolvedGender,
-    prescriptionsData: normalizedPrescriptions,
-    clinicalNotes: clinicalNotes.length ? clinicalNotes : selectedRecordBase?.clinicalNotes || [],
-    vitals: computedVitals,
-    // Merge any processed medical details from patient-uploaded data so UI shows them
-    medicalDetails: {
-      ...(selectedRecordBase.medicalDetails || {}),
-      ...(patientMedicalDetails || {})
-    },
-    // Lab tests: prefer formatted lab scans fetched for the patient, otherwise fall back to record's labTestsData
-    labTestsData: (Array.isArray(labScanData) && labScanData.length) ? labScanData : (selectedRecordBase.labTestsData || []),
+    // Use raw age from the record (no DOB recomputation here)
+    age: selectedRecordBase?.age,
+    // Use sex/gender directly from the record
+    sex: selectedRecordBase?.sex || selectedRecordBase?.gender || "--",
+    // Use prescriptions fetched for this view when available, otherwise fall back
+    prescriptionsData: prescriptionsData.length ? prescriptionsData : (selectedRecordBase?.prescriptionsData || []),
+    clinicalNotes: selectedRecordBase?.clinicalNotes || [],
+    vitals: Object.keys(vitalsData || {}).length ? vitalsData : (selectedRecordBase.vitals || {}),
+    medicalDetails: selectedRecordBase.medicalDetails || {},
+    labTestsData: labTestsData.length ? labTestsData : (selectedRecordBase.labTestsData || []),
   };
+
   // Display-friendly values (fallbacks when data missing)
   const displayAge = (selectedRecord.age !== null && selectedRecord.age !== undefined && selectedRecord.age !== "") ? String(selectedRecord.age) : "--";
   const displayGender = (selectedRecord.sex && selectedRecord.sex !== "--") ? selectedRecord.sex : "--";
-  useEffect(() => {
-    const fetchMedicalData = async () => {
-      const record = clickedRecord || selectedRecordBase;
-      if (!record) return;
-      
-      const patientId = record.patientId || record.id || "";
-      if (!patientId) {
-        console.warn("Missing patientId — skipping fetch");
-        return;
-      }
-
-      try {
-        let prescriptionsData = [];
-        let notesData = [];
-        let vitalsData = null;
-
-        // Always fetch patient-uploaded data
-        try {
-          console.log("Fetching patient-uploaded data", { patientId });
-          const [patientPresRes, medicalInfoRes, labScanRes] = await Promise.all([
-            getPatientPrescriptions(patientId),
-            getPatientMedicalInfo(patientId),
-            getLabScanByPatient(patientId)
-          ]);
-          
-          // Detailed logging of medical info data
-          console.log("Patient Data Responses:::::::::::::::::::::::::::::", {
-           
-            medicalInfo: medicalInfoRes?.data,
-            labScans: labScanRes?.data
-          });
-          
-          // Log specific medical info fields
-          if (medicalInfoRes?.data) {
-            console.log("Medical Info Fields Available:", Object.keys(medicalInfoRes.data));
-            console.log("Medical Info Full Data:", medicalInfoRes.data);
-            if (medicalInfoRes.data.vitals) {
-              console.log("Vitals Fields Available:", Object.keys(medicalInfoRes.data.vitals));
-            }
-          }
-          
-          // Handle prescriptions
-          if (patientPresRes?.data && Array.isArray(patientPresRes.data)) {
-            const allPrescriptions = [...prescriptionsData];
-            patientPresRes.data.forEach(patientPres => {
-              const exists = allPrescriptions.some(p => p.id === patientPres.id);
-              if (!exists) {
-                allPrescriptions.push({
-                  ...patientPres
-                });
-              }
-            });
-            prescriptionsData = allPrescriptions;
-          }
-
-          // Handle medical info (patient-uploaded). Process into display-friendly details state.
-          if (medicalInfoRes?.data) {
-            const medicalData = medicalInfoRes.data;
-            // keep raw data for debugging/other uses
-            setPatientMedicalInfo(medicalData);
-            // create processed key/value pairs for display and merge into UI via state
-            try {
-              const processed = mapMedicalDataToDetails(medicalData);
-              setPatientMedicalDetails(processed);
-            } catch (e) {
-              console.debug('Failed to process medical info:', e);
-              setPatientMedicalDetails({});
-            }
-            console.log("Patient medical info set:", medicalData);
-          }
-
-          // Handle lab scans (patient-uploaded) -> normalize and store in state
-          if (labScanRes?.data && Array.isArray(labScanRes.data)) {
-            const formattedLabScans = labScanRes.data.map(scan => ({
-              date: formatDateValue(scan.date || scan.createdAt),
-              testName: scan.testName || scan.name,
-              result: scan.result || scan.value,
-              normalRange: scan.normalRange || scan.range,
-              status: scan.status || 'Completed'
-            }));
-            setLabScanData(formattedLabScans);
-          }
-
-        } catch (patientDataError) {
-          console.warn("Error fetching patient data:", patientDataError);
-        }
-
-        console.log("Combined Data:", {
-          prescriptions: prescriptionsData,
-          notes: notesData,
-          vitals: vitalsData,
-          patientMedicalInfo,
-          labScans: labScanData
-        });
-        
-        setPrescriptions(prescriptionsData);
-        setClinicalNotes(notesData);
-        setIpdVitals(vitalsData);
-        
-        // Log the processed vitals
-        console.log("Processed vitals:", computedVitals);
-      } catch (error) {
-        console.error("Error fetching medical data:", error);
-        toast.error("Failed to fetch medical data: " + error.message);
-      }
-    };
-    
-    fetchMedicalData();
-  }, [clickedRecord, activeTab, selectedRecordBase]);
   const [formData, setFormData] = useState({
     selectedDoctor: "",
     urgencyLevel: "",

@@ -482,7 +482,12 @@ const fetchVitalsData = async () => {
   setLoading(true);
   setError(null);
   try {
-    const response = await getPatientVitalById(selectedRecord.patientId, recordQueryParams);
+    // Merge consultationType into params so backend can distinguish OPD/IPD/Virtual
+    const vitalsParams = {
+      ...(recordQueryParams || {}),
+      consultationType: activeTab,
+    };
+    const response = await getPatientVitalById(selectedRecord.patientId, vitalsParams);
     console.log("Fetched vitals data::::::::::::", response.data);
 
     // Support response.data.data and array payloads
@@ -724,9 +729,9 @@ const fetchVitalsData = async () => {
   const handleSecondOpinion = () => {
     const recordToPass = {
       ...selectedRecord,
-      medicalDetails: clinicalNotes,
+      medicalDetails: medicalInfo,
       prescriptionsData: prescriptionData,
-      labTestsData: labTestsData,
+      labTestsData: labScansData,
     };
     navigate("/patientdashboard/second-opinion", { state: { selectedRecord: recordToPass } });
   };
@@ -1198,12 +1203,14 @@ const fetchVitalsData = async () => {
                 <h4 className="text-lg md:text-xl font-semibold">Billing Information</h4>
               </div>
               {(hospitalBillingData.length > 0 || labBillingData.length > 0 || pharmacyBillingData.length > 0) && (
-                <button 
-                  onClick={() => setImageModal({
-                    isOpen: true,
-                    imageUrl: "https://placehold.co/800x1000/png?text=Billing+Sample",
-                    title: "Original Bill"
-                  })}
+                <button
+                  onClick={() =>
+                    setImageModal({
+                      isOpen: true,
+                      imageUrl: "https://placehold.co/800x1000/png?text=Billing+Sample",
+                      title: "Original Bill",
+                    })
+                  }
                   className="px-2 sm:px-3 py-1 sm:py-1.5 bg-[var(--primary-color)] text-white rounded-md sm:rounded-lg hover:opacity-90 transition-opacity text-xs sm:text-sm self-start md:self-auto"
                 >
                   View Original
@@ -1211,84 +1218,103 @@ const fetchVitalsData = async () => {
               )}
             </div>
             <div className="overflow-x-auto mx-6 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-              <DynamicTable
-                columns={(() => {
-                  const columnMaps = {
-                    pharmacy: [
-                      { header: "Medicine Name", accessor: "medicineName" },
-                      { header: "Quantity", accessor: "quantity" },
-                      { header: "Unit Price (₹)", accessor: "unitPrice" },
-                      { header: "Total Price (₹)", accessor: "totalPrice" },
-                      { header: "Date", accessor: "date" },
-                    ],
-                    labs: [
-                      { header: "Test Name", accessor: "testName" },
-                      { header: "Cost (₹)", accessor: "cost" },
-                      { header: "Date", accessor: "date" },
+              {(() => {
+                const dataMaps = {
+                  pharmacy: pharmacyBillingData,
+                  labs: labBillingData,
+                  hospital: hospitalBillingData,
+                };
+                const columnMaps = {
+                  pharmacy: [
+                    { header: "Medicine Name", accessor: "medicineName" },
+                    { header: "Quantity", accessor: "quantity" },
+                    { header: "Unit Price (₹)", accessor: "unitPrice" },
+                    { header: "Total Price (₹)", accessor: "totalPrice" },
+                    { header: "Date", accessor: "date" },
+                  ],
+                  labs: [
+                    { header: "Test Name", accessor: "testName" },
+                    { header: "Cost (₹)", accessor: "cost" },
+                    { header: "Date", accessor: "date" },
+                    {
+                      header: "Payment Status",
+                      accessor: "paymentStatus",
+                      cell: (row) => (
+                        <span
+                          className={`text-xs md:text-sm font-semibold px-2 py-1 rounded-full ${row.paymentStatus === "Paid" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}
+                        >
+                          {row.paymentStatus}
+                        </span>
+                      ),
+                    },
+                  ],
+                  hospital: [
+                    { header: "Bill Type", accessor: "billType" },
+                    { header: "Amount (₹)", accessor: "amount" },
+                    { header: "Payment Mode", accessor: "paymentMode" },
+                    {
+                      header: "Status",
+                      accessor: "status",
+                      cell: (row) => (
+                        <span
+                          className={`text-xs md:text-sm font-semibold px-2 py-1 rounded-full ${row.status === "Paid" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}
+                        >
+                          {row.status}
+                        </span>
+                      ),
+                    },
+                    { header: "Bill Date", accessor: "billDate" },
+                  ],
+                };
+
+                const activeBillingTab = state.billingActiveTab;
+                const activeData = dataMaps[activeBillingTab] || [];
+
+                // If current sub-tab has no data, show DocsReader for that sub-tab only
+                if (!Array.isArray(activeData) || activeData.length === 0) {
+                  return (
+                    <DocsReader
+                      askBillingTypeOnUpload={state.detailsActiveTab === "billing"}
+                      activeTab={state.detailsActiveTab}
+                    />
+                  );
+                }
+
+                return (
+                  <DynamicTable
+                    columns={columnMaps[activeBillingTab]}
+                    data={activeData}
+                    tabs={[
+                      { value: "pharmacy", label: "Pharmacy" },
+                      { value: "labs", label: "Labs" },
+                      { value: "hospital", label: "Hospital Bills" },
+                    ]}
+                    activeTab={state.billingActiveTab}
+                    onTabChange={(tab) =>
+                      setState((prev) => ({ ...prev, billingActiveTab: tab }))
+                    }
+                    filters={[
                       {
-                        header: "Payment Status",
-                        accessor: "paymentStatus",
-                        cell: (row) => (
-                          <span className={`text-xs md:text-sm font-semibold px-2 py-1 rounded-full ${row.paymentStatus === "Paid" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}>
-                            {row.paymentStatus}
-                          </span>
-                        ),
+                        key: "paymentStatus",
+                        label: "Payment Status",
+                        options: [
+                          { value: "Paid", label: "Paid" },
+                          { value: "Unpaid", label: "Unpaid" },
+                        ],
                       },
-                    ],
-                    hospital: [
-                      { header: "Bill Type", accessor: "billType" },
-                      { header: "Amount (₹)", accessor: "amount" },
-                      { header: "Payment Mode", accessor: "paymentMode" },
-                      {
-                        header: "Status",
-                        accessor: "status",
-                        cell: (row) => (
-                          <span className={`text-xs md:text-sm font-semibold px-2 py-1 rounded-full ${row.status === "Paid" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}>
-                            {row.status}
-                          </span>
-                        ),
-                      },
-                      { header: "Bill Date", accessor: "billDate" },
-                    ],
-                  };
-                  return columnMaps[state.billingActiveTab];
-                })()}
-                data={(() => {
-                  const dataMaps = {
-                    pharmacy: pharmacyBillingData,
-                    labs: labBillingData,
-                    hospital: hospitalBillingData,
-                  };
-                  return dataMaps[state.billingActiveTab];
-                })()}
-                tabs={[
-                  { value: "pharmacy", label: "Pharmacy" },
-                  { value: "labs", label: "Labs" },
-                  { value: "hospital", label: "Hospital Bills" },
-                ]}
-                activeTab={state.billingActiveTab}
-                onTabChange={(tab) => setState((prev) => ({ ...prev, billingActiveTab: tab }))}
-                filters={[
-                  {
-                    key: "paymentStatus",
-                    label: "Payment Status",
-                    options: [
-                      { value: "Paid", label: "Paid" },
-                      { value: "Unpaid", label: "Unpaid" },
-                    ],
-                  },
-                ]}
-              />
+                    ]}
+                  />
+                );
+              })()}
             </div>
           </div>
         ) : (
-         <DocsReader
-  askBillingTypeOnUpload={state.detailsActiveTab === "billing"}
-  activeTab={state.detailsActiveTab}
-/>
-
+          <DocsReader
+            askBillingTypeOnUpload={state.detailsActiveTab === "billing"}
+            activeTab={state.detailsActiveTab}
+          />
         )
-        ) : isExactDoctor ? (
+      ) : isExactDoctor ? (
         <div className="text-center text-gray-600 py-6 md:py-8 text-sm md:text-base">
           Data not found
         </div>

@@ -77,28 +77,51 @@ const PaymentGateway = ({
     setQrCodeGenerated(false);
   };
 
-  const handleOtpVerify = () => {
-    if (otp === "1234") {
-      setLoading(true);
-      setTimeout(() => {
-        const data =
-          selectedMethod === "upi"
-            ? { upiId }
-            : selectedMethod === "card"
-            ? cardData
-            : selectedMethod === "netbanking"
-            ? { bank: selectedBank }
-            : { wallet: selectedWallet };
-        onPay(selectedMethod, data);
-        setCurrentStep("success");
-        setLoading(false);
-      }, 2000);
-    } else alert("Invalid OTP. Please try again.");
+  const handleOtpVerify = async () => {
+    if (!otp || otp.length !== 4) {
+      alert("Please enter the 4-digit OTP.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const data = {
+        action: "verify",
+        otp,
+        upiMode: selectedMethod === "upi" ? upiPaymentOption : "",
+        name: selectedMethod === "card" ? cardData.name : "",
+      };
+
+      await onPay(selectedMethod, data);
+      setCurrentStep("success");
+    } catch (error) {
+      alert(error?.message || "Payment verification failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setCurrentStep("otp-step");
+
+    setLoading(true);
+    try {
+      const baseData =
+        selectedMethod === "upi"
+          ? { upiId, upiMode: upiPaymentOption }
+          : selectedMethod === "card"
+          ? cardData
+          : selectedMethod === "netbanking"
+          ? { bank: selectedBank }
+          : { wallet: selectedWallet };
+
+      await onPay(selectedMethod, { ...baseData, action: "create" });
+      setCurrentStep("otp-step");
+    } catch (error) {
+      alert(error?.message || "Failed to start payment. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleGenerateQR = () => setQrCodeGenerated(true);

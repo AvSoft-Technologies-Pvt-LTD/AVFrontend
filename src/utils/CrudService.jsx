@@ -530,6 +530,9 @@ export const getLabAppointmentProgress = (bookingId) =>
 // lab payment
 export const createLabPayment = (paymentData) =>
   axiosInstance.post(`/lab/appoinment/api/payments`, paymentData);
+// lab verfication payment otp
+export const verifyLabPayment = (data) =>
+  axiosInstance.post(`/lab/appoinment/api/payments/verify`, data);
 
 export const getLabPaymentsByPatient = (patientId) =>
   axiosInstance.get(`/lab/appoinment/api/payments/appointments/${patientId}`);
