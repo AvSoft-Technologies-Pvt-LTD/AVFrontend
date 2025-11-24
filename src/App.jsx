@@ -275,11 +275,12 @@ const App = () => {
 
       <ToastContainer
         position="top-right"
-        autoClose={2000}
+        autoClose={3000}
         hideProgressBar={false}
         newestOnTop={false}
         closeOnClick
-        pauseOnHover={false}
+          rtl={false}
+        pauseOnHover
         pauseOnFocusLoss={false}
         draggable
         theme="colored"

@@ -330,11 +330,37 @@ export const getAllAmbulanceCategories = () =>
 export const getAllHospitals = () =>
   axiosInstance.get('/ambulance/public/hospitals');
 
-export const getSpecializationsWardsSummaryForIpdAdmission = () =>
-  axiosInstance.get('/specializations/wards/summary/ipd-addmission');
+export const searchAmbulancesPublic = (keyword) =>
+  axiosInstance.get('/ambulance/public/search', { params: { keyword } });
+
+export const getNearbyAmbulances = (latitude, longitude, radiusKm = 10) =>
+  axiosInstance.get('/ambulance/public/nearby', {
+    params: { latitude, longitude, radiusKm },
+  });
+
+// ✅ Get ambulances based on current location (no radius needed)
+export const getCurrentAmbulances = (latitude, longitude) =>
+  axiosInstance.get('/ambulance/public/current', {
+    params: { latitude, longitude },
+  });
+
 
 export const createAmbulanceBooking = (data) =>
   axiosInstance.post('/ambulance/bookings', data);
+
+// NEW: Get ALL ambulances
+export const getAllAmbulances = () =>
+  axiosInstance.get('/ambulances');  
+// Hits: http://localhost:8080/api/ambulances
+
+// NEW: Search ambulances by ANY keyword
+// In CrudService.jsx
+export const searchAmbulanceList = (keyword) =>
+  axiosInstance.get('/ambulances/search', { params: { keyword } });
+export const getSpecializationsWardsSummaryForIpdAdmission = () =>
+  axiosInstance.get('/specializations/wards/summary/ipd-addmission');
+
+
 /* -----------------------------
    VIRTUAL APPOINTMENTS (CRUD)
 ------------------------------ */
@@ -452,14 +478,9 @@ export const updateAppointmentDuration = (id, data) =>
 export const deleteAppointmentDuration = (id) =>
   axiosInstance.delete(`/appointment-durations/${id}`);
 
-export const searchAmbulancesPublic = (keyword) =>
-  axiosInstance.get('/ambulance/public/search', { params: { keyword } });
 
-export const getNearbyAmbulances = (latitude, longitude, radiusKm = 10) =>
-  axiosInstance.get('/ambulance/public/nearby', {
-    params: { latitude, longitude, radiusKm },
-  });
 
+  
 //cart
 // Cart API functions
 // CREATE CART (POST /lab/cart/add)
@@ -486,11 +507,6 @@ export const getLabDetails = () =>
 export const getLabTestById = (id) => axiosInstance.get(`/lab-tests/${id}`);
 export const getScanById = (id) => axiosInstance.get(`/scans/${id}`);
 export const getPackageById = (id) => axiosInstance.get(`/packages/${id}`);
-// ✅ Get ambulances based on current location (no radius needed)
-export const getCurrentAmbulances = (latitude, longitude) =>
-  axiosInstance.get('/ambulance/public/current', {
-    params: { latitude, longitude },
-  });
 
 
   // Addd staff 
@@ -631,5 +647,8 @@ export const removeIPDAdmission = (id) => axiosInstance.delete(`/ipd-admissions/
 export const getAllLabAvailablesTests = () =>
   axiosInstance.get('/lab-available-tests/getall');
 
-export const getOpdAppointmentById = (appointmentId) =>
-  axiosInstance.get(`/v1/appointments/opd/appointment-id/${appointmentId}`);
+export const getOpdAppointmentById = (appointmentId) => {
+  // Ensure the ID is a string and trim any whitespace
+  const id = String(appointmentId).trim();
+  return axiosInstance.get(`/v1/appointments/opd/appointment-id/${id}`);
+};

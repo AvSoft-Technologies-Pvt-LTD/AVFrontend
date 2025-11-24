@@ -1,7 +1,6 @@
 // src/pages/layouts/menu/DoctorDashboard/PatientList.js
 import React, { useState, useEffect, useRef } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import { useLocation, useNavigate, Routes, Route } from "react-router-dom";import { toast } from "react-toastify";
 import { useSelector } from "react-redux";
 import {
   getGenders,
@@ -32,27 +31,29 @@ const PatientList = () => {
     loading: true,
   });
 
+  // Add this after other utility functions like getCurrentDate, to24Hour, etc.
+
   const tabs = [
     { label: "OPD", value: "OPD" },
     { label: "IPD", value: "IPD" },
     { label: "VIRTUAL", value: "VIRTUAL" },
   ];
 
-  const parentTabActions = [
-    {
-      label: "Add Patient",
-      onClick: () => {
-        if (activeTab === "OPD") opdTabRef.current?.openAddPatientModal();
-        else if (activeTab === "IPD") {
-          navigate("/doctordashboard/patients/basic", {
-            state: { tab: "IPD", autoNavigated: true },
-          });
-        }
-        else if (activeTab === "VIRTUAL") virtualTabRef.current?.openScheduleConsultationModal();
-      },
-      className: "btn btn-primary",
+const parentTabActions = [
+  {
+    label: "Add Patient",
+    onClick: () => {
+      if (activeTab === "OPD") opdTabRef.current?.openAddPatientModal();
+      else if (activeTab === "IPD") {
+        navigate("/doctordashboard/patients/basic", {
+          state: { tab: "IPD", autoNavigated: true },
+        });
+      }
+      else if (activeTab === "VIRTUAL") virtualTabRef.current?.openScheduleConsultationModal();
     },
-  ];
+    className: "btn btn-primary",
+  },
+];
 
   // Get doctorId and doctorName from Redux
   const doctorId = user?.doctorId;
@@ -132,25 +133,33 @@ const PatientList = () => {
     loadMasterData();
   }, []);
 
-  useEffect(() => {
-    const isBasicPath = location.pathname?.includes("/doctordashboard/patients/basic");
-    if (isBasicPath) {
+useEffect(() => {
+  // Handle IPD wizard routes
+  if (location.pathname.startsWith('/doctordashboard/patients/')) {
+    const path = location.pathname;
+    if (path.includes('/basic') || 
+        path.includes('/wardselection') || 
+        path.includes('/roomselection') || 
+        path.includes('/bedselection') || 
+        path.includes('/ipdfinal')) {
       setActiveTab("IPD");
       setContextActiveTab("IPD");
       localStorage.setItem("activeTab", "IPD");
       return;
     }
+  }
 
-    const tabFromUrl = new URLSearchParams(location.search).get("tab");
-    const tabFromState = location.state?.tab;
-    const autoNavigated = location.state?.autoNavigated;
-    if (autoNavigated && tabFromState) {
-      setActiveTab(tabFromState);
-    } else if (tabFromUrl) {
-      setActiveTab(tabFromUrl.charAt(0).toUpperCase() + tabFromUrl.slice(1));
-    }
-  }, [location.pathname, location.search, location.state]);
-
+  // Handle regular tab navigation
+  const tabFromUrl = new URLSearchParams(location.search).get("tab");
+  const tabFromState = location.state?.tab;
+  const autoNavigated = location.state?.autoNavigated;
+  
+  if (autoNavigated && tabFromState) {
+    setActiveTab(tabFromState);
+  } else if (tabFromUrl) {
+    setActiveTab(tabFromUrl.charAt(0).toUpperCase() + tabFromUrl.slice(1));
+  }
+}, [location.pathname, location.search, location.state, setContextActiveTab]);
   if (masterData.loading) {
     return (
       <div className="p-4 flex items-center justify-center">
@@ -161,34 +170,60 @@ const PatientList = () => {
       </div>
     );
   }
-
-  const renderActiveTab = () => {
-    const commonProps = {
-      doctorName,
-      doctorId, // Pass doctorId if needed
-      masterData,
-      location,
-      setTabActions,
-      tabActions,
-      onPatientSelect: handlePatientSelect,
-    };
-    const sharedTabProps = {
-      tabs,
-      tabActions: tabActions.length ? tabActions : parentTabActions,
-      activeTab,
-      onTabChange: handleTabChange,
-    };
-    switch (activeTab) {
-      case "OPD":
-        return <OpdTab ref={opdTabRef} {...commonProps} {...sharedTabProps} />;
-      case "IPD":
-        return <IpdTab ref={ipdTabRef} {...commonProps} {...sharedTabProps} />;
-      case "VIRTUAL":
-        return <VirtualTab ref={virtualTabRef} {...commonProps} {...sharedTabProps} />;
-      default:
-        return <OpdTab ref={opdTabRef} {...commonProps} {...sharedTabProps} />;
-    }
+const renderActiveTab = () => {
+  const commonProps = {
+    doctorName,
+    doctorId,
+    masterData,
+    location,
+    setTabActions,
+    tabActions,
+    onPatientSelect: handlePatientSelect,
   };
+  
+  const sharedTabProps = {
+    tabs,
+    tabActions: tabActions.length ? tabActions : parentTabActions,
+    activeTab,
+    onTabChange: handleTabChange,
+  };
+
+  // Handle IPD wizard routes
+  if (location.pathname.startsWith('/doctordashboard/patients/')) {
+    return (
+    // In PatientList.jsx, update the Routes section:
+<Routes>
+  <Route path="basic" element={<IpdTab ref={ipdTabRef} {...commonProps} {...sharedTabProps} />} />
+  <Route path="wardselection" element={<IpdTab ref={ipdTabRef} {...commonProps} {...sharedTabProps} />} />
+  <Route path="roomselection" element={<IpdTab ref={ipdTabRef} {...commonProps} {...sharedTabProps} />} />
+  <Route path="bedselection" element={<IpdTab ref={ipdTabRef} {...commonProps} {...sharedTabProps} />} />
+  <Route path="ipdfinal" element={<IpdTab ref={ipdTabRef} {...commonProps} {...sharedTabProps} />} />
+  <Route 
+    path="" 
+    element={
+      activeTab === "OPD" ? 
+        <OpdTab ref={opdTabRef} {...commonProps} {...sharedTabProps} /> : 
+        activeTab === "IPD" ? 
+          <IpdTab ref={ipdTabRef} {...commonProps} {...sharedTabProps} /> : 
+          <VirtualTab ref={virtualTabRef} {...commonProps} {...sharedTabProps} />
+    } 
+  />
+</Routes>
+    );
+  }
+
+  // Default tab rendering
+  switch (activeTab) {
+    case "OPD":
+      return <OpdTab ref={opdTabRef} {...commonProps} {...sharedTabProps} />;
+    case "IPD":
+      return <IpdTab ref={ipdTabRef} {...commonProps} {...sharedTabProps} />;
+    case "VIRTUAL":
+      return <VirtualTab ref={virtualTabRef} {...commonProps} {...sharedTabProps} />;
+    default:
+      return <OpdTab ref={opdTabRef} {...commonProps} {...sharedTabProps} />;
+  }
+};
 
   return (
     <div className="p-2 sm:p-4 md:p-2">

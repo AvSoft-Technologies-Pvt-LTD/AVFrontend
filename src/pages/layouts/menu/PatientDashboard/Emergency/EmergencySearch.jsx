@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from "react";
 // ⛔ Removed direct axios; we'll use your CrudService instead
 import * as Lucide from "lucide-react";
-import { ToastContainer, toast } from "react-toastify";
+import {  toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
@@ -10,9 +10,8 @@ import LocationModal from "./LocationModal"; // must be in same folder
 
 // ✅ Import real API calls from your CrudService
 import {
-  searchAmbulancesPublic,
-  getNearbyAmbulances,
-  getCurrentAmbulances, // <-- added
+  getAllAmbulances,
+  searchAmbulanceList
 } from "../../../../../utils/CrudService";
 
 // Fix for Leaflet's default icon issue
@@ -241,9 +240,44 @@ const EmergencySearch = () => {
     },
   ];
 
-  // We used to load a mock dataset here. Now we just flip loading off.
+  // Load all ambulances on component mount
   useEffect(() => {
-    setLoading(false);
+    const loadAmbulances = async () => {
+      if (!searchQuery.trim()) {
+        // If search query is empty, fetch all ambulances
+        try {
+          setLoading(true);
+          const res = await getAllAmbulances();
+          const data = Array.isArray(res.data) ? res.data : [];
+          const cards = data.map(mapSearchItemToCard);
+          setOriginalAmbulances(cards);
+          setFilteredAmbulances(applyFilters(cards));
+          setHasSearched(true);
+        } catch (error) {
+          toast.error("Failed to fetch ambulances");
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
+
+      // If there's a search query, use the search endpoint
+      try {
+        setLoading(true);
+        const res = await searchAmbulanceList(searchQuery);
+        const data = Array.isArray(res.data) ? res.data : [];
+        const cards = data.map(mapSearchItemToCard);
+        setOriginalAmbulances(cards);
+        setFilteredAmbulances(applyFilters(cards));
+        setHasSearched(true);
+      } catch (error) {
+        toast.error("Search failed");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadAmbulances();
   }, []);
 
   useEffect(() => {
@@ -279,13 +313,15 @@ const EmergencySearch = () => {
   const mapSearchItemToCard = (it) => ({
     id: it.id,
     serviceName: it.name || "Ambulance",
-    location: it.city || "",
+    location: it.hospitalName || "",
     type: it.type || "Ambulance",
     category: it.category || "Private",
     available: it.available ?? true,
-    rating: it.rating ?? 4.0,
-    distance: it.distance ?? null,
+    rating: 4.0, // Default rating since it's not in the API response
+    distance: null, // Will be calculated if needed
     phone: it.phone || "N/A",
+    latitude: it.latitude,
+    longitude: it.longitude,
   });
 
   const haversineKm = (lat1, lon1, lat2, lon2) => {
@@ -329,30 +365,37 @@ const EmergencySearch = () => {
           const pos = [coords.latitude, coords.longitude];
           setMapPosition(pos);
           setMarkerPosition(pos);
-          reverseGeocode(...pos);
 
-          // 🔗 Try CURRENT first, then fall back to NEARBY (radius 10km)
           try {
             setSearchLoading(true);
-            setHasSearched(true);
+            // First get all ambulances
+            const res = await getAllAmbulances();
+            const ambulances = Array.isArray(res.data) ? res.data : [];
 
-            // 1) CURRENT
-            let res = await getCurrentAmbulances(coords.latitude, coords.longitude);
-            let list = Array.isArray(res.data) ? res.data : [];
+            // Filter by distance locally
+            const nearbyAmbulances = ambulances
+              .map(ambulance => ({
+                ...ambulance,
+                distance: haversineKm(
+                  coords.latitude,
+                  coords.longitude,
+                  ambulance.latitude,
+                  ambulance.longitude
+                )
+              }))
+              .filter(ambulance => ambulance.distance <= 10); // Within 10km
 
-            // 2) Fallback to NEARBY if CURRENT returned nothing
-            if (!list.length) {
-              res = await getNearbyAmbulances(coords.latitude, coords.longitude, 10);
-              list = Array.isArray(res.data) ? res.data : [];
-            }
-
-            const cards = list.map((it) =>
-              mapNearbyItemToCard(it, { lat: coords.latitude, lng: coords.longitude })
+            const cards = nearbyAmbulances.map(ambulance =>
+              mapNearbyItemToCard(ambulance, {
+                lat: coords.latitude,
+                lng: coords.longitude
+              })
             );
+
             setOriginalAmbulances(cards);
             setFilteredAmbulances(applyFilters(cards));
             toast.success(`Found ${cards.length} nearby ambulances`);
-          } catch (e) {
+          } catch (error) {
             toast.error("Failed to load nearby ambulances");
           } finally {
             setSearchLoading(false);
@@ -362,7 +405,9 @@ const EmergencySearch = () => {
           toast.error("Unable to get current location");
         }
       );
-    } else toast.error("Geolocation not supported");
+    } else {
+      toast.error("Geolocation not supported");
+    }
   };
 
   const generateLocationSuggestions = async (query) => {
@@ -444,70 +489,49 @@ const EmergencySearch = () => {
     setShowLocationPopup(false);
   };
 
-  const locationAliases = {
-    dharwad: ["dharwad", "dharwar"],
-    dharwar: ["dharwad", "dharwar"],
-    hubli: ["hubli", "hubballi", "huballi"],
-    hubballi: ["hubli", "hubballi", "huballi"],
-    huballi: ["hubli", "hubballi", "huballi"],
+  // Removed hardcoded location aliases as we now rely on the API for search
+
+  // Generate search suggestions based on the search query
+  const generateSuggestions = async (query) => {
+    if (!query.trim()) return [];
+    
+    try {
+      const res = await searchAmbulanceList(query);
+      const results = Array.isArray(res.data) ? res.data : [];
+      
+      // Map API results to suggestion format
+      return results.slice(0, 8).map(ambulance => ({
+        type: "ambulance",
+        value: ambulance.name || "Ambulance",
+        location: ambulance.hospitalName || "",
+        ambulanceType: ambulance.type || "Ambulance",
+        category: ambulance.category || "Private",
+        available: ambulance.available ?? true,
+        id: ambulance.id,
+      }));
+    } catch (error) {
+      console.error("Error fetching suggestions:", error);
+      return [];
+    }
   };
 
-  const getLocationVariations = (query) => {
-    const variations = [query];
-    Object.entries(locationAliases).forEach(([_, aliases]) => {
-      if (aliases.includes(query.toLowerCase())) {
-        variations.push(...aliases.filter((alias) => alias !== query.toLowerCase()));
-      }
-    });
-    return variations;
-  };
-
-  // Suggestions (kept; will be empty unless you wire a suggestions API)
-  const generateSuggestions = (query) => {
-    if (!data || !query.trim()) return [];
-    const queryLower = query.toLowerCase().trim();
-    const queryVariations = getLocationVariations(queryLower);
-    const suggestions = [];
-
-    (data.ambulanceServices || []).forEach((ambulance) => {
-      const nameMatches = ambulance.serviceName.toLowerCase().includes(queryLower);
-      const locationMatches = queryVariations.some((variation) =>
-        ambulance.location.toLowerCase().includes(variation)
-      );
-
-      if (nameMatches || locationMatches) {
-        suggestions.push({
-          type: "ambulance",
-          value: ambulance.serviceName,
-          location: ambulance.location,
-          ambulanceType: ambulance.type,
-          category: ambulance.category,
-          available: ambulance.available,
-          id: ambulance.id,
-        });
-      }
-    });
-
-    const uniqueSuggestions = suggestions
-      .filter((v, i, self) => i === self.findIndex((t) => t.value === v.value && t.type === t.type))
-      .slice(0, 8);
-
-    return uniqueSuggestions;
-  };
-
-  const handleSearchInputChange = (val) => {
+  const handleSearchInputChange = async (val) => {
     setSearchQuery(val);
-    const suggest = generateSuggestions(val);
-    setShowSuggestions(val.length > 0 && suggest.length > 0);
-    setSuggestions(suggest);
+    if (val.trim().length > 0) {
+      const suggest = await generateSuggestions(val);
+      setSuggestions(suggest);
+      setShowSuggestions(suggest.length > 0);
+    } else {
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
   };
 
   const handleSuggestionSelect = (suggestion) => {
     setSearchQuery(suggestion.value);
     setShowSuggestions(false);
-    setTimeout(() => {
-      searchAmbulances(suggestion.value);
-    }, 100);
+    // Trigger search with the selected suggestion
+    searchAmbulances(suggestion.value);
   };
 
   const searchByCurrentLocation = () => setShowLocationPopup(true);
@@ -549,36 +573,42 @@ const EmergencySearch = () => {
   };
 
   // 🔎 Use real search API
-  const searchAmbulances = async (query = searchQuery) => {
-    if (!query.trim()) {
-      toast.error("Please enter a search term");
-      return;
-    }
-
-    setSearchLoading(true);
-    setHasSearched(true);
-
+// In EmergencySearch.jsx
+const searchAmbulances = async (query = searchQuery) => {
+  if (!query.trim()) {
+    // If search query is empty, fetch all ambulances
     try {
-      const res = await searchAmbulancesPublic(query);
-      const list = Array.isArray(res.data) ? res.data : [];
-      const cards = list.map(mapSearchItemToCard);
-
+      setSearchLoading(true);
+      const res = await getAllAmbulances();
+      const data = Array.isArray(res.data) ? res.data : [];
+      const cards = data.map(mapSearchItemToCard);
       setOriginalAmbulances(cards);
-      const filtered = applyFilters(cards);
-      setFilteredAmbulances(filtered);
-
-      if (filtered.length === 0) {
-        toast.info(`No ambulances found for "${query}". Try different search terms or clear filters.`);
-      } else {
-        toast.success(`Found ${filtered.length} ambulances for "${query}"`);
-      }
-    } catch (e) {
-      toast.error("Search failed");
+      setFilteredAmbulances(applyFilters(cards));
+      setHasSearched(true);
+    } catch (error) {
+      toast.error("Failed to fetch ambulances");
     } finally {
       setSearchLoading(false);
     }
-  };
+    return;
+  }
 
+  // If there's a search query, use the search endpoint
+  try {
+    setSearchLoading(true);
+    const res = await searchAmbulanceList(query);
+    const data = Array.isArray(res.data) ? res.data : [];
+    const cards = data.map(mapSearchItemToCard);
+    setOriginalAmbulances(cards);
+    setFilteredAmbulances(applyFilters(cards));
+    setHasSearched(true);
+  } catch (error) {
+    console.error('Search error:', error);
+    toast.error("Search failed. Please try again.");
+  } finally {
+    setSearchLoading(false);
+  }
+};
   const handleFilterChange = (filterType, value) => {
     setActiveFilters((prev) => {
       const updated = { ...prev };
@@ -683,16 +713,7 @@ const EmergencySearch = () => {
   if (loading) {
     return (
       <div className="w-full min-h-screen bg-gray-50 py-2 px-2 sm:py-4 sm:px-4 lg:py-8 lg:px-8">
-        <ToastContainer
-          position="top-right"
-          autoClose={3000}
-          hideProgressBar
-          newestOnTop
-          closeOnClick
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
-        />
+       
         <div className="text-center py-6 sm:py-8 lg:py-10">
           <Lucide.Loader2
             className="animate-spin mx-auto mb-3 sm:mb-4 text-blue-500 w-6 h-6 sm:w-8 sm:h-8"
@@ -705,16 +726,7 @@ const EmergencySearch = () => {
 
   return (
     <div className="w-full min-h-screen bg-gray-50 py-2 px-2 sm:py-4 sm:px-4 lg:py-8 lg:px-8">
-      <ToastContainer
-        position="top-right"
-        autoClose={3000}
-        hideProgressBar
-        newestOnTop
-        closeOnClick
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-      />
+   
       {/* Location modal (separate component) */}
       <LocationModal
         show={showLocationPopup}

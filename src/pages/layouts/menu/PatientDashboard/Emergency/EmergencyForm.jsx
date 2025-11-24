@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import axios from "axios";
 import { format } from "date-fns";
 import * as Lucide from "lucide-react";
-import { ToastContainer, toast } from "react-toastify";
+import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import ReactDatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -92,28 +92,31 @@ const EmergencyForm = () => {
   }, [hospitals, debouncedHospitalSearch]);
 
   // ----- fetch hospitals dropdown -----
-  const fetchHospitals = async () => {
-    try {
-      const res = await getAllHospitals();
-      const list = Array.isArray(res.data) ? res.data : res.data?.items || [];
-      const normalized = list.map((h) => ({
-        ...h,
-        hospitalName: h.hospitalName || h.name || "",
-      }));
-      const sortedHospitals = (normalized || []).sort((a, b) =>
-        (a.hospitalName || "").localeCompare(b.hospitalName || "")
-      );
-      setHospitals(sortedHospitals);
-    } catch (error) {
-      console.error("Failed to load hospitals:", error);
-      toast.error("Failed to load hospitals");
-    }
-  };
-
-  useEffect(() => {
-    fetchHospitals();
-  }, []);
-
+  const fetchHospitals = useCallback(async () => {
+  try {
+    const res = await getAllHospitals();
+    const list = Array.isArray(res.data) ? res.data : res.data?.items || [];
+    const normalized = list.map((h) => ({
+      ...h,
+      hospitalName: h.hospitalName || h.name || "",
+    }));
+    const sortedHospitals = (normalized || []).sort((a, b) =>
+      (a.hospitalName || "").localeCompare(b.hospitalName || "")
+    );
+    setHospitals(sortedHospitals);
+  } catch (error) {
+    if (!toast.isActive('hospital-fetch-error')) {
+// In your EmergencyForm.jsx, update the toast.error call to:
+toast.error("Failed to load hospitals", { 
+  toastId: 'hospital-fetch-error',
+  autoClose: 3000,  // Auto close after 3 seconds
+  hideProgressBar: false
+});    }
+  }
+}, []);
+useEffect(() => {
+  fetchHospitals();
+}, [fetchHospitals]);
   // ----- fetch booking config (ambulance types, categories, equipment, locations) -----
   useEffect(() => {
     (async () => {
@@ -774,16 +777,7 @@ const EmergencyForm = () => {
   // ----- return UI -----
   return (
     <div className="w-full min-h-screen bg-gray-50 py-2 px-2 sm:py-4 sm:px-4 lg:py-8 lg:px-8">
-      <ToastContainer
-        position="top-right"
-        autoClose={3000}
-        hideProgressBar
-        newestOnTop
-        closeOnClick
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-      />
+     
 
       {showPaymentGateway && (
         <PaymentGateway

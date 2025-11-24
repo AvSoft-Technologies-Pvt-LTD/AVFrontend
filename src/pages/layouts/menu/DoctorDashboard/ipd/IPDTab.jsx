@@ -144,6 +144,7 @@ const IPDTab = forwardRef(
       tabs = [],
       activeTab,
       onTabChange,
+ 
     },
     ref
   ) => {
@@ -177,6 +178,7 @@ const IPDTab = forwardRef(
     const [quickLinksOpen, setQuickLinksOpen] = useState(false);
     const [quickLinksPatient, setQuickLinksPatient] = useState(null);
     const [transferPreview, setTransferPreview] = useState(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useImperativeHandle(ref, () => ({
       openAddPatientModal: () => {
@@ -254,17 +256,108 @@ const IPDTab = forwardRef(
       return () => window.removeEventListener("storage", handleStorageChange);
     }, [loadWardData]);
 
+const handleFetchPatientDetails = useCallback(async (appointmentId) => {
+  // Handle case where event object is passed instead of ID
+  if (appointmentId && appointmentId.nativeEvent) {
+    appointmentId.preventDefault();
+    const idFromButton = appointmentId.currentTarget?.dataset?.id || 
+                        appointmentId.target?.dataset?.id;
+    if (idFromButton) {
+      appointmentId = idFromButton;
+    } else {
+      appointmentId = patientIdInput;
+    }
+  }
+
+  console.log('Processing ID:', { appointmentId, patientIdInput });
+  
+  let rawId;
+  if (appointmentId && typeof appointmentId === 'object') {
+    rawId = appointmentId.id || appointmentId.appointmentId || '';
+  } else {
+    rawId = appointmentId || patientIdInput || "";
+  }
+  
+  const id = String(rawId).trim();
+  console.log('Final ID after processing:', id);
+  
+  if (!id) {
+    console.error('No valid ID found. Raw values:', { appointmentId, patientIdInput });
+    toast.error("Please enter a valid OPD appointment ID");
+    return;
+  }
+
+  try {
+    console.log("Fetching OPD appointment with ID:", id);
+    const response = await getOpdAppointmentById(id);
+    const appt = response?.data;
+    
+    if (!appt) {
+      setTransferPreview(null);
+      toast.error("No OPD appointment found for this ID");
+      return;
+    }
+
+    const nameParts = (appt.patientName || '').split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+
+    // Set transfer preview and form data
+    setTransferPreview(appt);
+    setIpdWizardData(prev => ({
+      ...prev,
+      opdAppointmentId: appt.id,
+      patientId: appt.patientId,
+      firstName: firstName,
+      lastName: lastName,
+      phone: appt.patientPhoneNumber || prev.phone,
+      email: appt.patientEmailId || prev.email,
+      gender: appt.gender || prev.gender,
+      age: appt.age || prev.age,
+    }));
+
+    // Auto-advance to the next step (Ward Selection)
+    setIpdWizardStep(2);
+    
+    toast.success("Patient details loaded successfully");
+    
+  } catch (error) {
+    console.error("Error fetching OPD appointment:", {
+      error: error.response?.data || error.message,
+      status: error.response?.status,
+      config: error.config
+    });
+    setTransferPreview(null);
+    const errorMsg = error.response?.data?.message || error.message || "Failed to fetch OPD appointment";
+    toast.error(errorMsg);
+  }
+}, [patientIdInput]);
+
     useEffect(() => {
       const path = routerLocation?.pathname || "";
-      if (path.includes("/doctordashboard/patients/basic")) {
-        setModals((prev) => ({ ...prev, ipdWizard: true }));
+      const state = routerLocation?.state || {};
+
+      // Handle OPD to IPD transfer
+      if (state?.transferFromOPD && state?.opdAppointmentId) {
+        // Ensure we're passing just the ID, not the whole state
+        const appointmentId = typeof state.opdAppointmentId === 'object' 
+          ? state.opdAppointmentId.id || state.opdAppointmentId 
+          : state.opdAppointmentId;
+        
+        setPatientIdInput(String(appointmentId).trim());
+        handleFetchPatientDetails(String(appointmentId).trim());
+        setModals(prev => ({ ...prev, ipdWizard: true }));
+      }
+      // Handle regular IPD admission
+      else if (path.includes("/doctordashboard/patients/basic")) {
+        setModals(prev => ({ ...prev, ipdWizard: true }));
         setIpdWizardStep(1);
       } else {
-        setModals((prev) =>
+        setModals(prev =>
           prev.ipdWizard ? { ...prev, ipdWizard: false } : prev
         );
       }
-    }, [routerLocation?.pathname]);
+    }, [routerLocation, handleFetchPatientDetails]);
 
     const handlePhotoChange = async (e) => {
       const file = e?.target?.files?.[0];
@@ -465,45 +558,6 @@ const IPDTab = forwardRef(
       }
     }, []);
 
-    const handleFetchPatientDetails = useCallback(async () => {
-      const rawId = (patientIdInput || "").trim();
-      if (!rawId) {
-        toast.error("Please enter an OPD appointment ID");
-        return;
-      }
-
-      try {
-        const response = await getOpdAppointmentById(rawId);
-        const appt = response?.data;
-        if (!appt) {
-          setTransferPreview(null);
-          toast.error("No OPD appointment found for this ID");
-          return;
-        }
-
-        setTransferPreview(appt);
-
-        setIpdWizardData((prev) => ({
-          ...prev,
-          patientId: appt.patientId,
-          firstName: appt.patientName || prev.firstName,
-          phone: appt.patientPhoneNumber || prev.phone,
-          email: appt.patientEmailId || prev.email,
-          appointmentUid: appt.appointmentUid || prev.appointmentUid,
-          symptoms: Array.isArray(appt.symptomIds)
-            ? appt.symptomIds.map((id) => String(id))
-            : prev.symptoms,
-        }));
-
-        toast.success("OPD appointment loaded for transfer");
-      } catch (error) {
-        console.error("Error fetching OPD appointment for transfer:", error);
-        setTransferPreview(null);
-        const msg = error?.response?.data?.message || error?.message;
-        toast.error(msg || "Failed to fetch OPD appointment");
-      }
-    }, [patientIdInput]);
-
     const handleViewPatient = useCallback(
       (patient) => {
         setSelectedPatient(patient);
@@ -617,213 +671,156 @@ const IPDTab = forwardRef(
       });
     }, []);
 
-    const handleIpdWizardNext = useCallback(async () => {
-      if (ipdWizardStep === 1) {
-        // Step 1 now only validates / normalizes data in-memory and moves to ward selection.
-        const fullName = `${ipdWizardData.firstName || ""} ${
-          ipdWizardData.middleName || ""
-        } ${ipdWizardData.lastName || ""}`
-          .replace(/\s+/g, " ")
-          .trim();
-        setIpdWizardData((prev) => ({
-          ...prev,
-          name: fullName,
-        }));
-        setIpdWizardStep(2);
-      } else if (ipdWizardStep === 2) {
-        if (!selectedWard) {
-          toast.error("Please select a ward");
-          return;
-        }
-        const rawType = (selectedWard?.type || "").toString();
-        const m = rawType.match(/^(.+?)\s+(\d+)\s*$/);
-        const parsedType = m ? m[1] : selectedWard?.type || "";
-        const parsedNum = m ? m[2] : (selectedWard?.number ?? selectedWard?.wardNumber ?? "");
+const handleIpdWizardNext = useCallback(() => {
+  setIpdWizardStep(prev => prev + 1);
+}, []);
+const handleIpdWizardFinish = useCallback(async () => {
+  if (isSubmitting) return;
+  
+  try {
+    setIsSubmitting(true);
+    if (!doctorId) {
+      toast.error("Doctor ID not found. Please log in again.");
+      return;
+    }
 
-        setIpdWizardData((prev) => ({
-          ...prev,
-          wardType: parsedType,
-          wardNumber: parsedNum,
-          department: selectedWard?.department,
-          departmentId: selectedWard?.specializationId || null,
-        }));
-        setIpdWizardStep(3);
-      } else if (ipdWizardStep === 3) {
-        if (!selectedRoom) {
-          toast.error("Please select a room");
-          return;
-        }
-        setIpdWizardStep(4);
-      } else if (ipdWizardStep === 4) {
-        if (!selectedBed) {
-          toast.error("Please select a bed");
-          return;
-        }
-        setIpdWizardData((prev) => ({
-          ...prev,
-          bedNumber: selectedBed.toString(),
-          admissionDate: getCurrentDate(),
-          admissionTime: incrementTime(prev.admissionTime),
-        }));
-        setIpdWizardStep(5);
+    // Get patient ID with proper validation
+    const rawPatientId = ipdWizardData.patientId;
+    const parsedPatientId = rawPatientId ? parseInt(rawPatientId, 10) : NaN;
+    const patientId = !Number.isNaN(parsedPatientId) && parsedPatientId > 0
+      ? parsedPatientId
+      : 1; // Fallback for development
+
+    // Get ward and room details
+    const wardId = selectedWard?.id || ipdWizardData.wardId || 0;
+    const wardTypeId = selectedWard?.wardTypeId || ipdWizardData.wardTypeId || 0;
+    const specializationId = selectedWard?.specializationId || ipdWizardData.specializationId || 0;
+    
+    // Get room and bed details
+    const roomId = selectedRoom?.id || ipdWizardData.roomId || 0;
+    const bedId = selectedBed?.id || ipdWizardData.bedId || 0;
+
+    // Process symptoms
+    const rawSymptoms = ipdWizardData.symptoms;
+    let symptomIds = [];
+    if (Array.isArray(rawSymptoms)) {
+      symptomIds = rawSymptoms
+        .map((v) => parseInt(v, 10))
+        .filter((v) => !Number.isNaN(v));
+    } else if (rawSymptoms != null && rawSymptoms !== "") {
+      const singleId = parseInt(rawSymptoms, 10);
+      if (!Number.isNaN(singleId)) {
+        symptomIds = [singleId];
       }
-    }, [
-      ipdWizardStep,
-      ipdWizardData,
-      patientIdInput,
-      selectedWard,
-      selectedRoom,
-      selectedBed,
-      doctorName,
-    ]);
+    }
 
-    const handleIpdWizardFinish = useCallback(async () => {
-      try {
-        if (!doctorId) {
-          toast.error("Doctor ID not found. Please log in again.");
-          return;
-        }
+    // Prepare admission data
+    const admissionDate = ipdWizardData.admissionDate || getCurrentDate();
+    const admissionTime24 = to24Hour(ipdWizardData.admissionTime);
+    const surgeryReq = ipdWizardData.surgeryRequired === true || 
+                      ipdWizardData.surgeryRequired === "Yes";
+    
+    // Get status from form data, default to 1 (Admitted) if not set
+    const statusId = ipdWizardData.status && typeof ipdWizardData.status === 'number' 
+      ? ipdWizardData.status 
+      : 1;
 
-        // Get patient ID with proper validation
-        const rawPatientId = ipdWizardData.patientId;
-        const parsedPatientId = rawPatientId ? parseInt(rawPatientId, 10) : NaN;
-        const patientId = !Number.isNaN(parsedPatientId) && parsedPatientId > 0
-          ? parsedPatientId
-          : 1; // Fallback for development
+    // Get the opdAppointmentId in the correct format
+    let opdAppointmentId = transferPreview?.appointmentUid || 
+                          transferPreview?.opdAppointmentId || 
+                          ipdWizardData.opdAppointmentId;
 
-        // Get ward and room details
-        const wardId = selectedWard?.id || ipdWizardData.wardId || 0;
-        const wardTypeId = selectedWard?.wardTypeId || ipdWizardData.wardTypeId || 0;
-        const specializationId = selectedWard?.specializationId || ipdWizardData.specializationId || 0;
-        
-        // Get room and bed details
-        const roomId = selectedRoom?.id || ipdWizardData.roomId || 0;
-        const bedId = selectedBed?.id || ipdWizardData.bedId || 0;
+    // Format the ID if needed
+    if (opdAppointmentId && typeof opdAppointmentId === 'number') {
+      opdAppointmentId = `APPT-${opdAppointmentId.toString().toUpperCase().padStart(8, '0')}`;
+    } else if (opdAppointmentId && typeof opdAppointmentId === 'string' && !opdAppointmentId.startsWith('APPT-')) {
+      opdAppointmentId = `APPT-${opdAppointmentId.toUpperCase()}`;
+    }
 
-        // Process symptoms
-        const rawSymptoms = ipdWizardData.symptoms;
-        let symptomIds = [];
-        if (Array.isArray(rawSymptoms)) {
-          symptomIds = rawSymptoms
-            .map((v) => parseInt(v, 10))
-            .filter((v) => !Number.isNaN(v));
-        } else if (rawSymptoms != null && rawSymptoms !== "") {
-          const singleId = parseInt(rawSymptoms, 10);
-          if (!Number.isNaN(singleId)) {
-            symptomIds = [singleId];
-          }
-        }
-
-        // Prepare admission data
-        const admissionDate = ipdWizardData.admissionDate || getCurrentDate();
-        const admissionTime24 = to24Hour(ipdWizardData.admissionTime);
-        const surgeryReq = ipdWizardData.surgeryRequired === true || 
-                          ipdWizardData.surgeryRequired === "Yes";
-        
-        // Get status from form data, default to 1 (Admitted) if not set
-        const statusId = ipdWizardData.status && typeof ipdWizardData.status === 'number' 
-          ? ipdWizardData.status 
-          : 1;
-
-        // Define dischargeDate based on status
-        const dischargeDate = statusId === 2 ? (ipdWizardData.dischargeDate || getCurrentDate()) : null;
-
-        // Build the API payload with all required fields
-        const apiPayload = {
-          admissionDate,
-          admissionTime: admissionTime24,
-          statusId,
-          wardTypeId,
-          wardId,
-          roomId,
-          bedId,
-          insuranceId: ipdWizardData.insuranceId || 0,
-          surgeryReq,
-          ...(statusId === 2 && { dischargeDate }),
-          symptomIds: symptomIds.length > 0 ? symptomIds : [0],
-          reasonForAdmission: ipdWizardData.reasonForAdmission || "Admission for treatment",
-          patientId,
-          doctorId,
-          opdAppointmentId: ipdWizardData.opdAppointmentId || "",
-          specializationId
-        };
-
-        console.log("Submitting IPD Admission:", apiPayload);
-
-        try {
-          const res = await addIPDAdmission(apiPayload);
-          console.log("[IPD] addIPDAdmission response", res?.status, res?.data);
-        } catch (apiError) {
-          console.error("Error calling addIPDAdmission:", apiError);
-          const msg = apiError?.response?.data?.message || apiError?.message;
-          toast.error(msg || "Failed to submit IPD admission");
-          return;
-        }
-
-        const payload = {
-          ...ipdWizardData,
-          name: `${ipdWizardData.firstName || ""} ${ipdWizardData.middleName || ""} ${ipdWizardData.lastName || ""}`.trim(),
-          admissionTime: admissionTime24,
-          // For local tables / UI we store a readable status string
-          status: statusId === 2 ? "Discharged" : "Admitted",
-          statusId, // Include numeric status for reference
-          dischargeDate, // Include discharge date if status is Discharged
-          wardNo: ipdWizardData.wardNumber,
-          roomNo: ipdWizardData.roomNumber || ipdWizardData.roomNo,
-          bedNo: ipdWizardData.bedNumber,
-
-          type: "ipd",
-          doctorName,
-          updatedAt: new Date().toISOString(),
-        };
-        try {
-          const savedData = localStorage.getItem("bedMasterData");
-          if (savedData) {
-            const bedMasterData = JSON.parse(savedData);
-            const updatedData = (Array.isArray(bedMasterData) ? bedMasterData : []).map((item) => {
-              if (
-                item.ward === selectedWard?.type &&
-                item.department === selectedWard?.department
-              ) {
-                return {
-                  ...item,
-                  occupied: (item.occupied || 0) + 1,
-                  available: Math.max(0, (item.available || 0) - 1),
-                };
-              }
-              return item;
-            });
-            try {
-              localStorage.setItem("bedMasterData", JSON.stringify(updatedData));
-              window.dispatchEvent(new StorageEvent("storage", {
-                key: "bedMasterData",
-                newValue: JSON.stringify(updatedData),
-                url: window.location.href,
-              }));
-            } catch (err) {
-              console.warn("Could not persist bedMasterData to localStorage");
-            }
-          }
-        } catch (err) {
-          console.warn("Error updating bed master data:", err);
-        }
-        toast.success("IPD admission completed successfully!");
-        closeModal("ipdWizard");
-        fetchAllPatients();
-      } catch (error) {
-        console.error("Error finalizing IPD admission:", error);
-        toast.error("Failed to finalize IPD admission");
-      }
-    }, [
-      ipdWizardData,
-      newPatientId,
-      selectedWard,
-      doctorName,
+    console.log('Final opdAppointmentId:', opdAppointmentId);
+    
+    // Build the API payload with all required fields
+    const apiPayload = {
+      admissionDate,
+      admissionTime: admissionTime24,
+      statusId,
+      wardTypeId,
+      wardId,
+      roomId,
+      bedId,
+      insuranceId: ipdWizardData.insuranceId || 0,
+      surgeryReq,
+      ...(statusId === 2 && { dischargeDate: ipdWizardData.dischargeDate || getCurrentDate() }),
+      symptomIds: symptomIds.length > 0 ? symptomIds : [0],
+      reasonForAdmission: ipdWizardData.reasonForAdmission || "Admission for treatment",
+      patientId,
       doctorId,
-      closeModal,
-      fetchAllPatients,
-    ]);
+      opdAppointmentId: opdAppointmentId || "",
+      specializationId
+    };
 
+    console.log("Submitting IPD Admission:", JSON.stringify(apiPayload, null, 2));
+
+    try {
+      const res = await addIPDAdmission(apiPayload);
+      console.log("[IPD] addIPDAdmission response", res?.status, res?.data);
+    
+      if (res.data) {
+        toast.success("Patient transferred to IPD successfully");
+        
+        // Reset the wizard state first
+        setIpdWizardStep(1);
+        setIpdWizardData({});
+        setSelectedWard(null);
+        setSelectedRoom(null);
+        setSelectedBed(null);
+        setPatientIdInput("");
+        setTransferPreview(null);
+        
+        // Close the wizard modal
+        closeModal('ipdWizard');
+        
+        // Add a small delay to ensure modal is fully closed before navigation
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Navigate to IPD dashboard
+       navigate('/doctordashboard/patients');
+        
+        // Refresh the patients list after navigation
+        await fetchAllPatients();
+      }
+    } catch (apiError) {
+      console.error("API Error:", {
+        error: apiError.response?.data || apiError.message,
+        status: apiError.response?.status,
+        config: apiError.config
+      });
+      throw apiError;
+    }
+  } catch (error) {
+    console.error("Error in handleIpdWizardFinish:", {
+      error: error.response?.data || error.message,
+      status: error.response?.status
+    });
+    const errorMsg = error.response?.data?.message || error.message || "Failed to complete IPD admission";
+    toast.error(errorMsg);
+  } finally {
+    setIsSubmitting(false);
+  }
+}, [
+  ipdWizardData,
+  selectedWard,
+  selectedRoom,
+  selectedBed,
+  doctorId,
+  isSubmitting,
+  transferPreview,
+  closeModal,
+  fetchAllPatients,
+  getCurrentDate,
+  to24Hour,
+  navigate
+]);
     const handleRoomSelection = useCallback((room) => {
       if (!room) return;
       const roomNumber = room.roomNumber;
@@ -1155,12 +1152,18 @@ const IPDTab = forwardRef(
               </div>
             </div>
             <div className="flex-shrink-0 bg-white border-t p-3 sm:p-4 sticky bottom-0 z-10 flex flex-col-reverse sm:flex-row justify-between gap-2">
-              <button
-                onClick={ipdWizardStep === 1 ? () => closeModal("ipdWizard") : () => setIpdWizardStep((s) => Math.max(1, s - 1))}
-                className="px-4 sm:px-6 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-all duration-200 text-xs sm:text-sm"
-              >
-                {ipdWizardStep === 1 ? "Cancel" : "Back"}
-              </button>
+           <button
+  onClick={() => {
+    if (ipdWizardStep === 1) {
+      closeModal("ipdWizard");
+    } else {
+      setIpdWizardStep(prev => prev - 1);
+    }
+  }}
+  className="px-4 sm:px-6 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-all duration-200 text-xs sm:text-sm"
+>
+  {ipdWizardStep === 1 ? "Cancel" : "Back"}
+</button>
               <button
                 onClick={ipdWizardStep === 5 ? handleIpdWizardFinish : handleIpdWizardNext}
                 className="px-4 sm:px-6 py-2 bg-[#01B07A] text-white rounded-lg hover:bg-[#018A65] transition-all duration-200 text-xs sm:text-sm"
