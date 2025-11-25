@@ -103,8 +103,16 @@ const ReusableModal = ({
         if (f.type === "checkboxWithInput" || f.durationField) {
           initial[f.name] = data?.[f.name] ?? [];
           initial[f.inputName] = data?.[f.inputName] ?? "";
+        } else if (f.type === "date" && !data?.[f.name]) {
+          // Set current date for date fields if no value is provided
+          initial[f.name] = new Date().toISOString().split('T')[0];
         } else {
           initial[f.name] = data?.[f.name] ?? "";
+        }
+        // Initialize dropdown states
+        if (f.type === "select" || f.type === "multiselect") {
+          initial[`${f.name}Open`] = false;
+          initial[`${f.name}Search`] = "";
         }
       });
       setFormValues(initial);
@@ -134,17 +142,50 @@ const ReusableModal = ({
     setDoctorSignature("");
   };
 
-  const handleChange = (name, value) => {
-    setFormValues(prev => ({
-      ...prev,
-      [name]: value,
-    }));
-    setFormErrors((p) => ({ ...p, [name]: undefined }));
-    onChange?.({ ...formValues, [name]: value });
+  const handleChange = (name, value, fieldType) => {
+    const isMultiselect = fieldType === 'multiselect' || 
+                         (formValues[`${name}Open`] && Array.isArray(formValues[name]));
+    
+    const updatedValues = {
+      ...formValues,
+      [name]: value
+    };
+    
+    setFormValues(updatedValues);
+    setFormErrors(prev => ({ ...prev, [name]: undefined }));
+    
+    // Handle dropdown open/close behavior
+    if (name.endsWith('Open')) {
+      if (!isMultiselect) {
+        // For non-multiselect dropdowns, close other dropdowns when one is opened
+        Object.keys(updatedValues).forEach(key => {
+          if (key.endsWith('Open') && key !== name) {
+            updatedValues[key] = false;
+          }
+        });
+      } else {
+        // For multiselect dropdowns, ensure the dropdown stays open
+        updatedValues[name] = true;
+      }
+    } else if (isMultiselect) {
+      // If this is a multiselect value change, ensure the dropdown stays open
+      updatedValues[`${name}Open`] = true;
+    }
+    
+    // Update the state with the final values
+    setFormValues(prev => ({ ...prev, ...updatedValues }));
+    onChange?.(updatedValues);
+    return updatedValues;
   };
 
   const handleInputChange = (e, field) => {
     let value = e.target.value;
+    
+    // If this is a multiselect search, ensure we pass the field type
+    if (field.type === 'multiselect' && e.target.name && e.target.name.endsWith('Search')) {
+      handleChange(e.target.name, value, 'multiselect');
+      return;
+    }
 
     // Special handling for phone field: allow only digits, max 10
     if (field.name === "registerPhone") {
@@ -294,7 +335,7 @@ const ReusableModal = ({
                                         name={field.name}
                                         value={value}
                                         checked={formValues[field.name] === value}
-                                        onChange={(e) => handleChange(field.name, e.target.value)}
+                                        onChange={(e) => handleChange(field.name, e.target.value, field.type)}
                                         className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600"
                                       />
                                       <span>{label}</span>
@@ -403,13 +444,20 @@ const ReusableModal = ({
                                                       formValues[field.name].includes(opt.value)
                                                     }
                                                     onChange={(e) => {
+                                                      e.stopPropagation(); // Prevent dropdown from closing
                                                       const prev = Array.isArray(formValues[field.name])
                                                         ? formValues[field.name]
                                                         : [];
                                                       const next = e.target.checked
                                                         ? [...prev, opt.value]
                                                         : prev.filter((v) => v !== opt.value);
-                                                      handleChange(field.name, next);
+                                                      handleChange(field.name, next, 'multiselect');
+                                                      
+                                                      // Keep the dropdown open
+                                                      setFormValues(prev => ({
+                                                        ...prev,
+                                                        [`${field.name}Open`]: true
+                                                      }));
                                                     }}
                                                   />
                                                   <span className="flex-1">{opt.label}</span>
@@ -496,11 +544,11 @@ const ReusableModal = ({
                                     type="date"
                                     name={field.name}
                                     value={
-                                      formValues[field.name]
-                                        ? new Date(formValues[field.name]).toISOString().split("T")[0]
-                                        : ""
+                                      formValues[field.name] 
+                                        ? new Date(formValues[field.name]).toISOString().split('T')[0]
+                                        : new Date().toISOString().split('T')[0]
                                     }
-                                    onChange={(e) => handleChange(field.name, e.target.value)}
+                                    onChange={(e) => handleChange(field.name, e.target.value, field.type)}
                                     className="input-field peer w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2"
                                   />
                                   {formErrors[field.name] && (

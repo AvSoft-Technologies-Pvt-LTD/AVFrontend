@@ -1046,7 +1046,16 @@ const validateForm = () => {
 
 if (userType === "patient") {
   userFields = (
-    <PatientRegistration />
+    <PatientRegistration
+      onConfirm={(data) => {
+        // Update formData with the verified Aadhar data
+        setFormData(prev => ({
+          ...prev,
+          aadhaar: data.aadharNumber,
+          // Update other fields as needed
+        }));
+      }}
+    />
   );
 } else if (userType === "hospital") {
     userFields = (

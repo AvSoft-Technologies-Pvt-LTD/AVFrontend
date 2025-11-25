@@ -33,14 +33,6 @@ const Calltoaction = () => {
             {/* Left Side: AVCard and Button */}
             <div className="w-full lg:w-1/2 flex flex-col items-center space-y-6 sm:space-y-8">
               <AVCard />
-              <div className="flex flex-wrap justify-center w-full">
-                <button
-                  className="btn btn-primary px-6 py-3 text-sm sm:text-base"
-                  onClick={() => navigate("/healthcard")}
-                >
-                  Generate HealthCard
-                </button>
-              </div>
             </div>
 
             {/* Right Side: Text and Buttons */}
@@ -68,10 +60,10 @@ const Calltoaction = () => {
               <div className="w-full max-w-3xl bg-white rounded-full shadow-md border border-gray-200 overflow-hidden mt-4">
                 <div className="grid grid-cols-2 md:flex md:flex-row md:flex-nowrap justify-center md:justify-start">
                   {[
-                    "Consult With Doctor",
+                    "Consult Doctor",
                     "Order Medicines",
                     "Lab/Scans Booking",
-                    "My Medical Records",
+                    "Medical Records",
                   ].map((text, i) => (
                     <motion.button
                       key={i}

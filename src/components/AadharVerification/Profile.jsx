@@ -16,24 +16,24 @@ export default function AadharVerificationFlow({ onComplete }) {
   };
 
   const handleVerificationSuccess = () => {
+    // Replace hardcoded data with actual data fetched from your backend
     const data = {
-      id: 5,   // IMPORTANT: Give a patient ID (backend will replace later)
-      name: 'John Doe',
-      aadharNumber,
-      dateOfBirth: '1990-01-01',
-      gender: 'Male',
-      address: '123 Main St, Mumbai, India',
-      photoUrl:
-        'https://t4.ftcdn.net/jpg/04/31/64/75/360_F_431647519_usrbQ8Z983hTYe8zgA7t1XVc5fEtqcpa.jpg',
+      id: 5, // Replace with actual patient ID from backend
+      fullName: 'John Doe', // Replace with actual data
+      aadharNumber: aadharNumber, // Use the Aadhar number entered by the user
+      phoneNumber: '1234567890', // Replace with actual data
+      dateOfBirth: '1990-01-01', // Replace with actual data
+      gender: 'Male', // Replace with actual data
+      address: '123 Main St, Mumbai, India', // Replace with actual data
+      photoUrl: 'https://t4.ftcdn.net/jpg/04/31/64/75/360_F_431647519_usrbQ8Z983hTYe8zgA7t1XVc5fEtqcpa.jpg', // Replace with actual photo URL
       verificationMethod: step === 'biometric' ? 'Fingerprint' : 'OTP',
       verifiedAt: new Date().toISOString(),
     };
 
     setUserData(data);
     setStep('details');
-
-    // 🔥 IMMEDIATELY notify parent (THIS FIXES YOUR ERROR)
-    onComplete?.(data);
+    // Optionally, call onComplete here if you want to notify the parent immediately after verification
+    // onComplete?.(data);
   };
 
   const handleReset = () => {

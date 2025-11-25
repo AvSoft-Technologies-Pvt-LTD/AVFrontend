@@ -134,35 +134,46 @@ const DrMedicalRecords = () => {
     }
   };
 
-  const handleAddRecord = async (formData) => {
-    const recordType = formData.type || activeRecordTab;
-    const sanitizedPayload = {
-      patientId: Number(selectedPatient?.patientId || selectedPatient?.id || 1),
-      patientName: selectedPatient?.patientName || selectedPatient?.name || "Unknown",
-      doctorId: Number(user?.doctorId || 1),
-      context: recordType.toUpperCase(),
-      hospitalId: Number(formData.hospitalId),
-      symptoms: Array.isArray(formData.chiefComplaint)
-        ? formData.chiefComplaint.map((id) => Number(id))
-        : [],
-      medicalConditionIds: Array.isArray(formData.medicalConditionIds)
-        ? formData.medicalConditionIds.map((id) => Number(id))
-        : [],
-      medicalStatusId: formData.medicalStatusId ? Number(formData.medicalStatusId) : null,
-      dateOfVisit: formData.dateOfVisit || new Date().toISOString().split("T")[0],
-      registerPhone: formData.registerPhone ? String(formData.registerPhone).trim() : "",
-      uploadedBy: "DOCTOR",
-    };
-    console.log("Payload sent to backend:", sanitizedPayload);
-    try {
-      const response = await createMedicalRecord(sanitizedPayload);
-      response.data;
-      await fetchAllRecords();
-      setState({ showAddModal: false });
-    } catch (error) {
-      console.error("Error creating medical record:", error);
-    }
+const handleAddRecord = async (formData) => {
+  const recordType = formData.type || activeRecordTab;
+  const sanitizedPayload = {
+    patientId: Number(selectedPatient?.patientId || selectedPatient?.id || 1),
+    patientName: selectedPatient?.patientName || selectedPatient?.name || "Unknown",
+    doctorId: Number(user?.doctorId || 1),
+    context: recordType.toUpperCase(),
+    hospitalId: Number(formData.hospitalId),
+    symptomIds: Array.isArray(formData.chiefComplaint)
+      ? formData.chiefComplaint.map((id) => Number(id))
+      : [],
+    medicalConditionIds: Array.isArray(formData.medicalConditionIds)
+      ? formData.medicalConditionIds.map((id) => Number(id))
+      : [],
+    medicalStatusId: formData.medicalStatusId ? Number(formData.medicalStatusId) : null,
+    registerPhone: formData.registerPhone ? String(formData.registerPhone).trim() : "",
+    uploadedBy: "DOCTOR",
   };
+
+  // Add the correct date fields based on the record type
+  if (recordType === "OPD" || recordType === "VIRTUAL") {
+    sanitizedPayload.dateOfVisit = formData.dateOfVisit || new Date().toISOString().split("T")[0];
+  } else if (recordType === "IPD") {
+    sanitizedPayload.dateOfAdmission = formData.dateOfAdmission || new Date().toISOString().split("T")[0];
+    sanitizedPayload.dateOfDischarge = formData.dateOfDischarge || null;
+  }
+
+  try {
+    let response;
+    if (recordType === "IPD") {
+      response = await createIpdMedicalRecord(sanitizedPayload);
+    } else {
+      response = await createMedicalRecord(sanitizedPayload);
+    }
+    await fetchAllRecords();
+    setState({ showAddModal: false });
+  } catch (error) {
+    console.error("Error creating medical record:", error);
+  }
+};
 
   const handleViewDetails = (row) => {
     navigate(`/doctordashboard/medical-record-details`, { state: { record: row } });
@@ -310,67 +321,65 @@ const DrMedicalRecords = () => {
         return dateB - dateA;
       });
 
-  const getFormFields = (recordType) => [
-    {
-      name: "hospitalId",
-      label: "Hospital Name",
-      type: "select",
-      options: hospitalOptions,
-      loading: apiDataLoading.hospitals,
-      required: true,
-    },
-    { 
-      name: "chiefComplaint", 
-      label: "Symptoms", 
-      type: "multiselect",        
-      options: symptoms,
-      loading: apiDataLoading.symptoms,
-      required: true,
-    },
-    {
-      name: "medicalConditionIds",
-      label: "Medical Conditions",
-      type: "multiselect",
-      options: medicalConditions,
-      loading: apiDataLoading.conditions,
-      required: true,
-    },
-    {
-      name: "medicalStatusId",
-      label: "Status",
-      type: "select",
-      options: statusTypes,
-      loading: apiDataLoading.status,
-      required: true,
-    },
-    ...(recordType === "OPD"
-      ? [{ name: "dateOfVisit", label: "Date of Visit", type: "date", required: true, }]
-      : recordType === "IPD"
-        ? [
-          { name: "dateOfAdmission", label: "Date of Admission", type: "date", required: true, },
-          { name: "dateOfDischarge", label: "Date of Discharge", type: "date", required: true, },
+const getFormFields = (recordType) => [
+  {
+    name: "hospitalId",
+    label: "Hospital Name",
+    type: "select",
+    options: hospitalOptions,
+    loading: apiDataLoading.hospitals,
+    required: true,
+  },
+  {
+    name: "chiefComplaint",
+    label: "Symptoms",
+    type: "multiselect",
+    options: symptoms,
+    loading: apiDataLoading.symptoms,
+    required: true,
+  },
+  {
+    name: "medicalConditionIds",
+    label: "Medical Conditions",
+    type: "multiselect",
+    options: medicalConditions,
+    loading: apiDataLoading.conditions,
+    required: true,
+  },
+  {
+    name: "medicalStatusId",
+    label: "Status",
+    type: "select",
+    options: statusTypes,
+    loading: apiDataLoading.status,
+    required: true,
+  },
+  ...(recordType === "OPD" || recordType === "VIRTUAL"
+    ? [{ name: "dateOfVisit", label: "Date of Visit", type: "date", required: true }]
+    : recordType === "IPD"
+      ? [
+          { name: "dateOfAdmission", label: "Date of Admission", type: "date", required: true },
+          { name: "dateOfDischarge", label: "Date of Discharge", type: "date", required: false },
         ]
-        : [{ name: "dateOfConsultation", label: "Date of Consultation", type: "date", required: true, }]),
-    {
-      name: "registerPhone",
-      label: "Register Phone Number",
-      type: "text",
-      required: true,
-      // allow only exactly 10 digits
-      validate: (value) => {
-        const digitsOnly = String(value || "").replace(/\D/g, "");
-        if (!digitsOnly) return "Register Phone Number is required";
-        if (digitsOnly.length !== 10) return "Phone number must be exactly 10 digits";
-        return null;
-      },
-      hasInlineCheckbox: true,
-      inlineCheckbox: {
-        name: "phoneConsent",
-        label: "Sync with patient number",
-      },
+      : []),
+  {
+    name: "registerPhone",
+    label: "Register Phone Number",
+    type: "text",
+    required: true,
+    validate: (value) => {
+      const digitsOnly = String(value || "").replace(/\D/g, "");
+      if (!digitsOnly) return "Register Phone Number is required";
+      if (digitsOnly.length !== 10) return "Phone number must be exactly 10 digits";
+      return null;
     },
-  ];
-
+    hasInlineCheckbox: true,
+    inlineCheckbox: {
+      name: "phoneConsent",
+      label: "Sync with patient number",
+    },
+  },
+];
   const tabs = Object.keys(medicalData).map((key) => ({
     label: key,
     value: key,
@@ -431,7 +440,6 @@ const DrMedicalRecords = () => {
             { label: "Email", value: selectedPatient.patientEmail || "N/A" },
             { label: "Doctor", value: selectedPatient.doctorName || "N/A" },
             { label: "Visit Date", value: selectedPatient.scheduledDate || "N/A" },
-            { label: "Consultation Type", value: selectedPatient.consultationTypeName || "N/A" },
           ]}
           context={selectedPatient.context || "OPD"}
         >
@@ -460,18 +468,8 @@ const DrMedicalRecords = () => {
           </div>
         </ProfileCard>
       )}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 gap-3">
-        <div className="flex items-center gap-2 sm:gap-3">
-          <Search
-            size={20}
-            className="text-[var(--primary-color)] sm:h-6 sm:w-6"
-          />
-          <h2 className="text-lg sm:text-xl font-semibold">
-            Medical Records History
-          </h2>
-        </div>
-      </div>
-      <div className="overflow-x-auto">
+
+      <div className="overflow-x-auto ">
         <DynamicTable
           columns={createColumns(activeRecordTab)}
           data={getCurrentTabData()}

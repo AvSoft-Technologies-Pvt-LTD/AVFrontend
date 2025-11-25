@@ -153,18 +153,29 @@ export default function UserDetailsDisplay({ userData, onReset,onNext }) {
                         </div>
                     </div>
                 </div>
-       <div className="mt-8 pt-6 border-t border-gray-300 flex flex-col sm:flex-row justify-end gap-3">
-                    <button
-                        onClick={onReset}
-                        className="delete-btn"
-                    >
-                        Cancel
-                    </button>
-<button onClick={onNext} className="view-btn flex items-center gap-2">
-  Continue
-  <ArrowRight className="w-4 h-4" />
-</button>
-                </div>
+     <div className="mt-8 pt-6 border-t border-gray-300">
+  <div className="text-center mb-6">
+    <h3 className="text-lg font-semibold text-gray-800">Is this you?</h3>
+    <p className="text-gray-600 mt-1">Please confirm your details before proceeding</p>
+  </div>
+  <div className="flex flex-col sm:flex-row justify-center gap-4">
+    <button
+      onClick={onReset}
+      className="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+    >
+      No, try again
+    </button>
+    <button 
+      onClick={onNext} 
+      className="px-6 py-2.5 bg-[var(--accent-color)] text-white rounded-lg font-medium hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
+    >
+      Yes, it's me
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+      </svg>
+    </button>
+  </div>
+</div>
             </div>
         </div>
     );

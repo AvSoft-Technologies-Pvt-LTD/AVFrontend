@@ -7,7 +7,7 @@ import {
   getAllSymptoms,
   getDoctorsBySpecialty
 } from "../utils/masterService";
-import PatientVerificationSteps from '../components/AadharVerification/Profile';
+import AadharVerificationFlow from '../components/AadharVerification/Profile';
 
 const TOKENS_KEY = 'hospital_tokens';
 
@@ -79,9 +79,9 @@ const TokenGenerator = () => {
           const response = await getSpecializationsBySymptoms({ q: symptoms });
           const specialties = Array.isArray(response.data)
             ? response.data.map(item => ({
-                id: item.id || item.specialityId,
-                name: item.name || item.label || item.specializationName || item,
-              }))
+              id: item.id || item.specialityId,
+              name: item.name || item.label || item.specializationName || item,
+            }))
             : [];
           setSuggestedSpecializations(specialties);
         } catch (error) {
@@ -223,9 +223,14 @@ const TokenGenerator = () => {
 
   // Handlers
   const handlePatientConfirm = (confirmedPatientData) => {
-    setPatientData(confirmedPatientData);
-    setStep(2);
-  };
+  setPatientData({
+    ...confirmedPatientData,
+    fullName: confirmedPatientData.name || confirmedPatientData.fullName || 'Patient',
+    gender: confirmedPatientData.gender || 'N/A',
+    phoneNumber: confirmedPatientData.phoneNumber || 'N/A',
+  });
+  setStep(2);
+};
 
   const handlePatientCancel = () => {
     setPatientData(null);
@@ -541,14 +546,15 @@ const TokenGenerator = () => {
           {/* Step 1: Patient Verification */}
           {step === 1 && (
             <div className="p-6">
-              <PatientVerificationSteps
-                onConfirm={handlePatientConfirm}
-                onCancel={handlePatientCancel}
-                otpLength={4}
-              />
+             <AadharVerificationFlow
+      onComplete={(verifiedData) => {
+        setPatientData(verifiedData);
+        // The next line will be called only when user clicks "Next" on the details screen
+        setStep(2);
+      }}
+    />
             </div>
           )}
-
           {/* Step 2: Symptoms + Specializations */}
           {step === 2 && (
             <div className="p-6 max-w-6xl mx-auto">
@@ -559,12 +565,12 @@ const TokenGenerator = () => {
                   <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
                     <div className="flex items-center gap-3 mb-3">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#01D48C] to-[#01B07A] flex items-center justify-center text-white font-bold shadow-lg">
-                        {patientData.fullName.charAt(0).toUpperCase()}
+                        {patientData?.fullName?.charAt(0)?.toUpperCase() || 'P'}
                       </div>
                       <div>
-                        <h3 className="font-bold text-gray-800">{patientData.fullName}</h3>
+                        <h3 className="font-bold text-gray-800">{patientData?.fullName || 'Patient'}</h3>
                         <p className="text-xs text-gray-500">
-                          {patientData.gender} • {patientData.phoneNumber}
+                          {patientData?.gender || 'N/A'} • {patientData?.phoneNumber || 'N/A'}
                         </p>
                       </div>
                     </div>
@@ -726,11 +732,10 @@ const TokenGenerator = () => {
                   <div
                     key={doctor.id}
                     onClick={() => handleDoctorSelect(doctor)}
-                    className={`p-6 border-2 rounded-2xl cursor-pointer transition-all hover:shadow-lg ${
-                      selectedDoctor?.id === doctor.id
+                    className={`p-6 border-2 rounded-2xl cursor-pointer transition-all hover:shadow-lg ${selectedDoctor?.id === doctor.id
                         ? 'border-[#01D48C] bg-green-50 shadow-md'
                         : 'border-gray-200 hover:border-gray-300'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
@@ -805,13 +810,12 @@ const TokenGenerator = () => {
                                   key={`${timeValue}-${slotId ?? index}`}
                                   disabled={isBooked}
                                   onClick={() => handleTimeSelect(timeSlot)}
-                                  className={`py-2 px-3 rounded-lg text-xs font-medium transition-all duration-200 relative ${
-                                    isBooked
+                                  className={`py-2 px-3 rounded-lg text-xs font-medium transition-all duration-200 relative ${isBooked
                                       ? "bg-red-100 text-red-400 cursor-not-allowed border border-red-200"
                                       : isSelected
-                                      ? "bg-gradient-to-r from-[#01D48C] to-[#01B07A] text-white shadow-md transform scale-105"
-                                      : "bg-white border border-gray-200 text-gray-700 hover:bg-green-50 hover:border-[#01D48C]"
-                                  }`}
+                                        ? "bg-gradient-to-r from-[#01D48C] to-[#01B07A] text-white shadow-md transform scale-105"
+                                        : "bg-white border border-gray-200 text-gray-700 hover:bg-green-50 hover:border-[#01D48C]"
+                                    }`}
                                 >
                                   {timeValue}
                                   {isBooked && (
@@ -863,22 +867,20 @@ const TokenGenerator = () => {
                     <div className="grid grid-cols-2 gap-4">
                       <button
                         onClick={() => setConsultationType('opd')}
-                        className={`p-4 rounded-xl border-2 transition-all ${
-                          consultationType === 'opd'
+                        className={`p-4 rounded-xl border-2 transition-all ${consultationType === 'opd'
                             ? 'border-blue-500 bg-blue-50 shadow-md'
                             : 'border-gray-200 hover:border-gray-300'
-                        }`}
+                          }`}
                       >
                         <div className="font-bold text-lg">OPD Visit</div>
                         <div className="text-sm text-gray-500 mt-1">In-person consultation</div>
                       </button>
                       <button
                         onClick={() => setConsultationType('virtual')}
-                        className={`p-4 rounded-xl border-2 transition-all ${
-                          consultationType === 'virtual'
+                        className={`p-4 rounded-xl border-2 transition-all ${consultationType === 'virtual'
                             ? 'border-purple-500 bg-purple-50 shadow-md'
                             : 'border-gray-200 hover:border-gray-300'
-                        }`}
+                          }`}
                       >
                         <div className="font-bold text-lg text-purple-600">Virtual</div>
                         <div className="text-sm text-gray-500 mt-1">Online consultation</div>
@@ -891,11 +893,10 @@ const TokenGenerator = () => {
                     <div className="grid grid-cols-2 gap-4">
                       <button
                         onClick={() => setPriority('normal')}
-                        className={`p-4 rounded-xl border-2 transition-all ${
-                          priority === 'normal'
+                        className={`p-4 rounded-xl border-2 transition-all ${priority === 'normal'
                             ? 'border-green-500 bg-green-50 shadow-md'
                             : 'border-gray-200 hover:border-gray-300'
-                        }`}
+                          }`}
                       >
                         <div className="font-bold text-lg">Normal</div>
                         <div className="text-sm text-gray-500 mt-1">
@@ -904,11 +905,10 @@ const TokenGenerator = () => {
                       </button>
                       <button
                         onClick={() => setPriority('emergency')}
-                        className={`p-4 rounded-xl border-2 transition-all ${
-                          priority === 'emergency'
+                        className={`p-4 rounded-xl border-2 transition-all ${priority === 'emergency'
                             ? 'border-red-500 bg-red-50 shadow-md'
                             : 'border-gray-200 hover:border-gray-300'
-                        }`}
+                          }`}
                       >
                         <div className="font-bold text-lg text-red-600">Emergency</div>
                         <div className="text-sm text-gray-500 mt-1">
