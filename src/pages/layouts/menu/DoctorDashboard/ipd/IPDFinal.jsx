@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from "react";
-
 import { Bed } from "lucide-react";
 import {
   Users,
@@ -126,6 +125,45 @@ const IPDFinal = ({ data, selectedWard, selectedRoom, selectedBed, fields, onCha
   const [symptomsOpen, setSymptomsOpen] = useState(false);
   const [symptomsSearch, setSymptomsSearch] = useState("");
 
+  // Get the display values from the selected objects
+  const wardType = selectedWard?.type || data.wardType || "N/A";
+const wardNumber = 
+  selectedWard?.wardNumber || 
+  (typeof selectedWard === 'object' ? selectedWard?.number : selectedWard) || 
+  data.wardNumber || 
+  "N/A";
+  
+const roomNumber = 
+  (typeof selectedRoom === 'object' ? selectedRoom?.roomNumber : selectedRoom) || 
+  data.roomNumber || 
+  "N/A";
+const bedNumber = 
+  (typeof selectedBed === 'object' ? selectedBed?.bedNumber : selectedBed) || 
+  data.bedNumber || 
+  "N/A";  const department = selectedWard?.department || data.department || "N/A";
+
+  // Update the data object with the selected values
+useEffect(() => {
+  if (selectedWard) {
+    onChange('wardType', selectedWard.type);
+    onChange('wardNumber', 
+      selectedWard.wardNumber || 
+      (typeof selectedWard === 'object' ? selectedWard.number : selectedWard)
+    );
+    onChange('department', selectedWard.department);
+  }
+  if (selectedRoom) {
+    onChange('roomNumber', 
+      typeof selectedRoom === 'object' ? selectedRoom.roomNumber : selectedRoom
+    );
+  }
+  if (selectedBed) {
+    onChange('bedNumber', 
+      typeof selectedBed === 'object' ? selectedBed.bedNumber : selectedBed
+    );
+  }
+}, [selectedWard, selectedRoom, selectedBed, onChange]);
+
   // Fetch symptoms from API
   useEffect(() => {
     const fetchSymptoms = async () => {
@@ -137,7 +175,6 @@ const IPDFinal = ({ data, selectedWard, selectedRoom, selectedBed, fields, onCha
           : Array.isArray(response?.data)
           ? response.data
           : [];
-        // API example: [{"symptomId":1,"name":"headache","description":"string"}]
         const formattedSymptoms = raw.map((symptom, index) => ({
           key: `symptom-${index}`,
           value: symptom.symptomId || symptom.id || symptom.value || symptom._id,
@@ -146,7 +183,6 @@ const IPDFinal = ({ data, selectedWard, selectedRoom, selectedBed, fields, onCha
         setSymptomsList(formattedSymptoms);
       } catch (error) {
         console.error('Error fetching symptoms:', error);
-        // Set empty array if API fails - no fallback symptoms
         setSymptomsList([]);
       } finally {
         setLoadingSymptoms(false);
@@ -167,7 +203,6 @@ const IPDFinal = ({ data, selectedWard, selectedRoom, selectedBed, fields, onCha
           : Array.isArray(response?.data)
           ? response.data
           : [];
-        // API example: [{ id, mobileNumber, insuranceProvider, policyNumber, coverageType, status }]
         const formatted = list.map((ins, index) => ({
           key: `ins-${index}`,
           value: ins.id,
@@ -208,7 +243,6 @@ const IPDFinal = ({ data, selectedWard, selectedRoom, selectedBed, fields, onCha
           return { ...field, options: insuranceList };
         }
         if (field.name === "surgeryRequired") {
-          // Map human labels to boolean values expected as surgeryReq
           return {
             ...field,
             options: [
@@ -224,7 +258,6 @@ const IPDFinal = ({ data, selectedWard, selectedRoom, selectedBed, fields, onCha
 
   const handleSymptomsChange = (values) => {
     setSelectedSymptoms(values);
-    // Propagate to parent wizard state
     onChange("symptoms", values);
   };
 
@@ -265,7 +298,7 @@ const IPDFinal = ({ data, selectedWard, selectedRoom, selectedBed, fields, onCha
                   ? "Loading symptoms..."
                   : field.name === "insuranceType" && loadingInsurance
                   ? "Loading insurance..."
-                  : `Select ${field.label}`
+                  : `Select ${field.label}` 
                 }
               </option>
               {field.options?.map((opt) => (
@@ -419,28 +452,28 @@ const IPDFinal = ({ data, selectedWard, selectedRoom, selectedBed, fields, onCha
       </h3>
       <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-gray-50 rounded-lg border">
         <h4 className="font-semibold mb-2 text-xs sm:text-sm flex items-center gap-2">
-          {getWardIcon(data.wardType)}Ward Assignment
+          {getWardIcon(wardType)}Ward Assignment
         </h4>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4 text-xs sm:text-sm">
           <div>
             <span className="text-gray-600">Department:</span>
-            <div className="font-medium">{data.department || "N/A"}</div>
+            <div className="font-medium">{department}</div>
           </div>
           <div>
             <span className="text-gray-600">Ward Type:</span>
-            <div className="font-medium">{data.wardType || "N/A"}</div>
+            <div className="font-medium">{wardType}</div>
           </div>
           <div>
             <span className="text-gray-600">Ward Number:</span>
-            <div className="font-medium">{data.wardNumber || "N/A"}</div>
+            <div className="font-medium">{wardNumber}</div>
           </div>
           <div>
             <span className="text-gray-600">Room Number:</span>
-            <div className="font-medium">{selectedRoom || "N/A"}</div>
+            <div className="font-medium">{roomNumber}</div>
           </div>
           <div>
             <span className="text-gray-600">Bed Number:</span>
-            <div className="font-medium">{data.bedNumber || "N/A"}</div>
+            <div className="font-medium">{bedNumber}</div>
           </div>
         </div>
       </div>

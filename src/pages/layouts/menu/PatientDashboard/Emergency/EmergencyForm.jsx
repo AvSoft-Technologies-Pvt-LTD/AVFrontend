@@ -903,6 +903,13 @@ useEffect(() => {
                 </button>
               ) : (
                 <div className="flex gap-2">
+                  <button
+                    onClick={handleSubmit}
+                    className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all duration-200 font-medium shadow-lg text-sm"
+                  >
+                    <Lucide.Check size={16} />
+                    Confirm Booking
+                  </button>
                   {calculateEquipmentTotal() > 0 && (
                     <button
                       onClick={handlePayNow}

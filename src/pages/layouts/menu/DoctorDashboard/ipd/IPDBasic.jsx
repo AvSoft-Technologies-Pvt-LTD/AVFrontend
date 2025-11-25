@@ -1,7 +1,6 @@
 import React, { useState } from "react";
-import { Eye, EyeOff, Camera } from "lucide-react";
+import { Eye, EyeOff, Camera, User, Calendar, Phone, Mail, Stethoscope, Clock } from "lucide-react";
 import PatientRegistration from "../../../../../form/PatientRegistration";
-
 
 // Helper: Convert file to base64
 export const fileToBase64 = (file) => {
@@ -50,6 +49,20 @@ export const handlePincodeLookup = async (pincode) => {
 export const generateBasicFields = (masterData, availableCities, isLoadingCities) => {
   return [];
 };
+
+const DetailItem = ({ icon: Icon, label, value, className = "" }) => (
+  <div className={`flex items-start gap-3 ${className}`}>
+    <div className="mt-0.5">
+      <Icon className="w-4 h-4 text-gray-400" />
+    </div>
+    <div>
+      <p className="text-xs text-gray-500">{label}</p>
+      <p className="text-sm font-medium text-gray-900">
+        {value || <span className="text-gray-400">Not specified</span>}
+      </p>
+    </div>
+  </div>
+);
 
 const PhotoUpload = ({ photoPreview, onPhotoChange, onPreviewClick }) => (
   <div className="relative w-full">
@@ -271,22 +284,10 @@ const IPDBasic = ({
 
       {activeSection === "transfer" ? (
         <>
-          <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-blue-50 rounded-md border border-blue-200">
+          <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-blue-50 rounded-lg border border-blue-200">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
               <h4 className="text-xs sm:text-sm font-semibold text-blue-800 flex items-center gap-2">
-                <svg
-                  className="w-3 h-3 sm:w-4 sm:h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
+                <User className="w-4 h-4" />
                 Transfer OPD Patient to IPD
               </h4>
               <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
@@ -298,13 +299,14 @@ const IPDBasic = ({
                 type="text"
                 value={patientIdInput}
                 onChange={(e) => setPatientIdInput(e.target.value)}
-                className="flex-1 px-3 py-2 border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
-                placeholder="Enter OPD Patient ID"
+                onKeyPress={(e) => e.key === 'Enter' && onFetchPatient()}
+                className="flex-1 px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
+                placeholder="Enter OPD Patient ID or Appointment ID"
               />
               <button
                 onClick={onFetchPatient}
                 disabled={!patientIdInput.trim()}
-                className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed text-xs sm:text-sm font-medium w-full sm:w-auto"
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed text-xs sm:text-sm font-medium transition-colors"
               >
                 Search
               </button>
@@ -312,55 +314,103 @@ const IPDBasic = ({
           </div>
 
           {transferPreview && (
-            <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-white rounded-md border border-blue-200 shadow-sm text-xs sm:text-sm">
-              <div className="flex items-center justify-between mb-2">
-                <h5 className="font-semibold text-gray-800">OPD Appointment Preview</h5>
-                <span className="text-[10px] sm:text-xs text-gray-500">
-                  Read-only preview from OPD
-                </span>
+            <div className="mb-6 bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+              <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                <h4 className="text-sm font-medium text-gray-700 flex items-center">
+                  <User className="mr-2 w-4 h-4" />
+                  Patient Details (Transfer from OPD)
+                </h4>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                <div>
-                  <span className="font-medium text-gray-600">Appointment ID: </span>
-                  <span className="text-gray-900">{transferPreview.appointmentUid || "-"}</span>
+              
+              <div className="p-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div className="space-y-3">
+                    <DetailItem 
+                      icon={User} 
+                      label="Patient ID" 
+                      value={transferPreview.patientId} 
+                    />
+                    <DetailItem 
+                      icon={Stethoscope} 
+                      label="Appointment ID" 
+                      value={transferPreview.appointmentUid} 
+                    />
+                    <DetailItem 
+                      icon={User} 
+                      label="Patient Name" 
+                      value={transferPreview.patientName} 
+                    />
+                    <DetailItem 
+                      icon={Calendar} 
+                      label="Age" 
+                      value={transferPreview.age ? `${transferPreview.age} years` : null} 
+                    />
+                    <DetailItem 
+                      icon={User} 
+                      label="Gender" 
+                      value={transferPreview.gender} 
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    <DetailItem 
+                      icon={Phone} 
+                      label="Phone" 
+                      value={transferPreview.patientPhoneNumber} 
+                    />
+                    <DetailItem 
+                      icon={Mail} 
+                      label="Email" 
+                      value={transferPreview.patientEmailId} 
+                    />
+                    <DetailItem 
+                      icon={Calendar} 
+                      label="Appointment Date" 
+                      value={transferPreview.appointmentDate ? 
+                        new Date(transferPreview.appointmentDate).toLocaleDateString() : null} 
+                    />
+                    <DetailItem 
+                      icon={Clock} 
+                      label="Time Slot" 
+                      value={transferPreview.slotTime} 
+                    />
+                    <DetailItem 
+                      icon={User} 
+                      label="Doctor" 
+                      value={transferPreview.doctorName} 
+                    />
+                  </div>
                 </div>
-                <div>
-                  <span className="font-medium text-gray-600">Patient Name: </span>
-                  <span className="text-gray-900">{transferPreview.patientName || "-"}</span>
-                </div>
-                <div>
-                  <span className="font-medium text-gray-600">Phone: </span>
-                  <span className="text-gray-900">{transferPreview.patientPhoneNumber || "-"}</span>
-                </div>
-                <div>
-                  <span className="font-medium text-gray-600">Email: </span>
-                  <span className="text-gray-900">{transferPreview.patientEmailId || "-"}</span>
-                </div>
-                <div>
-                  <span className="font-medium text-gray-600">Doctor: </span>
-                  <span className="text-gray-900">{transferPreview.doctorName || "-"}</span>
-                </div>
-                <div>
-                  <span className="font-medium text-gray-600">Date: </span>
-                  <span className="text-gray-900">{transferPreview.appointmentDate || "-"}</span>
-                </div>
-                <div>
-                  <span className="font-medium text-gray-600">Time: </span>
-                  <span className="text-gray-900">{transferPreview.slotTime || "-"}</span>
-                </div>
-                <div>
-                  <span className="font-medium text-gray-600">Symptoms: </span>
-                  <span className="text-gray-900">
-                    {Array.isArray(transferPreview.symptomNames) && transferPreview.symptomNames.length
-                      ? transferPreview.symptomNames.join(", ")
-                      : "-"}
-                  </span>
-                </div>
+
+                {transferPreview.symptomNames?.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    <h5 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                      <Stethoscope className="w-4 h-4 mr-2" />
+                      Reported Symptoms
+                    </h5>
+                    <div className="flex flex-wrap gap-2">
+                      {transferPreview.symptomNames.map((symptom, idx) => (
+                        <span 
+                          key={idx} 
+                          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                        >
+                          {symptom}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {transferPreview.notes && (
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    <h5 className="text-sm font-medium text-gray-700 mb-2">Doctor's Notes</h5>
+                    <div className="bg-gray-50 p-3 rounded text-sm text-gray-700 whitespace-pre-line">
+                      {transferPreview.notes}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
-
-          {/* Fields removed intentionally */}
         </>
       ) : (
         <div className="mt-2">
@@ -377,4 +427,5 @@ const IPDBasic = ({
     </div>
   );
 };
+
 export default IPDBasic;
