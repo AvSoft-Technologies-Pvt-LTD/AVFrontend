@@ -902,7 +902,7 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
 
     const fetchLabPayments = async () => {
       try {
-        setState((prev) => ({ ...prev, loading: true }));
+        // setState((prev) => ({ ...prev, loading: true }));
         const res = await getLabPaymentsByPatient(patientId);
         const payments = res?.data || [];
         const mappedPayments = payments.map((p) => ({

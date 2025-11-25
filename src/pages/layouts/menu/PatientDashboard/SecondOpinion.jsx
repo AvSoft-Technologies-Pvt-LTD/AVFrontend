@@ -169,53 +169,51 @@ const PrintContent = ({ requestData, selectedRecord, formData, user, symptoms })
         </div>
         <div style={{ marginBottom: "24px" }}>
           <h4 style={{ fontSize: "18px", fontWeight: "bold", color: "#0E1630", marginBottom: "10px" }}>Prescriptions</h4>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
-            <thead>
-              <tr style={{ background: "#f1f5f9" }}>
-                <th style={{ padding: "8px", border: "1px solid #e5e7eb" }}>Date</th>
-                <th style={{ padding: "8px", border: "1px solid #e5e7eb" }}>Doctor Name</th>
-                <th style={{ padding: "8px", border: "1px solid #e5e7eb" }}>Medicines</th>
-                <th style={{ padding: "8px", border: "1px solid #e5e7eb" }}>Instructions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(selectedRecord.prescriptionsData || []).map((row, idx) => (
-                <tr key={idx}>
-                  <td style={{ padding: "8px", border: "1px solid #e5e7eb" }}>{row.date}</td>
-                  <td style={{ padding: "8px", border: "1px solid #e5e7eb" }}>{row.doctorName}</td>
-                  <td style={{ padding: "8px", border: "1px solid #e5e7eb" }}>{row.medicines}</td>
-                  <td style={{ padding: "8px", border: "1px solid #e5e7eb" }}>{row.instructions}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <DynamicTable
+            title=""
+            columns={[
+              { header: "Date", accessor: "date" },
+              { header: "Doctor Name", accessor: "doctorName" },
+              { header: "Medicines", accessor: "medicines" },
+              { header: "Instructions", accessor: "instructions" }
+            ]}
+            data={selectedRecord.prescriptionsData || []}
+            showSearchBar={false}
+            showPagination={false}
+            noDataMessage="No prescriptions found."
+          />
         </div>
         <div>
           <h4 style={{ fontSize: "18px", fontWeight: "bold", color: "#0E1630", marginBottom: "10px" }}>Lab Tests</h4>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
-            <thead>
-              <tr style={{ background: "#f1f5f9" }}>
-                <th style={{ padding: "8px", border: "1px solid #e5e7eb" }}>Date</th>
-                <th style={{ padding: "8px", border: "1px solid #e5e7eb" }}>Test Name</th>
-                <th style={{ padding: "8px", border: "1px solid #e5e7eb" }}>Result</th>
-                <th style={{ padding: "8px", border: "1px solid #e5e7eb" }}>Normal Range</th>
-                <th style={{ padding: "8px", border: "1px solid #e5e7eb" }}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(selectedRecord.labTestsData || []).map((row, idx) => (
-                <tr key={idx}>
-                  <td style={{ padding: "8px", border: "1px solid #e5e7eb" }}>{row.date}</td>
-                  <td style={{ padding: "8px", border: "1px solid #e5e7eb" }}>{row.testName}</td>
-                  <td style={{ padding: "8px", border: "1px solid #e5e7eb" }}>{row.result}</td>
-                  <td style={{ padding: "8px", border: "1px solid #e5e7eb" }}>{row.normalRange}</td>
-                  <td style={{ padding: "8px", border: "1px solid #e5e7eb" }}>
-                    <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: "8px", background: row.status === "Normal" ? "#bbf7d0" : "#fecaca", color: row.status === "Normal" ? "#166534" : "#991b1b", fontWeight: 600 }}>{row.status}</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <DynamicTable
+            title=""
+            columns={[
+              { header: "Date", accessor: "date" },
+              { header: "Test Name", accessor: "testName" },
+              { header: "Result", accessor: "result" },
+              { header: "Normal Range", accessor: "normalRange" },
+              { 
+                header: "Status", 
+                accessor: "status",
+                cell: (row) => (
+                  <span style={{ 
+                    display: "inline-block", 
+                    padding: "2px 8px", 
+                    borderRadius: "8px", 
+                    background: row.status === "Normal" ? "#bbf7d0" : "#fecaca", 
+                    color: row.status === "Normal" ? "#166534" : "#991b1b", 
+                    fontWeight: 600 
+                  }}>
+                    {row.status}
+                  </span>
+                )
+              }
+            ]}
+            data={selectedRecord.labTestsData || []}
+            showSearchBar={false}
+            showPagination={false}
+            noDataMessage="No lab test records found."
+          />
         </div>
       </div>
     </div>

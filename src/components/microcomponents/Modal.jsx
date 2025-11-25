@@ -215,7 +215,7 @@ const ReusableModal = ({
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 50, scale: 0.95 }}
         transition={{ type: "spring", stiffness: 300, damping: 25 }}
-        className={`flex flex-col relative w-full max-h-[90vh] rounded-xl bg-white shadow-xl overflow-visible ${size === "sm" ? "max-w-md" : size === "md" ? "max-w-3xl" : "max-w-4xl"
+        className={`flex flex-col relative w-full max-h-[90vh] rounded-xl bg-white shadow-xl overflow-y-auto overflow-visible ${size === "sm" ? "max-w-md" : size === "md" ? "max-w-3xl" : "max-w-4xl"
           }`}
       >
         {(mode === "add" || mode === "edit" || mode === "viewProfile") && (
@@ -769,3 +769,24 @@ const ReusableModal = ({
 };
 
 export default ReusableModal;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
