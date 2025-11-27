@@ -4,7 +4,7 @@
 :root {
   --primary-color: #0E1630;
   --accent-color: #01D48C;
-  --color-surface: #463d3d;
+  /* --color-surface: #463d3d; */
   --color-overlay: rgba(14, 22, 48, 0.7);
   --font-family: 'Poppins', sans-serif;
   --gradient-start: #01B07A;

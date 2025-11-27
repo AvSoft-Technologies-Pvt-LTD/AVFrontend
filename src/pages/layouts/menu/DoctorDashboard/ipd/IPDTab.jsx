@@ -15,6 +15,8 @@ import { FiExternalLink, FiLink } from "react-icons/fi";
 import QuickLinksPanel from "../../DoctorDashboard/QuickLinksPanel";
 import DynamicTable from "../../../../../components/microcomponents/DynamicTable";
 import ReusableModal from "../../../../../components/microcomponents/Modal";
+import { usePatientContext } from "../../../../../context-api/PatientContext";
+
 import {
   getSpecializationsWardsSummaryForIpdAdmission,
   addIPDAdmission,
@@ -80,6 +82,7 @@ const WIZARD_STEPS = [
     shortTitle: "Final",
   },
 ];
+  
 
 // Fields for viewing IPD patient info in ReusableModal
 const IPD_VIEW_FIELDS = [
@@ -179,7 +182,7 @@ const IPDTab = forwardRef(
     const [quickLinksPatient, setQuickLinksPatient] = useState(null);
     const [transferPreview, setTransferPreview] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
-
+ const { setPatient } = usePatientContext();
     useImperativeHandle(ref, () => ({
       openAddPatientModal: () => {
         setModals((prev) => ({ ...prev, ipdWizard: true }));
@@ -514,7 +517,15 @@ const handleFetchPatientDetails = useCallback(async (appointmentId) => {
         setLoading(false);
       }
     }, [doctorId]);
-
+const handleSelected = (r) => {
+      try {
+        localStorage.setItem("selectedThisPatient", JSON.stringify(r));
+        setPatient(r);
+        navigate("/doctordashboard/medical-record", { state: { patient: r } });
+      } catch (error) {
+        console.error("[OPD] Error saving patient:", error);
+      }
+    };
     // Removed fetchPatientDetails since extended sections are not shown in ReusableModal
 
     const openModal = useCallback((modalName) => {
@@ -976,18 +987,14 @@ const handleIpdWizardFinish = useCallback(async () => {
               >
                 <FiLink />
               </button>
-              <button
-                title="View Medical Record"
-                onClick={() => {
-                  navigate("/doctordashboard/medical-record", {
-                    state: { patient: row },
-                  });
-                }}
-                className="p-0.5 text-base text-[var(--primary-color)]"
-                style={{ display: "flex", alignItems: "center" }}
-              >
-                <FiExternalLink />
-              </button>
+               <button
+                           title="View Medical Record"
+                           onClick={() => handleSelected(row)}
+                           className="p-1 text-base text-[var(--primary-color)]"
+                           style={{ display: "flex", alignItems: "center" }}
+                         >
+                           <FiExternalLink />
+                         </button>
             </div>
           ),
         },

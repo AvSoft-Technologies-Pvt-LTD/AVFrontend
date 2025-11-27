@@ -153,7 +153,7 @@ const QuickLinksPanel = ({
     }
     if (link?.name === "Billing") {
       // Updated path to match your billing integration component
-      navigate("/doctordashboard/billing-integration", { state: { patient } });
+      navigate("/doctordashboard/main-billing", { state: { patient } });
       return closePanel();
     }
     if (link?.name === "Discharge") {

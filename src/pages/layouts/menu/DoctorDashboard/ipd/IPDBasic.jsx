@@ -103,6 +103,7 @@ const IPDBasic = ({
   patientIdInput,
   setPatientIdInput,
   onFetchPatient,
+  onTransferPatient, // Add this prop
   fields,
   photoPreview,
   onPhotoChange,
@@ -118,12 +119,17 @@ const IPDBasic = ({
   const fetchPatientByAadhar = async () => {};
   const fetchPatientByPhone = async () => {};
   const sendOtp = async () => {};
+
   const handleConfirm = () => {
+    if (transferPreview && typeof onTransferPatient === 'function') {
+      onTransferPatient(transferPreview);
+    }
     if (typeof onNext === "function") {
       onNext();
     }
     setActiveSection("transfer");
   };
+
   const handleCancel = () => setActiveSection("transfer");
 
   const renderField = (field) => (
