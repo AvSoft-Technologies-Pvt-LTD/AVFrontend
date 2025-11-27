@@ -27,8 +27,8 @@ import MedicalRecords from "./pages/layouts/menu/PatientDashboard/MedicalRecord"
 import Healthcard from "./components/Healthcard/Healthcard";
 import HealthcardOTP from "./components/Healthcard/HealthcardOTP";
 import MedicalRecordHC from "./components/Healthcard/MedicalRecordHC";
-import SecondOpinionHC  from "./components/Healthcard/SecondOpinionHC";
-import  MediRecDeatilsHC  from "./components/Healthcard/MediRecDeatilsHC";
+import SecondOpinionHC from "./components/Healthcard/SecondOpinionHC";
+import MediRecDeatilsHC from "./components/Healthcard/MediRecDeatilsHC";
 // Layouts & Dashboards
 import DashboardLayout from "./pages/layouts/DashboardLayout";
 import PdashboardRoutes from "./pages/layouts/menu/PatientDashboard/PdashboardRoutes";
@@ -55,7 +55,7 @@ import { ColorProvider } from "./contexts/ColorContext";
 import BedMaster from "./pages/layouts/menu/DoctorDashboard/bed-manangement/BedMaster";
 // ---------------------- NEW Scheduler Imports ----------------------
 import Scheduler from "./pages/layouts/menu/DoctorDashboard/scheduler/Scheduler";
- import Today from "./pages/layouts/menu/DoctorDashboard/scheduler/Today";
+import Today from "./pages/layouts/menu/DoctorDashboard/scheduler/Today";
 import AvailabilityPage from "./pages/layouts/menu/DoctorDashboard/scheduler/AvailabilityPage";
 import AvailabilityOverviewPage from "./pages/layouts/menu/DoctorDashboard/scheduler/AvailabilityOverviewPage";
 // Toast
@@ -63,23 +63,25 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import InitialAssessmentForm from "./components/InitialAssesment";
 
+//.....Dummy-Login.....//
+import DummyLogin from "./form/DummyLogin"
 
 // ---------------------- Helpers ----------------------
 
 // ✅ PrivateRoute with allowed userType
 const PrivateRoute = ({ allowedTypes }) => {
   const { user, isAuthenticated } = useSelector((state) => state.auth);
-  
+
   console.log('PrivateRoute - Auth state:', { isAuthenticated, user, allowedTypes });
-  
+
   if (!isAuthenticated || !user) {
     console.log('PrivateRoute - Not authenticated, redirecting to login');
     return <Navigate to="/login" replace />;
   }
-  
+
   const userType = user.userType?.toLowerCase();
   console.log('PrivateRoute - User type:', userType);
-  
+
   if (allowedTypes && !allowedTypes.includes(userType)) {
     console.log('PrivateRoute - User type not allowed, redirecting to appropriate dashboard');
     // Redirect to appropriate dashboard based on user type
@@ -93,16 +95,16 @@ const PrivateRoute = ({ allowedTypes }) => {
     };
     return <Navigate to={redirectRoutes[userType] || '/login'} replace />;
   }
-  
+
   return <Outlet />;
 };
 
 // ✅ Redirect to correct dashboard based on role
 const RoleRedirect = () => {
   const { user, isAuthenticated } = useSelector((state) => state.auth);
-  
+
   console.log('RoleRedirect - Auth state:', { isAuthenticated, user });
-  
+
   if (!isAuthenticated || !user) {
     console.log('RoleRedirect - Not authenticated, redirecting to login');
     return <Navigate to="/login" replace />;
@@ -137,7 +139,7 @@ const App = () => {
   const handleTokenUpdate = (updatedTokens) => setTokens(updatedTokens);
   const getNextTokenNumber = () => tokens.length + 1;
   const dispatch = useDispatch();
-  
+
   // ✅ Redux state
   const { isAuthenticated, user, loading } = useSelector((state) => state.auth);
   const [appLoading, setAppLoading] = useState(true);
@@ -197,108 +199,108 @@ const App = () => {
         path="tokendisplay"
         element={<TokenDisplay tokens={tokens} />}
       />
-      <Route path="bedroom-management" element={<BedRoomList/>}/>
+      <Route path="bedroom-management" element={<BedRoomList />} />
     </>
   );
 
   return (
-          <PatientProvider>
- <MedicalRecordsProvider>
-    <Router>
-      <Routes>
-        {/* ✅ Public Routes */}
-        <Route path="/" element={<Home />} />
-        <Route path="/register" element={<RegisterSelect />} />
-        <Route path="/registration" element={<Registration />} />
-        <Route path="/verification" element={<Verification />} />
-        <Route path="/password-reset" element={<PasswordResetPage />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/bookconsultation" element={<BookApp />} />
-        <Route path="/medical-records" element={<MedicalRecords />} />
-        <Route path="/medical-record-details" element={<Navigate to="/patientdashboard/medical-record-details" replace />} />
-        
-        {/* Healthcard */}
-         <Route path="/healthcard" element={<Healthcard />} />
-        <Route path="/healthcard-otp" element={<HealthcardOTP />} />
-        <Route path="/healthcard-medicalrecord" element={<MedicalRecordHC />} />
-          <Route path="/healthcard-medicalrecord-Details" element={<MediRecDeatilsHC/>} />
-          <Route path="/healthcard-second-opinion" element={<SecondOpinionHC />} />
-        {/* ✅ Redirect Based on Role */}
-        <Route path="/redirect" element={<RoleRedirect />} />
-        
-        {/* ✅ Patient Dashboard */}
-        <Route element={<PrivateRoute allowedTypes={["patient"]} />}>
-          <Route path="/patientdashboard/*" element={<DashboardLayout />}>
-     <Route index element={<Dashboard />} />
-            <Route path="*" element={<PdashboardRoutes />} />
-          </Route>
-        </Route>
-        
-        {/* ✅ Doctor Dashboard */}
-        <Route element={<PrivateRoute allowedTypes={["doctor", "freelancer"]} />}>
-          <Route path="/doctordashboard" element={<DashboardLayout />}>
-            <Route index element={<Overview />} />
-            {sharedRoutes}
-            <Route path="template" element={
-              <ColorProvider>
-                <ImageAnnotationCanvas />
-              </ColorProvider>
-            } />
-            <Route path="bedroom-management/bedmaster" element={<BedMaster />} />
-<Route path="scheduler" element={<Scheduler />} />
-    <Route path="scheduler/availability" element={<AvailabilityOverviewPage />} />
-    <Route path="scheduler/availability/create" element={<AvailabilityPage />} />
-    <Route path="scheduler/availability/edit/:scheduleId" element={<AvailabilityPage />} />
-    <Route path="scheduler/today" element={<Today />} />  
-            <Route path="*" element={<DrRoutes />} />
-          </Route>
-        </Route>
-        
-        {/* ✅ Hospital Dashboard */}
-        <Route element={<PrivateRoute allowedTypes={["hospital"]} />}>
-          <Route path="/hospitaldashboard" element={<DashboardLayout />}>
-            <Route index element={<HospitalDashboard />} />
-            {sharedRoutes}
-            <Route path="*" element={<HospitalRoutes />} />
-          </Route>
-        </Route>
-        
-        {/* ✅ Lab Dashboard */}
-        <Route element={<PrivateRoute allowedTypes={["lab"]} />}>
-          <Route path="/labdashboard" element={<DashboardLayout />}>
-            <Route index element={<LabDashboard />} />
-            <Route path="*" element={<LabRoutes />} />
-          </Route>
-        </Route>
-        
-        {/* ✅ Super Admin Dashboard */}
-        <Route element={<PrivateRoute allowedTypes={["superadmin"]} />}>
-          <Route path="/superadmindashboard" element={<DashboardLayout />}>
-            <Route index element={<AdminDashboard />} />
-            <Route path="*" element={<AdminRoutes />} />
-          </Route>
-        </Route>
-        
-        {/* Fallback Route */}
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
+    <PatientProvider>
+      <MedicalRecordsProvider>
+        <Router>
+          <Routes>
+            {/* ✅ Public Routes */}
+            <Route path="/" element={<Home />} />
+            <Route path="/register" element={<RegisterSelect />} />
+            <Route path="/registration" element={<Registration />} />
+            <Route path="/verification" element={<Verification />} />
+            <Route path="/password-reset" element={<PasswordResetPage />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/dummylogin" element={<DummyLogin />} />
+            <Route path="/bookconsultation" element={<BookApp />} />
+            <Route path="/medical-records" element={<MedicalRecords />} />
+            <Route path="/medical-record-details" element={<Navigate to="/patientdashboard/medical-record-details" replace />} />
 
-      <ToastContainer
-        position="top-right"
-        autoClose={3000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-          rtl={false}
-        pauseOnHover
-        pauseOnFocusLoss={false}
-        draggable
-        theme="colored"
-        className="custom-toast-container"
-      />
-    </Router>
-    </MedicalRecordsProvider>
-          </PatientProvider>
+            {/* Healthcard */}
+            <Route path="/healthcard" element={<Healthcard />} />
+            <Route path="/healthcard-otp" element={<HealthcardOTP />} />
+            <Route path="/healthcard-medicalrecord" element={<MedicalRecordHC />} />
+            <Route path="/healthcard-medicalrecord-Details" element={<MediRecDeatilsHC />} />
+            <Route path="/healthcard-second-opinion" element={<SecondOpinionHC />} />
+            {/* ✅ Redirect Based on Role */}
+            <Route path="/redirect" element={<RoleRedirect />} />
+
+            {/* ✅ Patient Dashboard */}
+            <Route element={<PrivateRoute allowedTypes={["patient"]} />}>
+              <Route path="/patientdashboard/*" element={<DashboardLayout />}>
+                <Route index element={<Dashboard />} />
+                <Route path="*" element={<PdashboardRoutes />} />
+              </Route>
+            </Route>
+
+            {/* ✅ Doctor Dashboard */}
+            <Route element={<PrivateRoute allowedTypes={["doctor", "freelancer"]} />}>
+              <Route path="/doctordashboard" element={<DashboardLayout />}>
+                <Route index element={<Overview />} />
+                {sharedRoutes}
+                <Route path="template" element={
+                  <ColorProvider>
+                    <ImageAnnotationCanvas />
+                  </ColorProvider>
+                } />
+                <Route path="bedroom-management/bedmaster" element={<BedMaster />} />
+                <Route path="scheduler" element={<Scheduler />} />
+                <Route path="scheduler/availability" element={<AvailabilityOverviewPage />} />
+                <Route path="scheduler/availability/create" element={<AvailabilityPage />} />
+                <Route path="scheduler/availability/edit/:scheduleId" element={<AvailabilityPage />} />
+                <Route path="scheduler/today" element={<Today />} />
+                <Route path="*" element={<DrRoutes />} />
+              </Route>
+            </Route>
+
+            {/* ✅ Hospital Dashboard */}
+            <Route element={<PrivateRoute allowedTypes={["hospital"]} />}>
+              <Route path="/hospitaldashboard" element={<DashboardLayout />}>
+                <Route index element={<HospitalDashboard />} />
+                {sharedRoutes}
+                <Route path="*" element={<HospitalRoutes />} />
+              </Route>
+            </Route>
+
+            {/* ✅ Lab Dashboard */}
+            <Route element={<PrivateRoute allowedTypes={["lab", "frontdesk", "nurse"]} />}>
+              <Route path="/labdashboard" element={<DashboardLayout />}>
+                <Route index element={<LabDashboard />} />
+                <Route path="*" element={<LabRoutes />} />
+              </Route>
+            </Route>
+            {/* ✅ Super Admin Dashboard */}
+            <Route element={<PrivateRoute allowedTypes={["superadmin"]} />}>
+              <Route path="/superadmindashboard" element={<DashboardLayout />}>
+                <Route index element={<AdminDashboard />} />
+                <Route path="*" element={<AdminRoutes />} />
+              </Route>
+            </Route>
+
+            {/* Fallback Route */}
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
+
+          <ToastContainer
+            position="top-right"
+            autoClose={3000}
+            hideProgressBar={false}
+            newestOnTop={false}
+            closeOnClick
+            rtl={false}
+            pauseOnHover
+            pauseOnFocusLoss={false}
+            draggable
+            theme="colored"
+            className="custom-toast-container"
+          />
+        </Router>
+      </MedicalRecordsProvider>
+    </PatientProvider>
 
 
   );
