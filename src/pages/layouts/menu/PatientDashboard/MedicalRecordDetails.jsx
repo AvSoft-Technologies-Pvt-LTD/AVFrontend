@@ -38,11 +38,11 @@ import {
   getPatientById,
 } from "../../../../utils/masterService";
 import { useMedicalRecords } from "../../../../context-api/MedicalRecordsContext";
-  import medicalRecordImage from '../../../../assets/geminiIN1.png';
-  import prescriptionImage from '../../../../assets/prescriptionq.jpg';
-  import labReportImage from '../../../../assets/lab1.jpg';
-  import billingImage from '../../../../assets/PB4.jpeg';
-  import videoImage from '../../../../assets/videocalling.avif';
+import medicalRecordImage from '../../../../assets/geminiIN1.png';
+import prescriptionImage from '../../../../assets/prescriptionq.jpg';
+import labReportImage from '../../../../assets/lab1.jpg';
+import billingImage from '../../../../assets/PB4.jpeg';
+import videoImage from '../../../../assets/videocalling.avif';
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -105,57 +105,57 @@ const loadRecordingFromLocalStorage = (key) => {
 const VideoPlaybackModal = ({ show, onClose, videoBlob, metadata }) =>
   show
     ? createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-2 md:p-4">
-          <div className="relative bg-white p-3 md:p-6 rounded-xl w-full max-w-md md:max-w-2xl lg:max-w-4xl max-h-[90vh] overflow-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-            <div className="flex justify-between items-center mb-2 md:mb-4">
-              <h3 className="text-lg md:text-xl font-semibold">Consultation Recording</h3>
-              <p className="text-xs md:text-sm text-gray-600">
-                Recorded on: {metadata?.timestamp ? new Date(metadata.timestamp).toLocaleString() : "N/A"}
-              </p>
-              <button
-                onClick={onClose}
-                className="text-gray-500 hover:text-gray-700 text-xl md:text-2xl"
-              >
-                ×
-              </button>
-            </div>
-            <div className="bg-black rounded-lg overflow-hidden mb-2 md:mb-4">
-              {!videoBlob ? (
-                <div className="w-full h-48 md:h-64 lg:h-96 flex items-center justify-center text-white text-sm md:text-base">
-                  <p>No video recording available.</p>
-                </div>
-              ) : (
-                <video
-                  controls
-                  className="w-full h-48 md:h-64 lg:h-96 object-contain"
-                  src={URL.createObjectURL(videoBlob)}
-                  onError={(e) => {
-                    console.error("Video playback error:", e);
-                    e.target.error = null;
-                    e.target.src = "";
-                  }}
-                >
-                  <p className="text-center text-white p-4">Unable to load video recording.</p>
-                </video>
-              )}
-            </div>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={onClose}
-                className="px-3 py-1.5 md:px-4 md:py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-xs md:text-sm"
-              >
-                Close
-              </button>
-            </div>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-2 md:p-4">
+        <div className="relative bg-white p-3 md:p-6 rounded-xl w-full max-w-md md:max-w-2xl lg:max-w-4xl max-h-[90vh] overflow-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+          <div className="flex justify-between items-center mb-2 md:mb-4">
+            <h3 className="text-lg md:text-xl font-semibold">Consultation Recording</h3>
+            <p className="text-xs md:text-sm text-gray-600">
+              Recorded on: {metadata?.timestamp ? new Date(metadata.timestamp).toLocaleString() : "N/A"}
+            </p>
+            <button
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-700 text-xl md:text-2xl"
+            >
+              ×
+            </button>
           </div>
-        </div>,
-        document.body
-      )
+          <div className="bg-black rounded-lg overflow-hidden mb-2 md:mb-4">
+            {!videoBlob ? (
+              <div className="w-full h-48 md:h-64 lg:h-96 flex items-center justify-center text-white text-sm md:text-base">
+                <p>No video recording available.</p>
+              </div>
+            ) : (
+              <video
+                controls
+                className="w-full h-48 md:h-64 lg:h-96 object-contain"
+                src={URL.createObjectURL(videoBlob)}
+                onError={(e) => {
+                  console.error("Video playback error:", e);
+                  e.target.error = null;
+                  e.target.src = "";
+                }}
+              >
+                <p className="text-center text-white p-4">Unable to load video recording.</p>
+              </video>
+            )}
+          </div>
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={onClose}
+              className="px-3 py-1.5 md:px-4 md:py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-xs md:text-sm"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    )
     : null;
 
 const ImageViewModal = ({ isOpen, onClose, imageUrl, title }) => {
   if (!isOpen) return null;
-  
+
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
       <div className="relative bg-white rounded-xl w-auto max-w-2xl max-h-[90vh] overflow-hidden">
@@ -525,14 +525,14 @@ const PatientMedicalRecordDetails = () => {
           const medicines = Array.isArray(prescription.medicines)
             ? prescription.medicines
             : prescription.medicines
-            ? [prescription.medicines]
-            : [];
+              ? [prescription.medicines]
+              : [];
           return {
             id: prescription.id || prescription.prescriptionId,
             date: prescription.prescribedAt
               ? new Date(prescription.prescribedAt).toLocaleDateString(
-                  "en-GB"
-                )
+                "en-GB"
+              )
               : "N/A",
             doctorName: prescription.doctorName || "N/A",
             medicines: medicines
@@ -561,56 +561,69 @@ const PatientMedicalRecordDetails = () => {
     }
   };
 
-const fetchVitalsData = async () => {
-  console.log("fetchVitalsData CALLED. selectedRecord:", selectedRecord, "recordQueryParams:", recordQueryParams);
+  const fetchVitalsData = async () => {
+    console.log("fetchVitalsData CALLED. selectedRecord:", selectedRecord, "recordQueryParams:", recordQueryParams);
 
-  if (!selectedRecord?.patientId) {
-    console.log("No patientId -> setting default vitals");
-    setVitalsData({
-      bloodPressure: "--",
-      heartRate: "--",
-      temperature: "--",
-      spO2: "--",
-      respiratoryRate: "--",
-      height: "--",
-      weight: "--",
-    });
-    return;
-  }
+    if (!selectedRecord?.patientId) {
+      console.log("No patientId -> setting default vitals");
+      setVitalsData({
+        bloodPressure: "--",
+        heartRate: "--",
+        temperature: "--",
+        spO2: "--",
+        respiratoryRate: "--",
+        height: "--",
+        weight: "--",
+      });
+      return;
+    }
 
-  setLoading(true);
-  setError(null);
-  try {
-    // Merge consultationType into params so backend can distinguish OPD/IPD/Virtual
-    const vitalsParams = {
-      ...(recordQueryParams || {}),
-      consultationType: activeTab,
-    };
-    const response = await getPatientVitalById(selectedRecord.patientId, vitalsParams);
-    console.log("Fetched vitals data::::::::::::", response.data);
-
-    // Support response.data.data and array payloads
-    const payload = response.data?.data ?? response.data;
-    const patientVitals = Array.isArray(payload) ? payload[0] ?? null : payload;
-
-    console.log("Normalized patientVitals:", patientVitals);
-
-    if (patientVitals) {
-      const vitalsToSet = {
-        bloodPressure: patientVitals.bloodPressure || patientVitals.blood_pressure || "--",
-        heartRate: patientVitals.heartRate || patientVitals.heart_rate || "--",
-        temperature: patientVitals.temperature || patientVitals.temp || "--",
-        spO2: patientVitals.spO2 || patientVitals.spo2 || "--",
-        respiratoryRate: patientVitals.respiratoryRate || patientVitals.respiratory_rate || "--",
-        height: patientVitals.height || "--",
-        weight: patientVitals.weight || "--",
-        id: patientVitals.id,
+    setLoading(true);
+    setError(null);
+    try {
+      // Merge consultationType into params so backend can distinguish OPD/IPD/Virtual
+      const vitalsParams = {
+        ...(recordQueryParams || {}),
+        consultationType: activeTab,
       };
-      console.log("Vitals we are setting in state:", vitalsToSet);
-      setVitalsData(vitalsToSet);
-      setVitalsExist(true);
-    } else {
-      console.log("No vitals in response -> using defaults");
+      const response = await getPatientVitalById(selectedRecord.patientId, vitalsParams);
+      console.log("Fetched vitals data::::::::::::", response.data);
+
+      // Support response.data.data and array payloads
+      const payload = response.data?.data ?? response.data;
+      const patientVitals = Array.isArray(payload) ? payload[0] ?? null : payload;
+
+      console.log("Normalized patientVitals:", patientVitals);
+
+      if (patientVitals) {
+        const vitalsToSet = {
+          bloodPressure: patientVitals.bloodPressure || patientVitals.blood_pressure || "--",
+          heartRate: patientVitals.heartRate || patientVitals.heart_rate || "--",
+          temperature: patientVitals.temperature || patientVitals.temp || "--",
+          spO2: patientVitals.spO2 || patientVitals.spo2 || "--",
+          respiratoryRate: patientVitals.respiratoryRate || patientVitals.respiratory_rate || "--",
+          height: patientVitals.height || "--",
+          weight: patientVitals.weight || "--",
+          id: patientVitals.id,
+        };
+        console.log("Vitals we are setting in state:", vitalsToSet);
+        setVitalsData(vitalsToSet);
+        setVitalsExist(true);
+      } else {
+        console.log("No vitals in response -> using defaults");
+        setVitalsData({
+          bloodPressure: "--",
+          heartRate: "--",
+          temperature: "--",
+          spO2: "--",
+          respiratoryRate: "--",
+          height: "--",
+          weight: "--",
+        });
+        setVitalsExist(false);
+      }
+    } catch (err) {
+      console.error("Failed to fetch vitals:", err);
       setVitalsData({
         bloodPressure: "--",
         heartRate: "--",
@@ -621,24 +634,11 @@ const fetchVitalsData = async () => {
         weight: "--",
       });
       setVitalsExist(false);
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error("Failed to fetch vitals:", err);
-    setVitalsData({
-      bloodPressure: "--",
-      heartRate: "--",
-      temperature: "--",
-      spO2: "--",
-      respiratoryRate: "--",
-      height: "--",
-      weight: "--",
-    });
-    setVitalsExist(false);
-  } finally {
-    setLoading(false);
-  }
-};
-  
+  };
+
 
   // doctor-specific clinical notes and IPD vitals removed: this component now only uses patient-side data
 
@@ -711,7 +711,7 @@ const fetchVitalsData = async () => {
     if (Object.keys(errors).length > 0) {
       return;
     }
- 
+
 
 
     const recordBodyFields = (() => {
@@ -844,7 +844,7 @@ const fetchVitalsData = async () => {
       .toUpperCase();
   };
 
-  
+
 
   const handleBack = () => {
     navigate("/patientdashboard/medical-records", {
@@ -1005,7 +1005,7 @@ const fetchVitalsData = async () => {
   }, [state.detailsActiveTab]);
 
   const renderTabContent = () => {
-  const tabContentMap = {
+    const tabContentMap = {
       "medical-records": (() => {
         // For patient-uploaded records, show medical info when available; otherwise DocsReader
         if (isExactPatient) {
@@ -1204,7 +1204,7 @@ const fetchVitalsData = async () => {
                 <h4 className="text-lg md:text-xl font-semibold">Lab/Scan Reports</h4>
               </div>
               {labScansData.length > 0 && (
-                <button 
+                <button
                   onClick={() => setImageModal({
                     isOpen: true,
                     imageUrl: "https://placehold.co/800x1000/png?text=Lab+Report+Sample",
@@ -1253,8 +1253,8 @@ const fetchVitalsData = async () => {
         ) : (
           <DocsReader />
         )
-  ) : isExactDoctor ? (
-  labScansData.length > 0 ? (
+      ) : isExactDoctor ? (
+        labScansData.length > 0 ? (
           <div className="ml-6 mr-6 space-y-4 md:space-y-6">
             <div className="flex items-center gap-2 md:gap-3 mb-4 md:mb-6">
               <TestTube size={16} className="md:size-[20px] text-blue-600" />
@@ -1302,8 +1302,8 @@ const fetchVitalsData = async () => {
       ) : null,
       "billing": isExactPatient ? (
         hospitalBillingData.length > 0 ||
-        labBillingData.length > 0 ||
-        pharmacyBillingData.length > 0 ? (
+          labBillingData.length > 0 ||
+          pharmacyBillingData.length > 0 ? (
           <div className="space-y-4 md:space-y-8">
             <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-3 sm:mb-4 md:mb-6 gap-2 sm:gap-3 mx-6">
               <div className="flex items-center gap-2 md:gap-3">
@@ -1601,25 +1601,25 @@ const fetchVitalsData = async () => {
     // Dates
     ...(String(activeTab || "").toUpperCase() === "IPD"
       ? [
-          {
-            label: "Date of Admission",
-            value: formatDisplayDate(selectedRecord.dateOfAdmission),
-          },
-          {
-            label: "Date of Discharge",
-            value: formatDisplayDate(selectedRecord.dateOfDischarge),
-          },
-        ]
+        {
+          label: "Date of Admission",
+          value: formatDisplayDate(selectedRecord.dateOfAdmission),
+        },
+        {
+          label: "Date of Discharge",
+          value: formatDisplayDate(selectedRecord.dateOfDischarge),
+        },
+      ]
       : [
-          {
-            label: "Visit Date",
-            value: formatDisplayDate(
-              selectedRecord.dateOfVisit ||
-              selectedRecord.dateOfAdmission ||
-              selectedRecord.dateOfConsultation
-            ),
-          },
-        ]),
+        {
+          label: "Visit Date",
+          value: formatDisplayDate(
+            selectedRecord.dateOfVisit ||
+            selectedRecord.dateOfAdmission ||
+            selectedRecord.dateOfConsultation
+          ),
+        },
+      ]),
     { label: "Diagnosis", value: displayDiagnosis },
     { label: "K/C/O", value: selectedRecord["K/C/O"] ?? "--" },
   ];
@@ -1627,29 +1627,28 @@ const fetchVitalsData = async () => {
   return (
     <ErrorBoundary>
       <div className="p-3 md:p-6 space-y-4 md:space-y-6">
-       
+
         <ProfileCard
           initials={getInitials(displayPatientName)}
           name={displayPatientName}
           fields={profileFields}
         />
         <div className="space-y-4 md:space-y-6">
-          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
+          <div className="flex flex-row justify-between items-center gap-3 w-full">
             <div className="flex items-center gap-2">
               <Activity size={20} className="text-green-600" />
-              <h3 className="text-lg md:text-xl font-semibold">Vitals Summary</h3>
+              <h3 className="text-base md:text-lg lg:text-xl font-semibold">Vitals Summary</h3>
             </div>
             {!isDoctorUploaded && (
               <button
                 onClick={() => setShowUpdateModal(true)}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm md:text-base rounded-lg shadow-sm transition duration-200 flex items-center gap-2 self-start md:self-auto"
+                className="px-3 py-1.5 md:px-4 md:py-2 bg-green-600 hover:bg-green-700 text-white text-xs md:text-sm rounded-lg shadow-sm transition duration-200 flex items-center gap-1.5"
                 aria-label={vitalsExist ? "Update vitals" : "Add vitals"}
               >
-                <Pencil size={16} />
-                {vitalsExist ? "Update Vitals" : "Add Vitals"}
+                <Pencil size={14} className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                <span>{vitalsExist ? "Update" : "Add Vitals"}</span>
               </button>
             )}
-
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-3 p-2">
             {[
@@ -1796,19 +1795,3 @@ const fetchVitalsData = async () => {
 };
 
 export default PatientMedicalRecordDetails;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -303,6 +303,14 @@ export const getPatientMedicalInfo = (patientId, params) =>
   });
 
 
+  export const getVideoConsultationByPatient = (patientId, virtualRecordId) => {
+  return axiosInstance.get(`/videos/${patientId}`, {
+    params: {
+      patientId: patientId,          // query param
+      virtualRecordId: virtualRecordId
+    }
+  });
+};
 // GET /api/lab-available-tests?selectedTests=&selectedScans=&selectedPackages=
 export const getAvailableLabsBySelection = ({ selectedTests = [], selectedScans = [], selectedPackages = [] }) =>
   axiosInstance.get("/lab-available-tests", {

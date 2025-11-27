@@ -220,9 +220,9 @@ const MultiStepForm = () => {
       const response = await getAllSymptoms();
       const symptoms = Array.isArray(response.data)
         ? response.data.map(item => ({
-            id: item.id ?? item.symptomId ?? item.value ?? item.name ?? item.label,
-            name: item.name || item.label || item.symptomName || String(item),
-          }))
+          id: item.id ?? item.symptomId ?? item.value ?? item.name ?? item.label,
+          name: item.name || item.label || item.symptomName || String(item),
+        }))
         : [];
       setAllSymptoms(symptoms);
     } catch (error) {
@@ -239,9 +239,9 @@ const MultiStepForm = () => {
           const response = await getSpecializationsBySymptoms({ q: state.symptoms });
           const specialties = Array.isArray(response.data)
             ? response.data.map(item => ({
-                id: item.id || item.specialityId,
-                name: item.name || item.label || item.specializationName || item,
-              }))
+              id: item.id || item.specialityId,
+              name: item.name || item.label || item.specializationName || item,
+            }))
             : [];
           const stillValid = specialties.some(s => String(s.id) === String(state.specialtyId || ''));
           if (!stillValid) {
@@ -605,11 +605,10 @@ const MultiStepForm = () => {
               <button
                 key={type}
                 onClick={() => updateState({ consultationType: type })}
-                className={`px-3 py-2 rounded-lg font-medium text-sm transition-all duration-300 transform hover:scale-105 ${
-                  state.consultationType === type
-                    ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/25"
-                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                }`}
+                className={`px-3 py-2 rounded-lg font-medium text-sm transition-all duration-300 transform hover:scale-105 ${state.consultationType === type
+                  ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/25"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  }`}
               >
                 {type}
               </button>
@@ -766,33 +765,46 @@ const MultiStepForm = () => {
                   const buttonLabel = state.hospitalName ? state.hospitalName : "Select Hospital (Optional)";
                   return (
                     <>
-                      <button
-                        type="button"
-                        disabled={state.hospitalsLoading}
-                        onClick={() =>
-                          updateState({
-                            [openKey]: !open,
-                            [searchKey]: ""
-                          })
-                        }
-                        className="w-full p-3 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200 text-sm bg-white disabled:bg-slate-100 disabled:cursor-not-allowed flex justify-between items-center"
-                      >
-                        <span className="truncate">{buttonLabel}</span>
-                        <ChevronDown className="w-4 h-4 text-slate-500" />
-                      </button>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="Select Hospital"
+                          value={open ? searchVal : buttonLabel}
+                          disabled={state.hospitalsLoading}
+                          onClick={() => {
+                            updateState({
+                              [openKey]: true,
+                              [searchKey]: ""
+                            });
+                          }}
+                          onChange={(e) => {
+                            updateState({
+                              [searchKey]: e.target.value,
+                              [openKey]: true
+                            });
+                          }}
+                          className="w-full p-3 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200 text-sm bg-white disabled:bg-slate-100 disabled:cursor-not-allowed"
+                        />
+
+                        <ChevronDown
+                          className="w-4 h-4 text-slate-500 absolute right-3 top-3 cursor-pointer"
+                          onClick={() =>
+                            updateState({
+                              [openKey]: !open,
+                              [searchKey]: ""
+                            })
+                          }
+                        />
+                      </div>
+
                       {open && (
                         <div className="absolute z-[1000] mt-1 max-h-60 w-full overflow-auto rounded-xl bg-white shadow border border-slate-200">
-                          <input
-                            type="text"
-                            placeholder="Search hospitals..."
-                            value={searchVal}
-                            onChange={(e) => updateState({ [searchKey]: e.target.value })}
-                            className="w-full px-3 py-2 text-sm border-b border-slate-100 outline-none"
-                          />
+
                           {filtered.length === 0 && (
                             <div className="px-4 py-2 text-sm text-slate-500">No results</div>
                           )}
-                          {filtered.map(opt => (
+
+                          {filtered.map((opt) => (
                             <div
                               key={String(opt.value)}
                               onClick={() => {
@@ -818,33 +830,36 @@ const MultiStepForm = () => {
           <div className={`space-y-2 w-full ${state.consultationType === "Physical" ? "md:w-1/2" : ""}`}>
             <label className="text-sm font-medium text-slate-700">Symptoms</label>
             <div className="relative">
-              <button
-                type="button"
-                onClick={() => {
-                  setSymptomsDropdownOpen(!symptomsDropdownOpen);
-                  setSymptomsSearch("");
-                }}
-                className="w-full p-3 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200 text-sm bg-white text-left flex justify-between items-center"
-              >
-                <span className="truncate">
-                  {state.symptoms || "Select Symptoms"}
-                </span>
-                <ChevronDown className="w-4 h-4 text-slate-500" />
-              </button>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Select Symptoms"
+                  value={symptomsDropdownOpen ? symptomsSearch : state.symptoms}
+                  onChange={(e) => {
+                    setSymptomsSearch(e.target.value);
+                    if (!symptomsDropdownOpen) setSymptomsDropdownOpen(true);
+                  }}
+                  onClick={() => {
+                    setSymptomsDropdownOpen(true);
+                    setSymptomsSearch("");
+                  }}
+                  className="w-full p-3 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200 text-sm bg-white"
+                />
+
+                <ChevronDown
+                  className="w-4 h-4 text-slate-500 absolute right-3 top-3 cursor-pointer"
+                  onClick={() => setSymptomsDropdownOpen(!symptomsDropdownOpen)}
+                />
+              </div>
+
               {symptomsDropdownOpen && (
                 <div className="absolute z-[1000] mt-1 max-h-60 w-full overflow-auto rounded-xl bg-white shadow border border-slate-200">
-                  <input
-                    type="text"
-                    placeholder="Search symptoms..."
-                    value={symptomsSearch}
-                    onChange={(e) => setSymptomsSearch(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border-b border-slate-100 outline-none"
-                  />
                   {allSymptoms.filter(symptom =>
                     (symptom.name || "").toLowerCase().includes(symptomsSearch.toLowerCase())
                   ).length === 0 && (
-                    <div className="px-4 py-2 text-sm text-slate-500">No results</div>
-                  )}
+                      <div className="px-4 py-2 text-sm text-slate-500">No results</div>
+                    )}
+
                   {allSymptoms
                     .filter(symptom =>
                       (symptom.name || "").toLowerCase().includes(symptomsSearch.toLowerCase())
@@ -879,11 +894,10 @@ const MultiStepForm = () => {
                     specialty: spec.name,
                     specialtyId: spec.id
                   })}
-                  className={`w-full sm:w-auto px-3 py-2 rounded-lg text-xs md:text-sm font-medium transition-all duration-300 transform hover:scale-105 ${
-                    state.specialtyId === spec.id
-                      ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md"
-                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                  }`}
+                  className={`w-full sm:w-auto px-3 py-2 rounded-lg text-xs md:text-sm font-medium transition-all duration-300 transform hover:scale-105 ${state.specialtyId === spec.id
+                    ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                    }`}
                 >
                   {spec.name}
                 </button>
@@ -900,11 +914,10 @@ const MultiStepForm = () => {
               <button
                 key={type}
                 onClick={() => updateState({ doctorType: type })}
-                className={`w-full sm:w-auto px-3 py-2 rounded-lg text-xs md:text-sm font-medium transition-all duration-300 transform hover:scale-105 ${
-                  state.doctorType === type
-                    ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md"
-                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                }`}
+                className={`w-full sm:w-auto px-3 py-2 rounded-lg text-xs md:text-sm font-medium transition-all duration-300 transform hover:scale-105 ${state.doctorType === type
+                  ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  }`}
               >
                 {type}
               </button>
@@ -1004,9 +1017,8 @@ const MultiStepForm = () => {
                         <button
                           key={index}
                           onClick={() => scrollToGroup(index)}
-                          className={`w-2 h-2 rounded-full transition-all duration-200 ${
-                            currentGroup === index ? "bg-emerald-500 scale-125" : "bg-slate-300"
-                          }`}
+                          className={`w-2 h-2 rounded-full transition-all duration-200 ${currentGroup === index ? "bg-emerald-500 scale-125" : "bg-slate-300"
+                            }`}
                         ></button>
                       ))}
                     </div>
@@ -1024,8 +1036,8 @@ const MultiStepForm = () => {
                 {!state.specialtyId
                   ? "Please select symptoms and specialty to see available doctors"
                   : state.consultationType === "Physical" && !state.location
-                  ? "Please select a city to see available doctors"
-                  : "Try adjusting your search criteria"}
+                    ? "Please select a city to see available doctors"
+                    : "Try adjusting your search criteria"}
               </p>
             </div>
           )}
@@ -1059,11 +1071,10 @@ const MultiStepForm = () => {
                 <span className="text-2xl font-bold text-emerald-600">₹{state.selectedDoctor.fees}</span>
               </div>
               <div className="mt-3">
-                <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${
-                  state.consultationType === "Virtual"
-                    ? "bg-blue-100 text-blue-700"
-                    : "bg-emerald-100 text-emerald-700"
-                }`}>
+                <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${state.consultationType === "Virtual"
+                  ? "bg-blue-100 text-blue-700"
+                  : "bg-emerald-100 text-emerald-700"
+                  }`}>
                   {state.consultationType === "Virtual" ? (
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 002 2v8a2 2 0 002 2z" />
@@ -1108,11 +1119,10 @@ const MultiStepForm = () => {
                           <button
                             onClick={() => handleSlotNavigation('left')}
                             disabled={currentSlotGroup === 0}
-                            className={`p-2 rounded-lg transition-all duration-200 ${
-                              currentSlotGroup === 0
-                                ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
-                                : 'bg-white border border-slate-200 text-slate-600 hover:bg-emerald-50 hover:border-emerald-300'
-                            }`}
+                            className={`p-2 rounded-lg transition-all duration-200 ${currentSlotGroup === 0
+                              ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
+                              : 'bg-white border border-slate-200 text-slate-600 hover:bg-emerald-50 hover:border-emerald-300'
+                              }`}
                           >
                             <FaChevronLeft className="text-sm" />
                           </button>
@@ -1122,11 +1132,10 @@ const MultiStepForm = () => {
                           <button
                             onClick={() => handleSlotNavigation('right')}
                             disabled={currentSlotGroup >= Math.ceil(getTimesForDate(state.selectedDate).length / 9) - 1}
-                            className={`p-2 rounded-lg transition-all duration-200 ${
-                              currentSlotGroup >= Math.ceil(getTimesForDate(state.selectedDate).length / 9) - 1
-                                ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
-                                : 'bg-white border border-slate-200 text-slate-600 hover:bg-emerald-50 hover:border-emerald-300'
-                            }`}
+                            className={`p-2 rounded-lg transition-all duration-200 ${currentSlotGroup >= Math.ceil(getTimesForDate(state.selectedDate).length / 9) - 1
+                              ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
+                              : 'bg-white border border-slate-200 text-slate-600 hover:bg-emerald-50 hover:border-emerald-300'
+                              }`}
                           >
                             <FaChevronRight className="text-sm" />
                           </button>
@@ -1147,13 +1156,12 @@ const MultiStepForm = () => {
                                 selectedTime: timeSlot.time,
                                 selectedSlotId: timeSlot.slotId // Store slotId
                               })}
-                              className={`py-2 px-3 rounded-lg text-xs font-medium transition-all duration-200 relative ${
-                                isBooked
-                                  ? "bg-red-100 text-red-400 cursor-not-allowed border border-red-200"
-                                  : isSelected
+                              className={`py-2 px-3 rounded-lg text-xs font-medium transition-all duration-200 relative ${isBooked
+                                ? "bg-red-100 text-red-400 cursor-not-allowed border border-red-200"
+                                : isSelected
                                   ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md transform scale-105"
                                   : "bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200"
-                              }`}
+                                }`}
                             >
                               {timeSlot.time}
                               {isBooked && (
@@ -1170,9 +1178,8 @@ const MultiStepForm = () => {
                             <button
                               key={index}
                               onClick={() => setCurrentSlotGroup(index)}
-                              className={`w-2 h-2 rounded-full transition-all duration-200 ${
-                                currentSlotGroup === index ? "bg-emerald-500 scale-125" : "bg-slate-300"
-                              }`}
+                              className={`w-2 h-2 rounded-full transition-all duration-200 ${currentSlotGroup === index ? "bg-emerald-500 scale-125" : "bg-slate-300"
+                                }`}
                             />
                           ))}
                         </div>
@@ -1190,21 +1197,20 @@ const MultiStepForm = () => {
               <button
                 onClick={handlePayment}
                 disabled={!state.selectedDate || !state.selectedTime || state.isLoading || getTimesForDate(state.selectedDate).length === 0}
-                className={`w-full py-3 rounded-xl font-semibold text-sm transition-all duration-200 ${
-                  !state.selectedDate || !state.selectedTime || state.isLoading || getTimesForDate(state.selectedDate).length === 0
-                    ? "bg-slate-200 text-slate-400 cursor-not-allowed"
-                    : "bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:shadow-lg transform hover:scale-105"
-                }`}
+                className={`w-full py-3 rounded-xl font-semibold text-sm transition-all duration-200 ${!state.selectedDate || !state.selectedTime || state.isLoading || getTimesForDate(state.selectedDate).length === 0
+                  ? "bg-slate-200 text-slate-400 cursor-not-allowed"
+                  : "bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:shadow-lg transform hover:scale-105"
+                  }`}
               >
                 {state.isLoading
                   ? "Processing..."
                   : !state.selectedDate
-                  ? 'Select Date First'
-                  : getTimesForDate(state.selectedDate).length === 0
-                  ? 'No Slots Available'
-                  : !state.selectedTime
-                  ? 'Select Time Slot'
-                  : 'Confirm Booking'}
+                    ? 'Select Date First'
+                    : getTimesForDate(state.selectedDate).length === 0
+                      ? 'No Slots Available'
+                      : !state.selectedTime
+                        ? 'Select Time Slot'
+                        : 'Confirm Booking'}
               </button>
             </div>
           </div>

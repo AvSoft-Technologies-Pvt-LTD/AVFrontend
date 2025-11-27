@@ -180,7 +180,7 @@ export const deleteOPDRecord = (recordId) =>
   axiosInstance.delete(`/opd-records/${recordId}`);
 
 export const updateOPDRecord = (recordId, data) =>
-  axiosInstance.put(`/opd-records/api/opd-medical-records/${recordId}`, data);
+  axiosInstance.put(`/opd-records//${recordId}`, data);
 
 // IPD Records
 export const getIPDRecordsByPatientId = (patientId) =>

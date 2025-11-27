@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { Activity, CheckCircle, X } from 'lucide-react';
+import { Activity, CheckCircle, X, ChevronDown } from 'lucide-react';
 import {
   getSpecializationsBySymptoms,
   createQueueToken,
@@ -15,7 +15,7 @@ const TokenGenerator = () => {
   const dispatch = useDispatch();
   const doctorId = useSelector((state) => state.auth.doctorId);
 
-  // State 
+  // State
   const [step, setStep] = useState(1);
   const [errors, setErrors] = useState({});
   const [isVerifying, setIsVerifying] = useState(false);
@@ -49,9 +49,11 @@ const TokenGenerator = () => {
           ? response.data.map(item => item.name || item.label || item)
           : [];
         setAllSymptoms(symptoms);
+        setFilteredSymptoms(symptoms); // Show all symptoms by default
       } catch (error) {
         console.error("Failed to fetch symptoms:", error);
         setAllSymptoms([]);
+        setFilteredSymptoms([]);
       }
     };
     fetchAllSymptoms();
@@ -60,16 +62,25 @@ const TokenGenerator = () => {
   // Filter symptoms based on input
   useEffect(() => {
     if (symptoms.trim() === '') {
-      setFilteredSymptoms([]);
-      setShowSymptomsSuggestions(false);
+      setFilteredSymptoms(allSymptoms);
     } else {
       const filtered = allSymptoms.filter(symptom =>
         symptom.toLowerCase().includes(symptoms.toLowerCase())
       );
       setFilteredSymptoms(filtered);
-      setShowSymptomsSuggestions(true);
     }
   }, [symptoms, allSymptoms]);
+
+  // Toggle dropdown visibility
+  const toggleSymptomsDropdown = () => {
+    setShowSymptomsSuggestions(!showSymptomsSuggestions);
+  };
+
+  // Get today's date
+  function getTodayDate() {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  }
 
   // Fetch specializations by symptoms
   useEffect(() => {
@@ -79,9 +90,9 @@ const TokenGenerator = () => {
           const response = await getSpecializationsBySymptoms({ q: symptoms });
           const specialties = Array.isArray(response.data)
             ? response.data.map(item => ({
-              id: item.id || item.specialityId,
-              name: item.name || item.label || item.specializationName || item,
-            }))
+                id: item.id || item.specialityId,
+                name: item.name || item.label || item.specializationName || item,
+              }))
             : [];
           setSuggestedSpecializations(specialties);
         } catch (error) {
@@ -128,12 +139,6 @@ const TokenGenerator = () => {
     }
   }, [selectedSpecialization?.id]);
 
-  // Get today's date
-  function getTodayDate() {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  }
-
   // Get available dates for selected doctor
   const getAvailableDates = (doctor) => {
     if (Array.isArray(doctor.availability) && doctor.availability.length > 0) {
@@ -151,7 +156,6 @@ const TokenGenerator = () => {
     if (!doctor || !date) return [];
     const slot = doctor.availability?.find(s => s.date === date);
     if (!slot?.times) return [];
-
     const normalizeSlotEntry = (entry) => {
       if (entry && typeof entry === 'object') {
         const rawTime = entry.time || entry.slotTime || entry.startTime || '';
@@ -165,13 +169,11 @@ const TokenGenerator = () => {
         slotId: null,
       };
     };
-
     const slotLevelBooked = Array.isArray(slot.bookedSlots) ? slot.bookedSlots : [];
     const doctorLevelBooked = Array.isArray(doctor.bookedSlots) ? doctor.bookedSlots : [];
     const bookedEntries = [...slotLevelBooked, ...doctorLevelBooked]
       .map(normalizeSlotEntry)
       .filter(item => item.time);
-
     const isSameSlot = (booked, candidate) => {
       const bookedId = booked.slotId ?? null;
       const candidateId = candidate.slotId ?? null;
@@ -182,7 +184,6 @@ const TokenGenerator = () => {
       const candidateTime = (candidate.time ?? '').toString().trim();
       return bookedTime === candidateTime;
     };
-
     return slot.times
       .map(entry => {
         const normalized = normalizeSlotEntry(entry);
@@ -223,14 +224,14 @@ const TokenGenerator = () => {
 
   // Handlers
   const handlePatientConfirm = (confirmedPatientData) => {
-  setPatientData({
-    ...confirmedPatientData,
-    fullName: confirmedPatientData.name || confirmedPatientData.fullName || 'Patient',
-    gender: confirmedPatientData.gender || 'N/A',
-    phoneNumber: confirmedPatientData.phoneNumber || 'N/A',
-  });
-  setStep(2);
-};
+    setPatientData({
+      ...confirmedPatientData,
+      fullName: confirmedPatientData.name || confirmedPatientData.fullName || 'Patient',
+      gender: confirmedPatientData.gender || 'N/A',
+      phoneNumber: confirmedPatientData.phoneNumber || 'N/A',
+    });
+    setStep(2);
+  };
 
   const handlePatientCancel = () => {
     setPatientData(null);
@@ -345,10 +346,7 @@ const TokenGenerator = () => {
       const waitMinutes = consultationType === 'virtual'
         ? (priority === 'emergency' ? 2 : 15)
         : (priority === 'emergency' ? 5 : 30);
-      // const appointmentDate = selectedDate || getTodayDate();
-      // const appointmentTime24 = to24HourTime(selectedTime) || to24HourTime(`${new Date().getHours()}:${new Date().getMinutes()}`);
       const departmentId = Number(selectedDoctor?.departmentId || rawSpecializationId || 0);
-
       const requestBody = {
         patientName: (patientData.fullName || '').trim(),
         phoneNumber: patientData.phoneNumber,
@@ -362,17 +360,6 @@ const TokenGenerator = () => {
         estimatedWaitMinutes: waitMinutes,
         consultationType: normalizedConsultationType,
       };
-
-      // if (appointmentDate) {
-      //   requestBody.appointmentDate = appointmentDate;
-      // }
-      // if (appointmentTime24) {
-      //   requestBody.appointmentTime = appointmentTime24;
-      // }
-      // if (consultationType) {
-      //   requestBody.consultationType = consultationType.toUpperCase();
-      // }
-
       const response = await createQueueToken(requestBody);
       console.log('Queue token created:', response?.data || response);
       const tokenResponse = (response && response.data) ? response.data : response;
@@ -389,7 +376,6 @@ const TokenGenerator = () => {
         slotTime: tokenResponse?.slotTime || selectedTime || null,
       };
       setLastTokenDetails(normalizedToken);
-      // Remove the just-booked slot from the availableSlots list so it no longer appears as selectable
       setAvailableSlots(prev =>
         prev.filter(slot => {
           const timeValue = slot.time;
@@ -531,12 +517,12 @@ const TokenGenerator = () => {
 
   // Render
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 p-4">
-      <div className="max-w-7xl mx-auto">
-        <div className="bg-white rounded-3xl shadow-2xl overflow-hidden">
+    <div className="min-h-screen  p-4">
+      <div className="max-w-full mx-auto">
+        <div className="overflow-visible">
           {/* Header */}
-          <div className="bg-gradient-to-r from-[#01D48C] to-[#0E1630] p-6 text-white">
-            <h1 className="h3-heading text-white">Hospital Token System</h1>
+          <div className=" p-6 text-white">
+            <h1 className="h4-heading text-white">Hospital Token System</h1>
             <div className="flex items-center gap-2 text-sm opacity-90">
               <Activity size={16} />
               <span>Step {step} of 4</span>
@@ -545,16 +531,16 @@ const TokenGenerator = () => {
 
           {/* Step 1: Patient Verification */}
           {step === 1 && (
-            <div className="p-6">
-             <AadharVerificationFlow
-      onComplete={(verifiedData) => {
-        setPatientData(verifiedData);
-        // The next line will be called only when user clicks "Next" on the details screen
-        setStep(2);
-      }}
-    />
+            <div className=" max-w-full p-6">
+              <AadharVerificationFlow
+                onComplete={(verifiedData) => {
+                  setPatientData(verifiedData);
+                  setStep(2);
+                }}
+              />
             </div>
           )}
+
           {/* Step 2: Symptoms + Specializations */}
           {step === 2 && (
             <div className="p-6 max-w-6xl mx-auto">
@@ -580,26 +566,40 @@ const TokenGenerator = () => {
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-gray-700">Symptoms</label>
                     <div className="relative">
-                      <input
-                        type="text"
-                        value={symptoms}
-                        onChange={(e) => setSymptoms(e.target.value)}
-                        onFocus={() => symptoms.trim() !== '' && setShowSymptomsSuggestions(true)}
-                        className="w-full p-3 rounded-lg border border-gray-200 focus:border-[#01D48C] focus:ring-2 focus:ring-[#01D48C]/20 transition-all text-sm"
-                        placeholder="Describe your symptoms..."
-                      />
-                      {showSymptomsSuggestions && filteredSymptoms.length > 0 && (
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="Describe your symptoms..."
+                          value={symptoms}
+                          onChange={(e) => setSymptoms(e.target.value)}
+                          onClick={toggleSymptomsDropdown}
+                          onFocus={toggleSymptomsDropdown}
+                          className="w-full p-3 rounded-lg border border-gray-200 focus:border-[#01D48C] focus:ring-2 focus:ring-[#01D48C]/20 transition-all text-sm"
+                        />
+                        <ChevronDown
+                          className="w-4 h-4 text-gray-500 absolute right-3 top-3 cursor-pointer"
+                          onClick={toggleSymptomsDropdown}
+                        />
+                      </div>
+                      {showSymptomsSuggestions && (
                         <div className="absolute z-10 w-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200">
                           <div className="max-h-60 overflow-y-auto">
-                            {filteredSymptoms.map((symptom, index) => (
-                              <div
-                                key={index}
-                                className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-0 transition-colors"
-                                onMouseDown={() => handleSymptomSelect(symptom)}
-                              >
-                                <div className="font-medium">{symptom}</div>
-                              </div>
-                            ))}
+                            {filteredSymptoms.length > 0 ? (
+                              filteredSymptoms.map((symptom, index) => (
+                                <div
+                                  key={index}
+                                  className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-0 transition-colors"
+                                  onMouseDown={() => {
+                                    handleSymptomSelect(symptom);
+                                    setShowSymptomsSuggestions(false);
+                                  }}
+                                >
+                                  <div className="font-medium">{symptom}</div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="px-4 py-3 text-sm text-gray-500">No results</div>
+                            )}
                           </div>
                         </div>
                       )}
@@ -633,7 +633,6 @@ const TokenGenerator = () => {
                         </button>
                       )}
                     </div>
-
                     {symptoms ? (
                       <div className="space-y-4">
                         <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 flex items-start">
@@ -651,14 +650,12 @@ const TokenGenerator = () => {
                             </p>
                           </div>
                         </div>
-
                         {/* Suggested Specializations */}
                         <div className="mt-6">
                           <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
                             <Activity className="mr-2 text-green-500" size={16} />
                             Suggested Specializations
                           </h4>
-
                           {isSearchingSpecializations ? (
                             <div className="flex justify-center py-4">
                               <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-green-500"></div>
@@ -726,15 +723,14 @@ const TokenGenerator = () => {
                   <strong>Specialization:</strong> {selectedSpecialization?.name}
                 </p>
               </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {availableDoctors.map((doctor) => (
                   <div
                     key={doctor.id}
                     onClick={() => handleDoctorSelect(doctor)}
                     className={`p-6 border-2 rounded-2xl cursor-pointer transition-all hover:shadow-lg ${selectedDoctor?.id === doctor.id
-                        ? 'border-[#01D48C] bg-green-50 shadow-md'
-                        : 'border-gray-200 hover:border-gray-300'
+                      ? 'border-[#01D48C] bg-green-50 shadow-md'
+                      : 'border-gray-200 hover:border-gray-300'
                       }`}
                   >
                     <div className="flex items-center justify-between">
@@ -757,12 +753,10 @@ const TokenGenerator = () => {
                   </div>
                 ))}
               </div>
-
               {/* Date and Time Selection */}
               {selectedDoctor && (
                 <div className="bg-gray-50 p-6 rounded-2xl space-y-6">
                   <h3 className="text-lg font-bold text-gray-800">Select Appointment Date & Time</h3>
-
                   {/* Date (Today - Fixed) */}
                   <div className="space-y-3">
                     <label className="block text-sm font-medium text-gray-700">Appointment Date (Today)</label>
@@ -783,7 +777,6 @@ const TokenGenerator = () => {
                       </p>
                     )}
                   </div>
-
                   {/* Time Slot Selection */}
                   {selectedDate && (
                     <div className="space-y-3">
@@ -811,10 +804,10 @@ const TokenGenerator = () => {
                                   disabled={isBooked}
                                   onClick={() => handleTimeSelect(timeSlot)}
                                   className={`py-2 px-3 rounded-lg text-xs font-medium transition-all duration-200 relative ${isBooked
-                                      ? "bg-red-100 text-red-400 cursor-not-allowed border border-red-200"
-                                      : isSelected
-                                        ? "bg-gradient-to-r from-[#01D48C] to-[#01B07A] text-white shadow-md transform scale-105"
-                                        : "bg-white border border-gray-200 text-gray-700 hover:bg-green-50 hover:border-[#01D48C]"
+                                    ? "bg-red-100 text-red-400 cursor-not-allowed border border-red-200"
+                                    : isSelected
+                                      ? "bg-gradient-to-r from-[#01D48C] to-[#01B07A] text-white shadow-md transform scale-105"
+                                      : "bg-white border border-gray-200 text-gray-700 hover:bg-green-50 hover:border-[#01D48C]"
                                     }`}
                                 >
                                   {timeValue}
@@ -825,7 +818,6 @@ const TokenGenerator = () => {
                               );
                             })}
                           </div>
-
                           {/* Slot navigation arrows */}
                           {availableSlots.length > 12 && (
                             <div className="flex items-center justify-center gap-6 mt-2">
@@ -859,7 +851,6 @@ const TokenGenerator = () => {
                   )}
                 </div>
               )}
-
               <div className="bg-gray-50 p-6 rounded-2xl">
                 <div className="flex gap-4 mb-6">
                   <div className="flex-1">
@@ -868,8 +859,8 @@ const TokenGenerator = () => {
                       <button
                         onClick={() => setConsultationType('opd')}
                         className={`p-4 rounded-xl border-2 transition-all ${consultationType === 'opd'
-                            ? 'border-blue-500 bg-blue-50 shadow-md'
-                            : 'border-gray-200 hover:border-gray-300'
+                          ? 'border-blue-500 bg-blue-50 shadow-md'
+                          : 'border-gray-200 hover:border-gray-300'
                           }`}
                       >
                         <div className="font-bold text-lg">OPD Visit</div>
@@ -878,8 +869,8 @@ const TokenGenerator = () => {
                       <button
                         onClick={() => setConsultationType('virtual')}
                         className={`p-4 rounded-xl border-2 transition-all ${consultationType === 'virtual'
-                            ? 'border-purple-500 bg-purple-50 shadow-md'
-                            : 'border-gray-200 hover:border-gray-300'
+                          ? 'border-purple-500 bg-purple-50 shadow-md'
+                          : 'border-gray-200 hover:border-gray-300'
                           }`}
                       >
                         <div className="font-bold text-lg text-purple-600">Virtual</div>
@@ -887,15 +878,14 @@ const TokenGenerator = () => {
                       </button>
                     </div>
                   </div>
-
                   <div className="flex-1">
                     <label className="block text-lg font-bold mb-4">Priority Level</label>
                     <div className="grid grid-cols-2 gap-4">
                       <button
                         onClick={() => setPriority('normal')}
                         className={`p-4 rounded-xl border-2 transition-all ${priority === 'normal'
-                            ? 'border-green-500 bg-green-50 shadow-md'
-                            : 'border-gray-200 hover:border-gray-300'
+                          ? 'border-green-500 bg-green-50 shadow-md'
+                          : 'border-gray-200 hover:border-gray-300'
                           }`}
                       >
                         <div className="font-bold text-lg">Normal</div>
@@ -906,8 +896,8 @@ const TokenGenerator = () => {
                       <button
                         onClick={() => setPriority('emergency')}
                         className={`p-4 rounded-xl border-2 transition-all ${priority === 'emergency'
-                            ? 'border-red-500 bg-red-50 shadow-md'
-                            : 'border-gray-200 hover:border-gray-300'
+                          ? 'border-red-500 bg-red-50 shadow-md'
+                          : 'border-gray-200 hover:border-gray-300'
                           }`}
                       >
                         <div className="font-bold text-lg text-red-600">Emergency</div>
@@ -919,7 +909,6 @@ const TokenGenerator = () => {
                   </div>
                 </div>
               </div>
-
               <div className="flex gap-4 justify-center">
                 <button
                   onClick={() => {

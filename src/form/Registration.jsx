@@ -14,107 +14,14 @@ import {
   getScanServices,
   getSpecialServices,
   getGenders,
-  getHospitalDropdown
 } from '../utils/masterService';
-
 import PatientRegistration from "./PatientRegistration";
 import HospitalRegistration from "./HospitalRegistration";
 import LabRegistration from "./LabRegistration";
 import DoctorRegistration from "./DoctorRegistration";
 
 // File Upload Component
-const NeatFileUpload = ({ name, accept, multiple = false, files, onFileChange, label, required = false, icon: Icon = Upload }) => {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [previewDoc, setPreviewDoc] = useState(null);
 
-  const handlePreview = (file) => {
-    setPreviewDoc(file);
-    setIsModalOpen(true);
-  };
-  return (
-    <div className="relative floating-input" data-placeholder={`${label}${required ? ' *' : ''}`}>
-      <label className="block cursor-pointer">
-        <div className="input-field flex items-center gap-2 peer">
-          <Icon size={16} />
-          <span className="truncate">{label}{required && ' *'}</span>
-        </div>
-        <input
-          type="file"
-          name={name}
-          accept={accept}
-          multiple={multiple}
-          onChange={onFileChange}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer peer"
-        />
-      </label>
-      {files?.length > 0 && (
-        <div className="mt-2 space-y-1">
-          {files.map((file, i) => (
-            <div key={`${file.name}-${i}`} className="flex justify-between items-center p-2 border rounded-md">
-              <span className="text-sm text-gray-700">{file.name}</span>
-              <button type="button" onClick={() => handlePreview(file)} className="text-[var(--accent-color)] hover:text-[var(--accent-color)]">
-                <Eye size={14} />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-      {isModalOpen && previewDoc && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
-          <div className="relative bg-white p-4 rounded-lg w-full max-w-2xl">
-            <button
-              className="absolute top-2 right-2 text-red-500"
-              onClick={() => {
-                setIsModalOpen(false);
-                setPreviewDoc(null);
-              }}
-            >
-              <X size={24} />
-            </button>
-            <h2 className="text-lg font-semibold mb-4">Preview</h2>
-            {previewDoc.type?.startsWith("image/") ? (
-              <img src={URL.createObjectURL(previewDoc)} alt="Preview" className="max-h-[500px] w-full object-contain" />
-            ) : previewDoc.type === "application/pdf" ? (
-              <iframe src={URL.createObjectURL(previewDoc)} className="w-full h-[500px]" title="PDF Preview" />
-            ) : (
-              <p className="text-gray-600">Preview not available for this file type.</p>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// Photo Upload Component
-const PhotoUpload = ({ photoPreview, onPhotoChange, onPreviewClick }) => (
-  <div className="relative floating-input" data-placeholder="Upload Photo *">
-    <label className="block relative cursor-pointer">
-      <div className="input-field flex items-center gap-2 peer">
-        <Camera size={16} />
-        <span className="truncate">Upload Photo *</span>
-      </div>
-      <input
-        type="file"
-        name="photo"
-        accept="image/*"
-        onChange={onPhotoChange}
-        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-      />
-      {photoPreview && (
-        <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-          <button
-            type="button"
-            onClick={onPreviewClick}
-            className="text-[var(--accent-color)] hover:text-[var(--accent-color)]"
-          >
-            <Eye size={18} />
-          </button>
-        </div>
-      )}
-    </label>
-  </div>
-);
 
 // Compact Dropdown Checkbox Component
 const CompactDropdownCheckbox = ({
@@ -148,7 +55,7 @@ const CompactDropdownCheckbox = ({
       : placeholder;
 
   return (
-    <div className="floating-input relative w-full" data-placeholder={label + (required ? ' *' : '')}>
+    <div className="floating-input relative w-full" data-placeholder={`${label}${required ? ' *' : ''}`}>
       <div className="relative">
         <button
           type="button"
@@ -210,17 +117,14 @@ const RegisterForm = () => {
   const dispatch = useDispatch();
   const { loading, error, isOTPSent } = useSelector((state) => state.auth || {});
 
-  // friendly label for heading — define here so it's in scope for the JSX
   const displayUserType = {
-    patient: "User / Patient",
+    patient: "Patient / User",
     hospital: "Hospital",
     doctor: "Doctor",
     lab: "Lab"
   }[userType] || userType;
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // ...rest of your state/hooks
-
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -228,7 +132,6 @@ const RegisterForm = () => {
   const [availableCities, setAvailableCities] = useState([]);
   const [isLoadingCities, setIsLoadingCities] = useState(false);
 
-  // Initialize formData with all fields
   const [formData, setFormData] = useState({
     firstName: '',
     middleName: '',
@@ -292,12 +195,11 @@ const RegisterForm = () => {
     associatedHospitalId: ''
   });
 
-  // API Data State
   const [apiData, setApiData] = useState({
     availableTests: [],
     centerTypes: [],
     hospitalTypes: [],
-    hospitals: [], // For associated hospital dropdown
+    hospitals: [],
     practiceTypes: [],
     specializations: [],
     scanServices: [],
@@ -320,21 +222,15 @@ const RegisterForm = () => {
     }
   });
 
-  // Helper function to extract data from API response
   const extractApiData = (response, fieldName = null) => {
     try {
-      if (!response?.data) {
-        return [];
-      }
+      if (!response?.data) return [];
       const data = response.data;
       if (Array.isArray(data)) {
-        return data.map((item, index) => {
-          if (typeof item === 'string') {
-            return item;
-          } else if (typeof item === 'object' && item !== null) {
-            if (fieldName) {
-              return item[fieldName] || item.name || item.title || String(item);
-            }
+        return data.map((item) => {
+          if (typeof item === 'string') return item;
+          if (typeof item === 'object' && item !== null) {
+            if (fieldName) return item[fieldName] || item.name || item.title || String(item);
             return item.name || item.title || item.label || item.value ||
                    item.testName || item.centerTypeName || item.hospitalTypeName ||
                    item.practiceTypeName || item.specializationName ||
@@ -350,12 +246,9 @@ const RegisterForm = () => {
     }
   };
 
-  // Helper function to extract data with ID mapping
   const extractApiDataWithId = (response, nameField = 'name', idField = 'id') => {
     try {
-      if (!response?.data) {
-        return { options: [], mapping: {} };
-      }
+      if (!response?.data) return { options: [], mapping: {} };
       const data = response.data;
       if (Array.isArray(data)) {
         const options = [];
@@ -365,9 +258,7 @@ const RegisterForm = () => {
             const displayName = item[nameField] || item.name || item.title || item.label || String(item);
             const id = item[idField] || item._id;
             options.push(displayName);
-            if (id !== undefined) {
-              mapping[displayName] = id;
-            }
+            if (id !== undefined) mapping[displayName] = id;
           } else {
             options.push(String(item));
           }
@@ -380,210 +271,76 @@ const RegisterForm = () => {
     }
   };
 
-  // Load API Data
   useEffect(() => {
     const loadApiData = async () => {
-      // ---------------- PATIENT & DOCTOR (Genders) ----------------
       if (userType === "patient" || userType === "doctor") {
-        setApiData(prev => ({
-          ...prev,
-          loading: { ...prev.loading, genders: true }
-        }));
-
+        setApiData(prev => ({ ...prev, loading: { ...prev.loading, genders: true } }));
         try {
           const response = await getGenders();
-          const { options: genders, mapping: genderIdMapping } =
-            extractApiDataWithId(response, "genderName", "id");
-
-          setApiData(prev => ({
-            ...prev,
-            genders,
-            genderIdMapping,
-            loading: { ...prev.loading, genders: false }
-          }));
+          const { options: genders, mapping: genderIdMapping } = extractApiDataWithId(response, "genderName", "id");
+          setApiData(prev => ({ ...prev, genders, genderIdMapping, loading: { ...prev.loading, genders: false } }));
         } catch (err) {
-          setApiData(prev => ({
-            ...prev,
-            genders: [],
-            genderIdMapping: {},
-            loading: { ...prev.loading, genders: false }
-          }));
+          setApiData(prev => ({ ...prev, genders: [], genderIdMapping: {}, loading: { ...prev.loading, genders: false } }));
         }
       }
-
-    // ---------------- LAB MODULE ----------------
-    if (userType === "lab") {
-      // Tests
-      setApiData(prev => ({
-        ...prev,
-        loading: { ...prev.loading, availableTests: true }
-      }));
-      try {
-        const res = await getAvailableTests();
-        const tests = extractApiData(res, "testName");
-
-          setApiData(prev => ({
-            ...prev,
-            availableTests: tests,
-            loading: { ...prev.loading, availableTests: false }
-          }));
+      if (userType === "lab") {
+        setApiData(prev => ({ ...prev, loading: { ...prev.loading, availableTests: true } }));
+        try {
+          const res = await getAvailableTests();
+          const tests = extractApiData(res, "testName");
+          setApiData(prev => ({ ...prev, availableTests: tests, loading: { ...prev.loading, availableTests: false } }));
         } catch {
-          setApiData(prev => ({
-            ...prev,
-            availableTests: [],
-            loading: { ...prev.loading, availableTests: false }
-          }));
+          setApiData(prev => ({ ...prev, availableTests: [], loading: { ...prev.loading, availableTests: false } }));
         }
-
-      // Center Types
-      setApiData(prev => ({
-        ...prev,
-        loading: { ...prev.loading, centerTypes: true }
-      }));
-      try {
-        const res = await getCenterTypes();
-        const centerTypes = extractApiData(res, "centerTypeName");
-
-          setApiData(prev => ({
-            ...prev,
-            centerTypes,
-            loading: { ...prev.loading, centerTypes: false }
-          }));
+        setApiData(prev => ({ ...prev, loading: { ...prev.loading, centerTypes: true } }));
+        try {
+          const res = await getCenterTypes();
+          const centerTypes = extractApiData(res, "centerTypeName");
+          setApiData(prev => ({ ...prev, centerTypes, loading: { ...prev.loading, centerTypes: false } }));
         } catch {
-          setApiData(prev => ({
-            ...prev,
-            centerTypes: [],
-            loading: { ...prev.loading, centerTypes: false }
-          }));
+          setApiData(prev => ({ ...prev, centerTypes: [], loading: { ...prev.loading, centerTypes: false } }));
         }
-
-      // Scan Services
-      setApiData(prev => ({
-        ...prev,
-        loading: { ...prev.loading, scanServices: true }
-      }));
-      try {
-        const res = await getScanServices();
-        const scanServices = extractApiData(res, "scanName");
-
-          setApiData(prev => ({
-            ...prev,
-            scanServices,
-            loading: { ...prev.loading, scanServices: false }
-          }));
+        setApiData(prev => ({ ...prev, loading: { ...prev.loading, scanServices: true } }));
+        try {
+          const res = await getScanServices();
+          const scanServices = extractApiData(res, "scanName");
+          setApiData(prev => ({ ...prev, scanServices, loading: { ...prev.loading, scanServices: false } }));
         } catch {
-          setApiData(prev => ({
-            ...prev,
-            scanServices: [],
-            loading: { ...prev.loading, scanServices: false }
-          }));
+          setApiData(prev => ({ ...prev, scanServices: [], loading: { ...prev.loading, scanServices: false } }));
         }
-
-      // Special Services
-      setApiData(prev => ({
-        ...prev,
-        loading: { ...prev.loading, specialServices: true }
-      }));
-      try {
-        const res = await getSpecialServices();
-        const specialServices = extractApiData(res, "serviceName");
-
-          setApiData(prev => ({
-            ...prev,
-            specialServices,
-            loading: { ...prev.loading, specialServices: false }
-          }));
+        setApiData(prev => ({ ...prev, loading: { ...prev.loading, specialServices: true } }));
+        try {
+          const res = await getSpecialServices();
+          const specialServices = extractApiData(res, "serviceName");
+          setApiData(prev => ({ ...prev, specialServices, loading: { ...prev.loading, specialServices: false } }));
         } catch {
-          setApiData(prev => ({
-            ...prev,
-            specialServices: [],
-            loading: { ...prev.loading, specialServices: false }
-          }));
+          setApiData(prev => ({ ...prev, specialServices: [], loading: { ...prev.loading, specialServices: false } }));
         }
       }
-
-      // ---------------- HOSPITAL MODULE ----------------
       if (userType === "hospital") {
-        setApiData(prev => ({
-          ...prev,
-          loading: { ...prev.loading, hospitalTypes: true }
-        }));
-
+        setApiData(prev => ({ ...prev, loading: { ...prev.loading, hospitalTypes: true } }));
         try {
           const res = await getHospitalTypes();
           const hospitalTypes = extractApiData(res, "hospitalTypeName");
-
-          setApiData(prev => ({
-            ...prev,
-            hospitalTypes,
-            loading: { ...prev.loading, hospitalTypes: false }
-          }));
+          setApiData(prev => ({ ...prev, hospitalTypes, loading: { ...prev.loading, hospitalTypes: false } }));
         } catch {
-          setApiData(prev => ({
-            ...prev,
-            hospitalTypes: [],
-            loading: { ...prev.loading, hospitalTypes: false }
-          }));
+          setApiData(prev => ({ ...prev, hospitalTypes: [], loading: { ...prev.loading, hospitalTypes: false } }));
         }
       }
-
-    // ---------------- DOCTOR MODULE ----------------
-    if (userType === "doctor") {
-      // Practice Types
-      setApiData(prev => ({
-        ...prev,
-        loading: { ...prev.loading, practiceTypes: true }
-      }));
-
+      if (userType === "doctor") {
+        setApiData(prev => ({ ...prev, loading: { ...prev.loading, practiceTypes: true } }));
         try {
           const res = await getPracticeTypes();
-          const { options, mapping } =
-            extractApiDataWithId(res, "practiceName", "id");
-
-          setApiData(prev => ({
-            ...prev,
-            practiceTypes: options,
-            practiceTypeMapping: mapping,
-            loading: { ...prev.loading, practiceTypes: false }
-          }));
+          const { options, mapping } = extractApiDataWithId(res, "practiceName", "id");
+          setApiData(prev => ({ ...prev, practiceTypes: options, practiceTypeMapping: mapping, loading: { ...prev.loading, practiceTypes: false } }));
         } catch {
-          setApiData(prev => ({
-            ...prev,
-            practiceTypes: [],
-            practiceTypeMapping: {},
-            loading: { ...prev.loading, practiceTypes: false }
-          }));
+          setApiData(prev => ({ ...prev, practiceTypes: [], practiceTypeMapping: {}, loading: { ...prev.loading, practiceTypes: false } }));
         }
-
-      // Hospitals List
-      setApiData(prev => ({
-        ...prev,
-        loading: { ...prev.loading, hospitals: true }
-      }));
-
-      try {
-        const res = await getAllHospitals();
-        const hospitals = extractApiData(res, "hospitalName");
-
-        setApiData(prev => ({
-          ...prev,
-          hospitals,
-          loading: { ...prev.loading, hospitals: false }
-        }));
-      } catch {
-        setApiData(prev => ({
-          ...prev,
-          hospitals: [],
-          loading: { ...prev.loading, hospitals: false }
-        }));
       }
-    }
-  };
-
+    };
     loadApiData();
   }, [userType]);
 
-  // Load specializations when practice type changes
   useEffect(() => {
     if (formData.roleSpecificData.practiceTypeId && userType === 'doctor') {
       setApiData(prev => ({ ...prev, loading: { ...prev.loading, specializations: true } }));
@@ -591,32 +348,15 @@ const RegisterForm = () => {
         try {
           const response = await getSpecializationsByPracticeType(formData.roleSpecificData.practiceTypeId);
           const { options: specializations, mapping: specializationMapping } = extractApiDataWithId(response, 'specializationName', 'id');
-          setApiData(prev => ({
-            ...prev,
-            specializations: specializations,
-            specializationMapping: specializationMapping,
-            loading: { ...prev.loading, specializations: false }
-          }));
+          setApiData(prev => ({ ...prev, specializations, specializationMapping, loading: { ...prev.loading, specializations: false } }));
         } catch (error) {
-          setApiData(prev => ({
-            ...prev,
-            specializations: [],
-            specializationMapping: {},
-            loading: { ...prev.loading, specializations: false }
-          }));
+          setApiData(prev => ({ ...prev, specializations: [], specializationMapping: {}, loading: { ...prev.loading, specializations: false } }));
         }
       };
       fetchSpecializations();
     } else {
-      setApiData(prev => ({
-        ...prev,
-        specializations: [],
-        specializationMapping: {},
-        loading: { ...prev.loading, specializations: false }
-      }));
+      setApiData(prev => ({ ...prev, specializations: [], specializationMapping: {}, loading: { ...prev.loading, specializations: false } }));
     }
-
-    // Reset specialization when practice type changes
     if (userType === 'doctor') {
       setFormData(prev => ({
         ...prev,
@@ -629,14 +369,11 @@ const RegisterForm = () => {
     }
   }, [formData.roleSpecificData.practiceTypeId, userType]);
 
-  // Handle input changes
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    
     if (type === "checkbox") {
       setFormData(prev => ({ ...prev, [name]: checked }));
     } else if (type === "radio") {
-      // When toggling association type, clear previous association values
       if (name === "isAssociatedWithClinicHospital") {
         setFormData(prev => ({
           ...prev,
@@ -649,34 +386,23 @@ const RegisterForm = () => {
         return;
       }
       setFormData(prev => ({ ...prev, [name]: value }));
-
     } else {
       if (name === "phone") {
         const formatted = value.replace(/\D/g, "").slice(0, 10);
         setFormData(prev => ({ ...prev, phone: formatted }));
         return;
       }
-      
       if (name === "aadhaar") {
-        const formatted = value
-          .replace(/\D/g, "")
-          .slice(0, 12)
-          .replace(/(\d{4})(\d{4})(\d{0,4})/, (_, g1, g2, g3) => [g1, g2, g3].filter(Boolean).join("-"));
+        const formatted = value.replace(/\D/g, "").slice(0, 12).replace(/(\d{4})(\d{4})(\d{0,4})/, (_, g1, g2, g3) => [g1, g2, g3].filter(Boolean).join("-"));
         setFormData(prev => ({ ...prev, aadhaar: formatted }));
         return;
       }
-      
       if (name === "gender") {
         const genderId = apiData.genderIdMapping?.[value] || '';
-        setFormData(prev => ({
-          ...prev,
-          gender: value,
-          gender_id: genderId
-        }));
+        setFormData(prev => ({ ...prev, gender: value, gender_id: genderId }));
         setErrors(prev => ({ ...prev, gender: "" }));
         return;
       }
-      
       if (name.startsWith("roleSpecificData.")) {
         const fieldName = name.replace("roleSpecificData.", "");
         if (fieldName === "practiceType") {
@@ -702,27 +428,21 @@ const RegisterForm = () => {
             }
           }));
         } else {
-          setFormData(prev => ({
-            ...prev,
-            roleSpecificData: { ...prev.roleSpecificData, [fieldName]: value }
-          }));
+          setFormData(prev => ({ ...prev, roleSpecificData: { ...prev.roleSpecificData, [fieldName]: value } }));
         }
       } else {
         setFormData(prev => ({ ...prev, [name]: value }));
       }
     }
-    
     setErrors(prev => ({ ...prev, [name]: "" }));
     if (name === "password" || name === "confirmPassword") {
       setErrors(prev => ({ ...prev, confirmPassword: "" }));
     }
   };
 
-  // Handle file changes
   const handleFileChange = (e) => {
     const { name, files } = e.target;
     if (!files || files.length === 0) return;
-
     if (name === "photo") {
       const file = files[0];
       if (!file.type.startsWith("image/")) {
@@ -734,31 +454,21 @@ const RegisterForm = () => {
       setFormData(prev => ({ ...prev, photo: file }));
     } else if (name === "nabhCertificate") {
       const file = files[0];
-      setFormData(prev => ({
-        ...prev,
-        nabhCertificate: [file]
-      }));
+      setFormData(prev => ({ ...prev, nabhCertificate: [file] }));
     } else if (name === "certificates" || name === "documents") {
-      const validFiles = Array.from(files).filter(
-        file => file.type === "application/pdf" || file.type.startsWith("image/")
-      );
+      const validFiles = Array.from(files).filter(file => file.type === "application/pdf" || file.type.startsWith("image/"));
       if (validFiles.length === 0) {
         alert("Only PDF or image files are allowed.");
         e.target.value = "";
         return;
       }
-      setFormData(prev => ({
-        ...prev,
-        [name]: [...(prev[name] || []), ...validFiles]
-      }));
+      setFormData(prev => ({ ...prev, [name]: [...(prev[name] || []), ...validFiles] }));
     }
   };
 
-  // Handle pincode change
   const handlePincodeChange = async (e) => {
     const value = e.target.value.replace(/\D/g, '').slice(0, 6);
     setFormData(prev => ({ ...prev, pinCode: value }));
-    
     if (value.length === 6) {
       setIsLoadingCities(true);
       try {
@@ -789,136 +499,73 @@ const RegisterForm = () => {
     }
   };
 
-const validateForm = () => {
-  const newErrors = {};
-  const emailRegex = /^\S+@\S+\.\S+$/;
-  const phoneRegex = /^\d{10}$/;
+  const validateForm = () => {
+    const newErrors = {};
+    const emailRegex = /^\S+@\S+\.\S+$/;
+    const phoneRegex = /^\d{10}$/;
+    const passwordValue = formData.password || "";
+    const confirmPasswordValue = formData.confirmPassword || "";
 
-  // Define password variables BEFORE using them
-  const passwordValue = formData.password || "";
-  const confirmPasswordValue = formData.confirmPassword || "";
+    if (!formData.firstName?.trim()) newErrors.firstName = "First name is required";
+    if (!formData.lastName?.trim()) newErrors.lastName = "Last name is required";
+    if (!formData.phone?.match(phoneRegex)) newErrors.phone = "Phone must be 10 digits";
+    if (!formData.email || !emailRegex.test(formData.email)) newErrors.email = "Enter a valid email";
+    if (!passwordValue) newErrors.password = "Password is required";
+    if (!confirmPasswordValue) newErrors.confirmPassword = "Confirm password is required";
+    else if (passwordValue !== confirmPasswordValue) newErrors.confirmPassword = "Passwords do not match";
+    if (!formData.dob) newErrors.dob = "Date of birth is required";
+    if (!formData.pinCode || String(formData.pinCode).length !== 6) newErrors.pinCode = "Pincode must be 6 digits";
+    if (!formData.city?.trim()) newErrors.city = "City is required";
+    if (!formData.photo) newErrors.photo = "Photo is required";
 
-  // Common validations
-  if (!formData.firstName?.trim()) newErrors.firstName = "First name is required";
-  if (!formData.lastName?.trim()) newErrors.lastName = "Last name is required";
-  if (!formData.phone?.match(phoneRegex)) newErrors.phone = "Phone must be 10 digits";
-  if (!formData.email || !emailRegex.test(formData.email)) newErrors.email = "Enter a valid email";
-
-  // Simple password required checks (no regex)
-  if (!passwordValue) {
-    newErrors.password = "Password is required";
-  }
-  if (!confirmPasswordValue) {
-    newErrors.confirmPassword = "Confirm password is required";
-  } else if (passwordValue !== confirmPasswordValue) {
-    newErrors.confirmPassword = "Passwords do not match";
-  }
-
-  if (!formData.dob) newErrors.dob = "Date of birth is required";
-  if (!formData.pinCode || String(formData.pinCode).length !== 6)
-    newErrors.pinCode = "Pincode must be 6 digits";
-  if (!formData.city?.trim()) newErrors.city = "City is required";
-  if (!formData.photo) newErrors.photo = "Photo is required";
-
-  // Doctor-specific validations
-  if (userType === "doctor") {
-    if (!formData.aadhaar || formData.aadhaar.replace(/-/g, "").length !== 12)
-      newErrors.aadhaar = "Aadhaar must be 12 digits";
-    if (!formData.gender_id) newErrors.gender = "Gender is required";
-    if (!formData.roleSpecificData?.registrationNumber?.trim()) {
-      newErrors.registrationNumber = "Registration number is required";
+    if (userType === "doctor") {
+      if (!formData.aadhaar || formData.aadhaar.replace(/-/g, "").length !== 12) newErrors.aadhaar = "Aadhaar must be 12 digits";
+      if (!formData.gender_id) newErrors.gender = "Gender is required";
+      if (!formData.roleSpecificData?.registrationNumber?.trim()) newErrors.registrationNumber = "Registration number is required";
+      if (!formData.roleSpecificData?.practiceType) newErrors.practiceType = "Practice type is required";
+      if (!formData.roleSpecificData?.specialization) newErrors.specialization = "Specialization is required";
+      if (!formData.roleSpecificData?.qualification?.trim()) newErrors.qualification = "Qualification is required";
+      if (formData.isAssociatedWithClinicHospital === "clinic" && !formData.associatedClinic?.trim()) newErrors.associatedClinic = "Clinic name is required";
+      if (formData.isAssociatedWithClinicHospital === "hospital" && !formData.associatedHospital?.trim()) newErrors.associatedHospital = "Hospital is required";
+      if (!formData.isAssociatedWithClinicHospital) newErrors.associationType = "Association type is required";
+      if (!formData.agreeDeclaration) newErrors.agreeDeclaration = "Please accept the declaration";
     }
-    if (!formData.roleSpecificData?.practiceType)
-      newErrors.practiceType = "Practice type is required";
-    if (!formData.roleSpecificData?.specialization)
-      newErrors.specialization = "Specialization is required";
-    if (!formData.roleSpecificData?.qualification?.trim())
-      newErrors.qualification = "Qualification is required";
-    if (
-      formData.isAssociatedWithClinicHospital === "clinic" &&
-      !formData.associatedClinic?.trim()
-    ) {
-      newErrors.associatedClinic = "Clinic name is required";
-    }
-    if (
-      formData.isAssociatedWithClinicHospital === "hospital" &&
-      !formData.associatedHospital?.trim()
-    ) {
-      newErrors.associatedHospital = "Hospital is required";
-    }
-    if (!formData.isAssociatedWithClinicHospital) {
-      newErrors.associationType = "Association type is required";
-    }
-    if (!formData.agreeDeclaration) {
-      newErrors.agreeDeclaration = "Please accept the declaration";
-    }
-  }
 
-  // Hospital-specific validations
-  if (userType === "hospital") {
-    if (!formData.hospitalName?.trim())
-      newErrors.hospitalName = "Hospital name is required";
-    if (!formData.headCeoName?.trim())
-      newErrors.headCeoName = "Head/CEO name is required";
-    if (!formData.registrationNumber?.trim())
-      newErrors.registrationNumber = "Registration number is required";
-    if (!formData.gstNumber?.trim())
-      newErrors.gstNumber = "GST number is required";
-    if (!formData.hospitalType?.length)
-      newErrors.hospitalType = "Hospital type is required";
-    if (!formData.inHouseLab)
-      newErrors.inHouseLab = "Please select in-house lab option";
-    if (!formData.inHousePharmacy)
-      newErrors.inHousePharmacy = "Please select in-house pharmacy option";
-    if (formData.inHouseLab === "yes" && !formData.labLicenseNo?.trim()) {
-      newErrors.labLicenseNo = "Lab license number is required";
+    if (userType === "hospital") {
+      if (!formData.hospitalName?.trim()) newErrors.hospitalName = "Hospital name is required";
+      if (!formData.headCeoName?.trim()) newErrors.headCeoName = "Head/CEO name is required";
+      if (!formData.registrationNumber?.trim()) newErrors.registrationNumber = "Registration number is required";
+      if (!formData.gstNumber?.trim()) newErrors.gstNumber = "GST number is required";
+      if (!formData.hospitalType?.length) newErrors.hospitalType = "Hospital type is required";
+      if (!formData.inHouseLab) newErrors.inHouseLab = "Please select in-house lab option";
+      if (!formData.inHousePharmacy) newErrors.inHousePharmacy = "Please select in-house pharmacy option";
+      if (formData.inHouseLab === "yes" && !formData.labLicenseNo?.trim()) newErrors.labLicenseNo = "Lab license number is required";
+      if (formData.inHousePharmacy === "yes" && !formData.pharmacyLicenseNo?.trim()) newErrors.pharmacyLicenseNo = "Pharmacy license number is required";
+      if (!formData.agreeDeclaration) newErrors.agreeDeclaration = "Please accept the declaration";
     }
-    if (
-      formData.inHousePharmacy === "yes" &&
-      !formData.pharmacyLicenseNo?.trim()
-    ) {
-      newErrors.pharmacyLicenseNo = "Pharmacy license number is required";
+
+    if (userType === "lab") {
+      if (!formData.centerType?.trim()) newErrors.centerType = "Center type is required";
+      if (!formData.centerName?.trim()) newErrors.centerName = "Center name is required";
+      if (!formData.ownerFullName?.trim()) newErrors.ownerFullName = "Owner's full name is required";
+      if (!formData.registrationNumber?.trim()) newErrors.registrationNumber = "Registration number is required";
+      if (!formData.gstNumber?.trim()) newErrors.gstNumber = "GST number is required";
+      if (!formData.licenseNumber?.trim()) newErrors.licenseNumber = "License number is required";
+      if (!formData.availableTests?.length) newErrors.availableTests = "Available tests are required";
+      if (!formData.scanServices?.length) newErrors.scanServices = "Scan services are required";
+      if (!formData.agreeDeclaration) newErrors.agreeDeclaration = "Please accept the declaration";
     }
-    if (!formData.agreeDeclaration)
-      newErrors.agreeDeclaration = "Please accept the declaration";
-  }
 
-  // Lab-specific validations
-  if (userType === "lab") {
-    if (!formData.centerType?.trim())
-      newErrors.centerType = "Center type is required";
-    if (!formData.centerName?.trim())
-      newErrors.centerName = "Center name is required";
-    if (!formData.ownerFullName?.trim())
-      newErrors.ownerFullName = "Owner's full name is required";
-    if (!formData.registrationNumber?.trim())
-      newErrors.registrationNumber = "Registration number is required";
-    if (!formData.gstNumber?.trim())
-      newErrors.gstNumber = "GST number is required";
-    if (!formData.licenseNumber?.trim())
-      newErrors.licenseNumber = "License number is required";
-    if (!formData.availableTests?.length)
-      newErrors.availableTests = "Available tests are required";
-    if (!formData.scanServices?.length)
-      newErrors.scanServices = "Scan services are required";
-    if (!formData.agreeDeclaration)
-      newErrors.agreeDeclaration = "Please accept the declaration";
-  }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
-  setErrors(newErrors);
-  return Object.keys(newErrors).length === 0;
-};
-
-  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
-
     setIsSubmitting(true);
     try {
       const formDataToSubmit = new FormData();
-      
-      // Common fields
       formDataToSubmit.append('userType', userType);
       formDataToSubmit.append('firstName', formData.firstName);
       formDataToSubmit.append('middleName', formData.middleName);
@@ -932,13 +579,8 @@ const validateForm = () => {
       formDataToSubmit.append('city', formData.city);
       formDataToSubmit.append('district', formData.district);
       formDataToSubmit.append('state', formData.state);
+      if (formData.photo) formDataToSubmit.append('photo', formData.photo);
 
-      
-      if (formData.photo) {
-        formDataToSubmit.append('photo', formData.photo);
-      }
-
-      // User type specific fields
       if (userType === "hospital") {
         formDataToSubmit.append('hospitalName', formData.hospitalName);
         formDataToSubmit.append('headCeoName', formData.headCeoName);
@@ -970,13 +612,7 @@ const validateForm = () => {
       }
 
       if (userType === "doctor") {
-        const associationType =
-          formData.isAssociatedWithClinicHospital === 'clinic'
-            ? 'CLINIC'
-            : formData.isAssociatedWithClinicHospital === 'hospital'
-              ? 'HOSPITAL'
-              : '';
-
+        const associationType = formData.isAssociatedWithClinicHospital === 'clinic' ? 'CLINIC' : formData.isAssociatedWithClinicHospital === 'hospital' ? 'HOSPITAL' : '';
         formDataToSubmit.append('aadhaar', formData.aadhaar);
         formDataToSubmit.append('genderId', formData.gender_id);
         formDataToSubmit.append('registrationNumber', formData.roleSpecificData.registrationNumber);
@@ -996,16 +632,11 @@ const validateForm = () => {
         }
       }
 
-      // First register the user
       const resultAction = await dispatch(registerUser(formDataToSubmit));
-      
       if (registerUser.fulfilled.match(resultAction)) {
-        // After successful registration, send OTP
         const otpResult = await dispatch(sendOTP(formData.phone));
-        
         if (sendOTP.fulfilled.match(otpResult)) {
-          // Navigate to verification page with user type, phone, and registration data
-          navigate("/verification", { 
+          navigate("/verification", {
             state: {
               userType,
               phone: formData.phone,
@@ -1025,7 +656,6 @@ const validateForm = () => {
     }
   };
 
-  // Render input field
   const renderInput = (name, type = "text", placeholder = "", required = false) => (
     <div className="floating-input relative w-full" data-placeholder={`${placeholder}${required ? " *" : ""}`}>
       <input
@@ -1043,21 +673,18 @@ const validateForm = () => {
   );
 
   let userFields = null;
-
-if (userType === "patient") {
-  userFields = (
-    <PatientRegistration
-      onConfirm={(data) => {
-        // Update formData with the verified Aadhar data
-        setFormData(prev => ({
-          ...prev,
-          aadhaar: data.aadharNumber,
-          // Update other fields as needed
-        }));
-      }}
-    />
-  );
-} else if (userType === "hospital") {
+  if (userType === "patient") {
+    userFields = (
+      <PatientRegistration
+        onConfirm={(data) => {
+          setFormData(prev => ({
+            ...prev,
+            aadhaar: data.aadharNumber,
+          }));
+        }}
+      />
+    );
+  } else if (userType === "hospital") {
     userFields = (
       <HospitalRegistration
         formData={formData}
@@ -1097,208 +724,201 @@ if (userType === "patient") {
   }
 
   return (
-     <>
-        <Navbar/>
-    <div className="bg-gray-50 flex items-center justify-center p-4 sm:p-8">
-      <div className="w-full max-w-5xl bg-white p-8 sm:p-10 shadow-xl border border-gray-200  rounded-xl">
-        <h2 className="text-3xl font-bold text-center mb-1">{`Register as ${displayUserType}`}</h2>
+    <>
+      <Navbar />
+      <div className="bg-gray-50 flex items-center justify-center p-4 sm:p-8">
+        <div className="w-full max-w-5xl bg-white p-8 sm:p-10 shadow-xl border border-gray-200 rounded-xl">
+          <h2 className="text-3xl font-bold text-center mb-1"> {displayUserType} Registration</h2>
+          <p className="text-gray-600 text-center mb-6">Please fill in your details to create an account.</p>
 
-        <p className="text-gray-600 text-center mb-6">Please fill in your details to create an account.</p>
-        
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {userFields}
-          
-          {/* Address Section */}
-          {userType !== "patient" && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="floating-input relative w-full" data-placeholder="Pincode *">
-                <input
-                  name="pinCode"
-                  type="text"
-                  maxLength="6"
-                  placeholder=" "
-                  value={formData.pinCode || ""}
-                  onChange={handlePincodeChange}
-                  className={`input-field peer ${errors.pinCode ? "input-error" : ""}`}
-                  required
-                />
-                {errors.pinCode && <p className="error-text">{errors.pinCode}</p>}
-              </div>
-              <div className="floating-input relative w-full" data-placeholder="City *">
-                <select
-                  name="city"
-                  value={formData.city || ""}
-                  onChange={handleInputChange}
-                  disabled={!availableCities.length || isLoadingCities}
-                  className={`input-field peer ${errors.city ? "input-error" : ""} ${
-                    !availableCities.length ? "bg-gray-100 cursor-not-allowed" : ""
-                  }`}
-                  required
-                >
-                  <option value="">
-                    {isLoadingCities
-                      ? "Loading cities..."
-                      : availableCities.length
-                        ? "Select City"
-                        : "Enter pincode first"
-                    }
-                  </option>
-                  {availableCities.map((city, index) => (
-                    <option key={`${city}-${index}`} value={city}>
-                      {city}
-                    </option>
-                  ))}
-                </select>
-                {errors.city && <p className="error-text">{errors.city}</p>}
-              </div>
-              <div className="floating-input relative w-full" data-placeholder="District">
-                <input
-                  name="district"
-                  type="text"
-                  value={formData.district || ""}
-                  readOnly
-                  className="input-field peer bg-gray-100 cursor-not-allowed"
-                />
-              </div>
-              <div className="floating-input relative w-full" data-placeholder="State">
-                <input
-                  name="state"
-                  type="text"
-                  value={formData.state || ""}
-                  readOnly
-                  className="input-field peer bg-gray-100 cursor-not-allowed"
-                />
-              </div>
-            </div>
-          )}
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {userFields}
 
-          {/* Password Section */}
-          {userType !== "patient" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="floating-input relative w-full" data-placeholder="Create Password *">
-                <input
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder=" "
-                  onChange={handleInputChange}
-                  className={`input-field peer pr-10 ${errors.password ? "input-error" : ""}`}
-                  value={formData.password}
-                  autoComplete="off"
-                />
-                <span
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute top-3 right-3 cursor-pointer text-gray-700"
-                >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </span>
-                {errors.password && <p className="error-text">{errors.password}</p>}
-              </div>
-              <div className="floating-input relative w-full" data-placeholder="Confirm Password *">
-                <input
-                  name="confirmPassword"
-                  type={showPassword ? "text" : "password"}
-                  placeholder=" "
-                  onChange={handleInputChange}
-                  className={`input-field peer pr-10 ${errors.confirmPassword ? "input-error" : ""}`}
-                  value={formData.confirmPassword}
-                  autoComplete="off"
-                />
-                <span
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute top-3 right-3 cursor-pointer text-gray-700"
-                >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </span>
-                {errors.confirmPassword && <p className="error-text">{errors.confirmPassword}</p>}
-              </div>
-            </div>
-          )}
-
-          {/* Declaration Checkbox */}
-          {userType !== "patient" && (
-            <label className="flex items-start">
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  name="agreeDeclaration"
-                  checked={formData.agreeDeclaration}
-                  onChange={(e) => {
-                    const checked = e.target.checked;
-                    setFormData(prev => ({ ...prev, agreeDeclaration: checked }));
-                    setErrors(prev => ({ ...prev, agreeDeclaration: "" }));
-                  }}
-                  className="text-[var(--accent-color)] focus:ring-[var(--accent-color)]"
-                />
-                <span className="text-sm text-gray-700 ml-2">
-                  I agree to the {" "}
-                  <button
-                    type="button"
-                    onClick={() => navigate("/terms-and-conditions")}
-                    className="text-[var(--accent-color)] underline hover:text-[var(--accent-color)]"
+            {userType !== "patient" && (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="floating-input relative w-full" data-placeholder="Pincode *">
+                  <input
+                    name="pinCode"
+                    type="text"
+                    maxLength="6"
+                    placeholder=" "
+                    value={formData.pinCode || ""}
+                    onChange={handlePincodeChange}
+                    className={`input-field peer ${errors.pinCode ? "input-error" : ""}`}
+                    required
+                  />
+                  {errors.pinCode && <p className="error-text">{errors.pinCode}</p>}
+                </div>
+                <div className="floating-input relative w-full" data-placeholder="City *">
+                  <select
+                    name="city"
+                    value={formData.city || ""}
+                    onChange={handleInputChange}
+                    disabled={!availableCities.length || isLoadingCities}
+                    className={`input-field peer ${errors.city ? "input-error" : ""} ${
+                      !availableCities.length ? "bg-gray-100 cursor-not-allowed" : ""
+                    }`}
+                    required
                   >
-                    declaration / Privacy Policy
-                  </button>{" "}
-                  *
-                </span>
+                    <option value="">
+                      {isLoadingCities
+                        ? "Loading cities..."
+                        : availableCities.length
+                          ? "Select City"
+                          : "Enter pincode first"
+                      }
+                    </option>
+                    {availableCities.map((city, index) => (
+                      <option key={`${city}-${index}`} value={city}>
+                        {city}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.city && <p className="error-text">{errors.city}</p>}
+                </div>
+                <div className="floating-input relative w-full" data-placeholder="District">
+                  <input
+                    name="district"
+                    type="text"
+                    value={formData.district || ""}
+                    readOnly
+                    className="input-field peer bg-gray-100 cursor-not-allowed"
+                  />
+                </div>
+                <div className="floating-input relative w-full" data-placeholder="State">
+                  <input
+                    name="state"
+                    type="text"
+                    value={formData.state || ""}
+                    readOnly
+                    className="input-field peer bg-gray-100 cursor-not-allowed"
+                  />
+                </div>
               </div>
-            </label>
-          )}
-          {userType !== "patient" && errors.agreeDeclaration && <p className="error-text">{errors.agreeDeclaration}</p>}
+            )}
 
-          {/* Submit Button */}
-          {userType !== "patient" && (
-            <div className="flex justify-center">
-              <button
-                type="submit"
-                disabled={isSubmitting || loading}
-                className={`btn btn-primary ${
-                  (isSubmitting || loading)
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'btn btn-primary-hover'
-                }`}
-              >
-                {isSubmitting || loading ? "Submitting..." : "Verify & Proceed"}
-              </button>
+            {userType !== "patient" && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="floating-input relative w-full" data-placeholder="Create Password *">
+                  <input
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder=" "
+                    onChange={handleInputChange}
+                    className={`input-field peer pr-10 ${errors.password ? "input-error" : ""}`}
+                    value={formData.password}
+                    autoComplete="off"
+                  />
+                  <span
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute top-3 right-3 cursor-pointer text-gray-700"
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </span>
+                  {errors.password && <p className="error-text">{errors.password}</p>}
+                </div>
+                <div className="floating-input relative w-full" data-placeholder="Confirm Password *">
+                  <input
+                    name="confirmPassword"
+                    type={showPassword ? "text" : "password"}
+                    placeholder=" "
+                    onChange={handleInputChange}
+                    className={`input-field peer pr-10 ${errors.confirmPassword ? "input-error" : ""}`}
+                    value={formData.confirmPassword}
+                    autoComplete="off"
+                  />
+                  <span
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute top-3 right-3 cursor-pointer text-gray-700"
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </span>
+                  {errors.confirmPassword && <p className="error-text">{errors.confirmPassword}</p>}
+                </div>
+              </div>
+            )}
+
+            {userType !== "patient" && (
+              <label className="flex items-start">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    name="agreeDeclaration"
+                    checked={formData.agreeDeclaration}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setFormData(prev => ({ ...prev, agreeDeclaration: checked }));
+                      setErrors(prev => ({ ...prev, agreeDeclaration: "" }));
+                    }}
+                    className="text-[var(--accent-color)] focus:ring-[var(--accent-color)]"
+                  />
+                  <span className="text-sm text-gray-700 ml-2">
+                    I agree to the {" "}
+                    <button
+                      type="button"
+                      onClick={() => navigate("/terms-and-conditions")}
+                      className="text-[var(--accent-color)] underline hover:text-[var(--accent-color)]"
+                    >
+                      declaration / Privacy Policy
+                    </button>{" "}
+                    *
+                  </span>
+                </div>
+              </label>
+            )}
+
+            {userType !== "patient" && errors.agreeDeclaration && <p className="error-text">{errors.agreeDeclaration}</p>}
+
+            {userType !== "patient" && (
+              <div className="flex justify-center">
+                <button
+                  type="submit"
+                  disabled={isSubmitting || loading}
+                  className={`btn btn-primary ${
+                    (isSubmitting || loading)
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'btn btn-primary-hover'
+                  }`}
+                >
+                  {isSubmitting || loading ? "Submitting..." : "Verify & Proceed"}
+                </button>
+              </div>
+            )}
+
+            {(error || errors.global) && (
+              <p className="text-red-600 text-center mt-2">{error || errors.global}</p>
+            )}
+
+            <div className="text-center mt-4 text-[var(--accent-color)]900">
+              <p>
+                Already have an account?{" "}
+                <button
+                  type="button"
+                  onClick={() => navigate("/login")}
+                  className="font-semibold text-[var(--accent-color)] hover:text-[var(--accent-color)] transition-colors"
+                >
+                  Login Here
+                </button>
+              </p>
+            </div>
+          </form>
+
+          {isModalOpen && photoPreview && (
+            <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+              <div className="bg-white p-4 rounded shadow-lg relative max-w-2xl max-h-[80vh] overflow-auto">
+                <img src={photoPreview} alt="Preview" className="max-h-[60vh] max-w-full object-contain" />
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-600"
+                >
+                  ×
+                </button>
+              </div>
             </div>
           )}
-
-          {/* Error Display */}
-          {(error || errors.global) && (
-            <p className="text-red-600 text-center mt-2">{error || errors.global}</p>
-          )}
-
-          {/* Login Link */}
-          <div className="text-center mt-4 text-[var(--accent-color)]900">
-            <p>
-              Already have an account?{" "}
-              <button
-                type="button"
-                onClick={() => navigate("/login")}
-                className="font-semibold text-[var(--accent-color)] hover:text-[var(--accent-color)] transition-colors"
-              >
-                Login Here
-              </button>
-            </p>
-          </div>
-        </form>
-
-        {/* Photo Preview Modal */}
-        {isModalOpen && photoPreview && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <div className="bg-white p-4 rounded shadow-lg relative max-w-2xl max-h-[80vh] overflow-auto">
-              <img src={photoPreview} alt="Preview" className="max-h-[60vh] max-w-full object-contain" />
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-600"
-              >
-                ×
-              </button>
-            </div>
-          </div>
-        )}
+        </div>
       </div>
-    </div>
-      <Footer/>
+      <Footer />
     </>
   );
 };

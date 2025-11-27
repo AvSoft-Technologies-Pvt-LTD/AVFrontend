@@ -27,8 +27,8 @@ import MedicalRecords from "./pages/layouts/menu/PatientDashboard/MedicalRecord"
 import Healthcard from "./components/Healthcard/Healthcard";
 import HealthcardOTP from "./components/Healthcard/HealthcardOTP";
 import MedicalRecordHC from "./components/Healthcard/MedicalRecordHC";
-import { SecondOpinionHC } from "./components/Healthcard/SecondOpinionHC";
-import { MediRecDeatilsHC } from "./components/Healthcard/MediRecDeatilsHC";
+import SecondOpinionHC  from "./components/Healthcard/SecondOpinionHC";
+import  MediRecDeatilsHC  from "./components/Healthcard/MediRecDeatilsHC";
 // Layouts & Dashboards
 import DashboardLayout from "./pages/layouts/DashboardLayout";
 import PdashboardRoutes from "./pages/layouts/menu/PatientDashboard/PdashboardRoutes";
@@ -203,7 +203,7 @@ const App = () => {
 
   return (
           <PatientProvider>
-
+ <MedicalRecordsProvider>
     <Router>
       <Routes>
         {/* ✅ Public Routes */}
@@ -297,7 +297,9 @@ const App = () => {
         className="custom-toast-container"
       />
     </Router>
+    </MedicalRecordsProvider>
           </PatientProvider>
+
 
   );
 };

@@ -34,69 +34,66 @@ const VerifyOTP = ({
 
   return (
     <>
-    <Navbar/>
-    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-4 animate-fade-in">
-      <div className="w-full max-w-4xl flex flex-row items-center bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-        {/* Left Side: OTP Form */}
-        <div className="w-1/2 p-8 space-y-6">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-800">{title}</h2>
-            <p className="mt-2 text-sm text-gray-600">{description}</p>
+      <Navbar />
+      <div className="flex items-center justify-center  bg-gradient-to-br from-purple-50 to-pink-50 p-4 animate-fade-in">
+        <div className="w-full max-w-4xl flex flex-col md:flex-row items-center bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+          {/* Image Section (shown above on mobile, side-by-side on desktop) */}
+          <div className="w-full md:w-1/2 md:order-2 md:pl-4 flex-shrink-0">
+            <img
+              src="https://img.freepik.com/free-vector/secure-login-concept-illustration_114360-4582.jpg"
+              alt="OTP verification illustration"
+              className="w-full h-auto rounded-xl animate-slideIn"
+            />
           </div>
-
-          <div className="flex justify-between">
-            {otp.map((digit, index) => (
-              <input
-                key={index}
-                ref={(ref) => { if (ref) inputRefs.current[index] = ref; }}
-                type="text"
-                value={digit}
-                onChange={(e) => handleChange(e.target.value, index)}
-                maxLength={1}
-                autoFocus={index === 0}
-                className="w-12 h-12 text-center text-lg border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] focus:border-[var(--primary-color)]"
-              />
-            ))}
-          </div>
-
-          <button
-            onClick={() => onVerify(otp.join(''))}
-            className="w-full py-2 px-4 bg-[var(--primary-color)] text-white font-medium rounded-md hover:bg-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] transition-all"
-          >
-            Verify OTP
-          </button>
-
-          <div className="text-center">
+          {/* OTP Form Section */}
+          <div className="w-full md:w-1/2 md:order-1 p-6 md:p-8 space-y-6">
+            <div className="text-center">
+              <h2 className="text-xl md:text-2xl font-bold text-gray-800">{title}</h2>
+              <p className="mt-2 text-sm text-gray-600">{description}</p>
+            </div>
+            <div className="flex justify-between">
+              {otp.map((digit, index) => (
+                <input
+                  key={index}
+                  ref={(ref) => {
+                    if (ref) inputRefs.current[index] = ref;
+                  }}
+                  type="text"
+                  value={digit}
+                  onChange={(e) => handleChange(e.target.value, index)}
+                  maxLength={1}
+                  autoFocus={index === 0}
+                  className="w-10 h-10 md:w-12 md:h-12 text-center text-lg border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] focus:border-[var(--primary-color)]"
+                />
+              ))}
+            </div>
             <button
-              disabled={timer > 0}
-              onClick={onResend}
-              className={`text-sm ${timer > 0 ? 'text-gray-400' : 'text-[var(--primary-color)] hover:underline'}`}
+              onClick={() => onVerify(otp.join(''))}
+              className="w-full py-2 px-4 bg-[var(--primary-color)] text-white font-medium rounded-md hover:bg-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] transition-all"
             >
-              Didn't receive the code? {timer > 0 ? `Resend in ${timer}s` : 'Resend'}
+              Verify OTP
             </button>
+            <div className="text-center">
+              <button
+                disabled={timer > 0}
+                onClick={onResend}
+                className={`text-sm ${timer > 0 ? 'text-gray-400' : 'text-[var(--primary-color)] hover:underline'}`}
+              >
+                Didn't receive the code? {timer > 0 ? `Resend in ${timer}s` : 'Resend'}
+              </button>
+            </div>
+            <div className="text-center">
+              <button
+                onClick={onBack}
+                className="text-sm text-gray-600 hover:text-[var(--primary-color)] transition-all"
+              >
+                Wrong email? <span className="font-medium">Go back</span>
+              </button>
+            </div>
           </div>
-
-          <div className="text-center">
-            <button
-              onClick={onBack}
-              className="text-sm text-gray-600 hover:text-[var(--primary-color)] transition-all"
-            >
-              Wrong email? <span className="font-medium">Go back</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Right Side: Image */}
-            <div className="w-full md:w-1/2 md:pl-4 hidden md:block">
-          <img
-            src="https://img.freepik.com/free-vector/secure-login-concept-illustration_114360-4582.jpg"
-            alt="OTP verification illustration"
-            className="w-full h-auto rounded-xl animate-slideIn"
-          />
         </div>
       </div>
-    </div>
-    <Footer/>
+      <Footer />
     </>
   );
 };

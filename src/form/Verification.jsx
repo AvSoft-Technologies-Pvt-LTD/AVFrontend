@@ -88,17 +88,12 @@ const Verification = () => {
       setErrorMsg("Failed to resend OTP. Try again.");
     }
   };
-
-  // -----------------------------
-  // BACK FUNCTION
-  // -----------------------------
   const handleBack = () => {
     navigate("/registration", { state: { userType } });
   };
 
   return (
     <>
-     <Navbar/>
     <VerifyOTP
       title="Verify Your Account"
       description="Enter the 6-digit code sent to your phone or email."
@@ -109,7 +104,6 @@ const Verification = () => {
       onBack={handleBack}
       resendTimer={300} // 5-minute timer
     />
-        <Footer/>
     </>
   );
 };

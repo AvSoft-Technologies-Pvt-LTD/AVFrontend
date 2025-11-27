@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { useMedicalRecords } from "../../context-api/MedicalRecordsContext";
 import {
   getHospitalDropdown,
   getAllMedicalConditions,
@@ -21,10 +22,12 @@ const MedicalRecordHC = () => {
   const navigate = useNavigate();
   const patientId = useSelector((state) => state.auth.patientId);
   const user = useSelector((state) => state.auth.user);
+  const { recordTab, setRecordTab, setClickedRecord } = useMedicalRecords();
 
   const [state, setState] = useState({
-    activeTab: "OPD",
+    activeTab: recordTab || "OPD",
   });
+
 
   const [medicalData, setMedicalData] = useState({
     OPD: [],
@@ -44,7 +47,11 @@ const MedicalRecordHC = () => {
     status: false,
     symptoms: false,
   });
-
+ useEffect(() => {
+    if (recordTab && recordTab !== state.activeTab) {
+      setState(prev => ({ ...prev, activeTab: recordTab }));
+    }
+  }, [recordTab]);
   // Fetch master data
   useEffect(() => {
     const collator = new Intl.Collator(undefined, { sensitivity: "base" });
@@ -154,6 +161,7 @@ const MedicalRecordHC = () => {
 
   // View details
 const handleViewDetails = (record) => {
+  setClickedRecord(record); // Update context with clicked record
   navigate("/healthcard-medicalrecord-Details", { 
     state: { selectedRecord: record } 
   });
@@ -283,20 +291,23 @@ const handleViewDetails = (record) => {
       <Navbar />
       <div className="p-4">
         <DynamicTable
-          columns={createColumns(state.activeTab)}
-          data={getCurrentTabData()}
-          filters={filters}
-          tabs={tabs}
-          activeTab={state.activeTab}
-          onTabChange={(tab) => setState((prev) => ({ ...prev, activeTab: tab }))}
-          tabActions={[
-            {
-              label: "Login",
-              onClick: () => navigate("/login"),
-              className: "edit-btn",
-            },
-          ]}
-        />
+  columns={createColumns(state.activeTab)}
+  data={getCurrentTabData()}
+  filters={filters}
+  tabs={tabs}
+  activeTab={state.activeTab}
+  onTabChange={(tab) => {
+    setRecordTab(tab); // Update context
+    setState(prev => ({ ...prev, activeTab: tab })); // Update local state
+  }}
+  tabActions={[
+    {
+      label: "Login",
+      onClick: () => navigate("/login"),
+      className: "edit-btn",
+    },
+  ]}
+/>
       </div>
     </>
   );
