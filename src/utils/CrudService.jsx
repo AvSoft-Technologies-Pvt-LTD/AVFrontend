@@ -567,7 +567,7 @@ export const verifyLabPayment = (data) =>
   axiosInstance.post(`/lab/appoinment/api/payments/verify`, data);
 
 export const getLabPaymentsByPatient = (patientId) =>
-  axiosInstance.get(`/lab/appoinment/api/payments/appointments/${patientId}`);
+  axiosInstance.get(`/lab/appointment/api/payments/appointments/${patientId}`);
 
 // Get appointments by patient ID
 export const getAppointmentsByPatientId = (patientId) =>
@@ -588,18 +588,27 @@ export const getPendingAppointmentsByDoctorId = (doctorId) =>
 // Get confirmed appointments for a doctor
 export const getConfirmedAppointmentsByDoctorId = (doctorId) =>
   axiosInstance.get(`/appointments/doctor/${doctorId}/confirmed`);
+// Get confirmed appointments for a doctor
+export const getRescheduledAppointmentsByDoctorId = (doctorId) =>
+  axiosInstance.get(`/appointments/doctor/${doctorId}/reschedule`);
 
-// Create a new appointment
+// Create a new physical appointment
 export const createAppointments = (data) =>
   axiosInstance.post('/appointments', data);
+// Create a new physical appointment
+export const createvirtualAppointments = (data) =>
+  axiosInstance.post('/virtual-appointments', data);
+// Reschdeule appointments
+export const rescheduleAppointment = (appointmentId, data) =>
+  axiosInstance.put(`/appointments/${appointmentId}/reschedule`, data);
 
 // Doctor rejects an appointment (optionally send body, e.g. rejectReason)
 export const rejectAppointment = (appointmentId, data) =>
   axiosInstance.put(`/appointments/${appointmentId}/reject`, data);
 
 // Doctor confirms an appointment
-export const confirmAppointment = (appointmentId) =>
-  axiosInstance.put(`/appointments/${appointmentId}/confirm`);
+export const confirmAppointment = (appointmentId, { consultationType }) =>
+  axiosInstance.put(`/appointments/${appointmentId}/confirm?consultationType=${consultationType}`);
 
 // Patient cancels an appointment (optionally send body, e.g. rejectReason)
 export const cancelAppointment = (appointmentId, data) =>
@@ -630,7 +639,10 @@ export const createIpdAdmission = (data) =>
   axiosInstance.post("/ipd-admissions", data);
 
 
-// =======================
+
+
+// export const getOpdAppointmentById = (appointmentId) =>
+//   axiosInstance.get(`/v1/appointments/opd/appointment-id/${appointmentId}`);// =======================
 // INSURANCE CRUD SERVICES
 // =======================
 

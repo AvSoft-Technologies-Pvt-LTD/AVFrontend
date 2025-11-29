@@ -22,7 +22,9 @@ import {
   addIPDAdmission,
   fetchIPDAdmissions,
   getOpdAppointmentById,
+  
 } from "../../../../../utils/CrudService";
+
 
 import IPDBasic, {
   fileToBase64,
@@ -509,7 +511,23 @@ const handleFetchPatientDetails = useCallback(async (appointmentId) => {
           };
         });
 
-        setIpdPatients(ipdPatientsData);
+
+        const ipdPatientsWithDummy = [dummyRahul, ...ipdPatientsData];
+
+        setIpdPatients(ipdPatientsWithDummy);
+        const dummyRahul = {
+          sequentialId: "DUMMY-RAHUL",
+          name: "Rahul",
+          admissionDate: getCurrentDate(),
+          status: "Admitted",
+          symptoms: "Dummy data for testing",
+          ward: "TestWard-1-101-1",
+          dischargeDate: "-",
+        };
+
+        
+
+        setIpdPatients(ipdPatientsWithDummy);
       } catch (error) {
         console.error("Error fetching IPD admissions:", error);
         toast.error("Failed to fetch IPD admissions");
@@ -544,6 +562,7 @@ const handleSelected = (r) => {
         setPhotoPreview(null);
         setAvailableCities([]);
         setTransferPreview(null);
+        setTransferPreview(null);
       }
     }, []);
 
@@ -565,6 +584,7 @@ const handleSelected = (r) => {
         setBedScrollIndex(0);
         setPhotoPreview(null);
         setAvailableCities([]);
+        setTransferPreview(null);
         setTransferPreview(null);
       }
     }, []);
@@ -1035,6 +1055,7 @@ const handleIpdWizardFinish = useCallback(async () => {
             isLoadingCities={isLoadingCities}
             availableCities={availableCities}
             transferPreview={transferPreview}
+          
           />
         );
       }

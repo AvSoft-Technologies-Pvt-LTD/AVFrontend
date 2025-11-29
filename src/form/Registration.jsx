@@ -20,9 +20,6 @@ import HospitalRegistration from "./HospitalRegistration";
 import LabRegistration from "./LabRegistration";
 import DoctorRegistration from "./DoctorRegistration";
 
-// File Upload Component
-
-
 // Compact Dropdown Checkbox Component
 const CompactDropdownCheckbox = ({
   label,
@@ -190,7 +187,7 @@ const RegisterForm = () => {
     },
     // Associated with clinic/hospital fields
     isAssociatedWithClinicHospital: '',
-    associatedClinic: '',
+    clinicName: '',
     associatedHospital: '',
     associatedHospitalId: ''
   });
@@ -378,11 +375,11 @@ const RegisterForm = () => {
         setFormData(prev => ({
           ...prev,
           isAssociatedWithClinicHospital: value,
-          associatedClinic: "",
+          clinicName: "",
           associatedHospital: "",
           associatedHospitalId: ""
         }));
-        setErrors(prev => ({ ...prev, associationType: "", associatedClinic: "", associatedHospital: "" }));
+        setErrors(prev => ({ ...prev, associationType: "", clinicName: "", associatedHospital: "" }));
         return;
       }
       setFormData(prev => ({ ...prev, [name]: value }));
@@ -525,7 +522,7 @@ const RegisterForm = () => {
       if (!formData.roleSpecificData?.practiceType) newErrors.practiceType = "Practice type is required";
       if (!formData.roleSpecificData?.specialization) newErrors.specialization = "Specialization is required";
       if (!formData.roleSpecificData?.qualification?.trim()) newErrors.qualification = "Qualification is required";
-      if (formData.isAssociatedWithClinicHospital === "clinic" && !formData.associatedClinic?.trim()) newErrors.associatedClinic = "Clinic name is required";
+      if (formData.isAssociatedWithClinicHospital === "clinic" && !formData.clinicName?.trim()) newErrors.clinicName = "Clinic name is required";
       if (formData.isAssociatedWithClinicHospital === "hospital" && !formData.associatedHospital?.trim()) newErrors.associatedHospital = "Hospital is required";
       if (!formData.isAssociatedWithClinicHospital) newErrors.associationType = "Association type is required";
       if (!formData.agreeDeclaration) newErrors.agreeDeclaration = "Please accept the declaration";
@@ -622,7 +619,7 @@ const RegisterForm = () => {
         formDataToSubmit.append('agreeDeclaration', formData.agreeDeclaration);
         formDataToSubmit.append('associationType', associationType);
         if (formData.isAssociatedWithClinicHospital === 'clinic') {
-          formDataToSubmit.append('associatedClinic', formData.associatedClinic);
+          formDataToSubmit.append('clinicName', formData.clinicName);
         }
         if (formData.isAssociatedWithClinicHospital === 'hospital') {
           formDataToSubmit.append('associatedHospital', formData.associatedHospital);
@@ -632,15 +629,41 @@ const RegisterForm = () => {
         }
       }
 
+      console.log(formData, "majiboku")
+      // Submit the form
       const resultAction = await dispatch(registerUser(formDataToSubmit));
+      
       if (registerUser.fulfilled.match(resultAction)) {
+        const userData = resultAction.payload;
+        
+        // Send OTP
         const otpResult = await dispatch(sendOTP(formData.phone));
+        
         if (sendOTP.fulfilled.match(otpResult)) {
+          // Navigate to verification with all necessary data
           navigate("/verification", {
             state: {
               userType,
               phone: formData.phone,
-              registrationData: formData,
+              email: formData.email,
+              registrationData: {
+                ...userData,
+                firstName: formData.firstName,
+                lastName: formData.lastName,
+                middleName: formData.middleName,
+                // Include all form data that might be needed
+                ...formData,
+                // Override with any specific formatted data
+                ...(userType === 'doctor' && formData.roleSpecificData && {
+                  practiceType: formData.roleSpecificData.practiceType,
+                  specialization: formData.roleSpecificData.specialization,
+                  qualification: formData.roleSpecificData.qualification,
+                  registrationNumber: formData.roleSpecificData.registrationNumber,
+                  isAssociatedWithClinicHospital: formData.isAssociatedWithClinicHospital,
+                  clinicName: formData.clinicName,
+                  associatedHospital: formData.associatedHospital
+                })
+              }
             }
           });
         } else {

@@ -25,7 +25,7 @@ const DoctorManagement = () => {
     file: null,
     location: '',
     associatedHospital: '',
-    associatedClinic: '',
+    clinicName: '',
     totalAppointments: '',
     commission: '',
     status: '',
@@ -66,7 +66,7 @@ const DoctorManagement = () => {
       file: null,
       location: '',
       associatedHospital: '',
-      associatedClinic: '',
+      clinicName: '',
       totalAppointments: '',
       commission: '',
       status: '',
@@ -264,7 +264,7 @@ const DoctorManagement = () => {
             {(formData.doctorType === 'Allopathy' ? specializationOptions : formData.doctorType === 'Ayush' ? ayushOptions : []).map(opt => <option key={opt}>{opt}</option>)}
           </select>
         </div>
-        {['associatedHospital', 'associatedClinic'].map(f => (
+        {['associatedHospital', 'clinicName'].map(f => (
           <div key={f} className="floating-input relative" data-placeholder={f.replace(/([A-Z])/g, ' $1').trim()}>
             <input
               name={f}
@@ -367,7 +367,7 @@ const DoctorManagement = () => {
             {(formData.doctorType === 'Allopathy' ? specializationOptions : formData.doctorType === 'Ayush' ? ayushOptions : []).map(opt => <option key={opt}>{opt}</option>)}
           </select>
         </div>
-        {['associatedHospital', 'associatedClinic'].map(f => (
+        {['associatedHospital', 'clinicName'].map(f => (
           <div key={f} className="floating-input relative" data-placeholder={f.replace(/([A-Z])/g, ' $1').trim()}>
             <input
               name={f}
@@ -422,7 +422,7 @@ const DoctorManagement = () => {
             <section className="border p-4 rounded-md shadow-sm hover:shadow-md transition-shadow mt-4">
               <h3 className="paragraph font-bold mb-3 border-b pb-2">Professional Information</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {['doctorType', 'specialization', 'qualification', 'registrationNo', 'associatedHospital', 'associatedClinic'].map(k => (
+                {['doctorType', 'specialization', 'qualification', 'registrationNo', 'associatedHospital', 'clinicName'].map(k => (
                   <p key={k} className="paragraph">
                     <strong>{k[0].toUpperCase() + k.slice(1)}:</strong> {selectedDoctor[k] !== undefined && selectedDoctor[k] !== '' ? (Array.isArray(selectedDoctor[k]) ? selectedDoctor[k].join(', ') : selectedDoctor[k]) : 'None'}
                   </p>

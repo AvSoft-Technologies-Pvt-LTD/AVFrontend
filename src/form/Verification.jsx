@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useDispatch } from "react-redux";
+import { verifyOTP, sendOTP } from "../context-api/authSlice";
 import VerifyOTP from "../components/microcomponents/VerifyOtp"; 
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 const Verification = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const dispatch = useDispatch();
 
   const { userType, phone, email, registrationData } = location.state || {};
 
@@ -27,65 +30,67 @@ const Verification = () => {
   // -----------------------------
   // VERIFY OTP FUNCTION
   // -----------------------------
-  const handleVerifyOtp = async (enteredOtp) => {
-    if (enteredOtp.length !== 6) {
-      setErrorMsg("Please enter complete 6-digit OTP");
-      return;
+  // Update the handleVerifyOtp function in Verification.jsx
+const handleVerifyOtp = async (enteredOtp) => {
+  if (enteredOtp.length !== 6) {
+    setErrorMsg("Please enter complete 6-digit OTP");
+    return;
+  }
+
+  setIsVerifying(true);
+  setErrorMsg("");
+
+  try {
+    const resultAction = await dispatch(verifyOTP({
+      identifier: phone,
+      otp: enteredOtp,
+      type: 'registration',
+      registrationData: registrationData
+    }));
+
+    if (verifyOTP.fulfilled.match(resultAction)) {
+      // Success case - navigate based on user type
+      const userType = resultAction.payload?.userType || 'patient';
+      switch (userType) {
+        case 'doctor':
+          navigate('/doctor/dashboard');
+          break;
+        case 'patient':
+          navigate('/patient/dashboard');
+          break;
+        case 'hospital':
+          navigate('/hospital/dashboard');
+          break;
+        case 'lab':
+          navigate('/lab/dashboard');
+          break;
+        default:
+          navigate('/dashboard');
+      }
+    } else {
+      setErrorMsg(resultAction.payload || "Invalid OTP. Please try again.");
     }
-
-    setIsVerifying(true);
-    setErrorMsg("");
-
-    try {
-      // mock verification
-      await new Promise((res) => setTimeout(res, 1000));
-
-      const user = {
-        id: registrationData?.userId || Date.now().toString(),
-        userType: userType.toLowerCase(),
-        role: userType.charAt(0).toUpperCase() + userType.slice(1),
-        phone,
-        email,
-        firstName: registrationData?.firstName || "User",
-        lastName: registrationData?.lastName || "",
-        hospitalName: registrationData?.hospitalName,
-        centerName: registrationData?.centerName,
-        isAuthenticated: true,
-        token: "mock-jwt-token-" + Date.now(),
-      };
-
-      localStorage.setItem("user", JSON.stringify(user));
-      localStorage.setItem("token", user.token);
-
-      // Navigation by user type
-      const routes = {
-        doctor: "/doctordashboard",
-        hospital: "/hospitaldashboard",
-        lab: "/labdashboard",
-      };
-
-      navigate(routes[userType] || "/patientdashboard", {
-        state:
-          userType === "patient"
-            ? { userData: registrationData, fromRegistration: true }
-            : undefined,
-      });
-    } catch (error) {
-      setErrorMsg("Invalid OTP. Please try again.");
-    } finally {
-      setIsVerifying(false);
-    }
-  };
-
+  } catch (error) {
+    console.error('Verification error:', error);
+    setErrorMsg("An error occurred during verification. Please try again.");
+  } finally {
+    setIsVerifying(false);
+  }
+};
   // -----------------------------
   // RESEND OTP FUNCTION
   // -----------------------------
   const handleResendOtp = async () => {
     try {
-      await new Promise((res) => setTimeout(res, 500));
-      setErrorMsg("");
-    } catch {
-      setErrorMsg("Failed to resend OTP. Try again.");
+      const resultAction = await dispatch(sendOTP(phone));
+      if (sendOTP.fulfilled.match(resultAction)) {
+        setErrorMsg("OTP has been resent successfully");
+      } else {
+        setErrorMsg("Failed to resend OTP. Please try again.");
+      }
+    } catch (error) {
+      console.error('Resend OTP error:', error);
+      setErrorMsg("An error occurred while resending OTP. Please try again.");
     }
   };
   const handleBack = () => {

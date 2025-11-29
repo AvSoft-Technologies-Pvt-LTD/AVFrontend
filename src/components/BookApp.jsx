@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { useSelector } from "react-redux";
-import axios from "axios";
 import { useNavigate, useLocation } from "react-router-dom";
 import { FaChevronLeft, FaChevronRight, FaMapMarkerAlt, FaStethoscope, FaCalendarAlt, FaClock, FaUser, FaHospital } from 'react-icons/fa';
 import { ArrowLeft, ChevronDown } from "lucide-react";
@@ -10,7 +9,7 @@ import {
   getAllSymptoms,
   getDoctorsBySpecialty,
 } from '../utils/masterService';
-import { createAppointments } from '../utils/CrudService';
+import { createAppointments, createvirtualAppointments } from '../utils/CrudService';
 
 const MultiStepForm = () => {
   const location = useLocation();
@@ -340,15 +339,13 @@ const MultiStepForm = () => {
   // Handle payment
   const handlePayment = async () => {
     const doctorId = state.selectedDoctor?.doctorId || state.selectedDoctor?.id || 0;
-    const hospitalId = state.hospitalId || 0;
+    const hospitalId = state.hospitalId;
     const slotId = state.selectedSlotId || 0;
 
-    let symptomId = 0;
     let symptomIds = [];
     if (state.symptoms) {
       const symptom = allSymptoms.find((s) => s.name === state.symptoms);
       if (symptom?.id) {
-        symptomId = symptom.id;
         symptomIds = [symptom.id];
       }
     }
@@ -366,10 +363,11 @@ const MultiStepForm = () => {
       appointmentTime = `${hours.toString().padStart(2, '0')}:${minutes}`;
     }
 
-    const normalizedConsultationType =
-      String(state.consultationType).toLowerCase() === 'virtual' ? 'Virtual' : 'Physical';
-
-    const payload = {
+    // Ensure consultationType is exactly 'Physical' or 'Virtual'
+    const consultationType = String(state.consultationType).trim() === 'Virtual' ? 'Virtual' : 'Physical';
+    const isVirtual = consultationType === 'Virtual';
+    
+    const basePayload = {
       patientId: patientId,
       doctorId: doctorId,
       hospitalId: hospitalId,
@@ -378,9 +376,9 @@ const MultiStepForm = () => {
       specialtyId: state.specialtyId || 0,
       appointmentDate: state.selectedDate,
       appointmentTime: appointmentTime,
-      consultationType: normalizedConsultationType,
       consultationFees: state.selectedDoctor?.fees || 0.1,
       notes: state.symptoms || "No specific symptoms",
+      consultationType: consultationType
     };
 
     updateState({
@@ -390,7 +388,9 @@ const MultiStepForm = () => {
     });
 
     try {
-      const bookingResponse = await createAppointments(payload);
+      const bookingResponse = isVirtual 
+        ? await createvirtualAppointments(basePayload)
+        : await createAppointments(basePayload);
       console.log("Booking successful:", bookingResponse);
       setTimeout(() => {
         updateState({
@@ -406,7 +406,7 @@ const MultiStepForm = () => {
           specialtyId: "",
           specialties: [],
           selectedDoctor: null,
-          consultationType: "Physical",
+          consultationType: isVirtual ? "Virtual" : "Physical",
           cities: [],
           pincodeError: "",
           isCurrentLocation: false,

@@ -250,15 +250,15 @@ const DoctorRegistration = ({
             <div className="floating-input relative w-full" data-placeholder="Clinic Name *">
               <input
                 type="text"
-                name="associatedClinic"
+                name="clinicName"
                 placeholder=" "
-                value={formData.associatedClinic}
+                value={formData.clinicName}
                 onChange={handleInputChange}
-                className={`input-field peer ${errors.associatedClinic ? "input-error" : ""}`}
+                className={`input-field peer ${errors.clinicName ? "input-error" : ""}`}
                 required
               />
-              {errors.associatedClinic && (
-                <p className="error-text">{errors.associatedClinic}</p>
+              {errors.clinicName && (
+                <p className="error-text">{errors.clinicName}</p>
               )}
             </div>
           )}
