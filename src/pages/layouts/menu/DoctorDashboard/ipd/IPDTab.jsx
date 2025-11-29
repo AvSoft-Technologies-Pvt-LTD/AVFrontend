@@ -1,11 +1,4 @@
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
-  forwardRef,
-  useImperativeHandle,
-} from "react";
+import React, {useState,useEffect,useCallback,useMemo,forwardRef,useImperativeHandle,} from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useSelector } from "react-redux";
@@ -16,30 +9,14 @@ import QuickLinksPanel from "../../DoctorDashboard/QuickLinksPanel";
 import DynamicTable from "../../../../../components/microcomponents/DynamicTable";
 import ReusableModal from "../../../../../components/microcomponents/Modal";
 import { usePatientContext } from "../../../../../context-api/PatientContext";
-
-import {
-  getSpecializationsWardsSummaryForIpdAdmission,
-  addIPDAdmission,
-  fetchIPDAdmissions,
-  getOpdAppointmentById,
-  
-} from "../../../../../utils/CrudService";
-
-
-import IPDBasic, {
-  fileToBase64,
-  handlePincodeLookup,
-  generateBasicFields,
-} from "./IPDBasic";
+import { getSpecializationsWardsSummaryForIpdAdmission,  addIPDAdmission,fetchIPDAdmissions,getOpdAppointmentById,} from "../../../../../utils/CrudService";
+import IPDBasic, {fileToBase64,handlePincodeLookup,generateBasicFields,} from "./IPDBasic";
 import IPDWard from "./IPDWard";
 import IPDRoom from "./IPDRoom";
 import IPDBed from "./IPDBed";
 import IPDFinal, { generateAdmissionFields } from "./IPDFinal";
 
-const STATIC_DATA = {
-  insurance: ["None", "CGHS", "ESIC", "Private Insurance", "Other"].map(
-    (v, i) => ({ value: v, label: v, key: `insurance-${i}` })
-  ),
+const STATIC_DATA = {insurance: ["None", "CGHS", "ESIC", "Private Insurance", "Other"].map(  (v, i) => ({ value: v, label: v, key: `insurance-${i}` })),
   // Backend: 1 = Admitted, 2 = Discharged
   status: [
     { value: 1, label: "Admitted", key: "status-1" },
@@ -52,39 +29,16 @@ const STATIC_DATA = {
   })),
 };
 
-const WIZARD_STEPS = [
-  {
-    id: 1,
-    title: "Patient Details",
-    description: "Basic Information",
-    shortTitle: "Details",
-  },
-  {
-    id: 2,
-    title: "Ward Selection",
-    description: "Choose Ward",
-    shortTitle: "Ward",
-  },
-  {
-    id: 3,
-    title: "Room Selection",
-    description: "Choose Room",
-    shortTitle: "Room",
-  },
-  {
-    id: 4,
-    title: "Bed Selection",
-    description: "Choose Bed",
-    shortTitle: "Bed",
-  },
-  {
-    id: 5,
-    title: "Admission",
-    description: "Finalize Details",
-    shortTitle: "Final",
-  },
-];
-  
+const stepTitles = ["Patient Details", "Ward Selection", "Room Selection", "Bed Selection", "Admission"];
+const stepDescriptions = ["Basic Information", "Choose Ward", "Choose Room", "Choose Bed", "Finalize Details"];
+const shortTitles = ["Details", "Ward", "Room", "Bed", "Final"];
+
+const WIZARD_STEPS = stepTitles.map((title, index) => ({
+  id: index + 1,
+  title,
+  description: stepDescriptions[index],
+  shortTitle: shortTitles[index]
+}));
 
 // Fields for viewing IPD patient info in ReusableModal
 const IPD_VIEW_FIELDS = [
@@ -133,10 +87,6 @@ const incrementTime = (time = "00:00") => {
   const nm = totalMinutes % 60;
   return `${nh.toString().padStart(2, "0")}:${nm.toString().padStart(2, "0")}`;
 };
-
-// Removed PatientViewSections; ReusableModal handles view UI
-
-// Removed local PatientViewModal in favor of shared ReusableModal
 
 const IPDTab = forwardRef(
   (
@@ -511,23 +461,7 @@ const handleFetchPatientDetails = useCallback(async (appointmentId) => {
           };
         });
 
-
-        const ipdPatientsWithDummy = [dummyRahul, ...ipdPatientsData];
-
-        setIpdPatients(ipdPatientsWithDummy);
-        const dummyRahul = {
-          sequentialId: "DUMMY-RAHUL",
-          name: "Rahul",
-          admissionDate: getCurrentDate(),
-          status: "Admitted",
-          symptoms: "Dummy data for testing",
-          ward: "TestWard-1-101-1",
-          dischargeDate: "-",
-        };
-
-        
-
-        setIpdPatients(ipdPatientsWithDummy);
+        setIpdPatients(ipdPatientsData);
       } catch (error) {
         console.error("Error fetching IPD admissions:", error);
         toast.error("Failed to fetch IPD admissions");
@@ -562,7 +496,6 @@ const handleSelected = (r) => {
         setPhotoPreview(null);
         setAvailableCities([]);
         setTransferPreview(null);
-        setTransferPreview(null);
       }
     }, []);
 
@@ -584,7 +517,6 @@ const handleSelected = (r) => {
         setBedScrollIndex(0);
         setPhotoPreview(null);
         setAvailableCities([]);
-        setTransferPreview(null);
         setTransferPreview(null);
       }
     }, []);
@@ -974,23 +906,7 @@ const handleIpdWizardFinish = useCallback(async () => {
           header: "Actions",
           cell: (row) => (
             <div className="flex items-center gap-1">
-              {/* <button onClick={() => handleAddRecord(row)} className="text-base p-1">
-                <FaNotesMedical />
-              </button>
-              <div className="text-sm">
-                <TeleConsultFlow
-                  phone={row.phone}
-                  patientName={
-                    row.name ||
-                    `${row.firstName || ""} ${row.middleName || ""} ${row.lastName || ""}` 
-                      .replace(/\s+/g, " ")
-                      .trim()
-                  }
-                  context="IPD"
-                  patientEmail={row.email}
-                  hospitalName={row.hospitalName || "AV Hospital"}
-                />
-              </div> */}
+             
               {hasRecording(row.email, row.hospitalName || "AV Hospital") && (
                 <button className="text-base p-1 text-green-600" title="View Recording">
                   <FaVideo />
@@ -1055,7 +971,6 @@ const handleIpdWizardFinish = useCallback(async () => {
             isLoadingCities={isLoadingCities}
             availableCities={availableCities}
             transferPreview={transferPreview}
-          
           />
         );
       }

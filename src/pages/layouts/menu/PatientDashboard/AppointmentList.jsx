@@ -239,9 +239,54 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
     localStorage.setItem("appointmentTab", state.t);
   }, [state.t]);
 
+  const fetchLabPayments = async () => {
+    try {
+      const res = await getLabPaymentsByPatient(patientId);
+      console.log("Lab Payments API Response:", res);
+      const payments = res?.data || [];
+      if (!Array.isArray(payments)) {
+        console.error("Invalid payments data:", payments);
+        return;
+      }
+
+      const mappedPayments = payments.map((p) => ({
+        ...p,
+        bookingId: p.bookingId || p.id || p.referenceId || "-",
+        testTitle: p.testNames || p.testTitle || "-",
+        labName: p.labName || "-",
+        status: p.status || "-",
+        amountPaid: p.amountPaid ?? p.paymentAmount ?? "-",
+        paymentStatus: p.paymentStatus || p.status || "-",
+        date: formatDateValue(p.date || p.appointmentDate || p.scheduledDate),
+        time: formatTimeValue(p.time || p.appointmentTime || p.scheduledTime),
+        rawDate: toDateObject(p.date || p.appointmentDate || p.scheduledDate),
+        rawTime: p.time || p.appointmentTime || p.scheduledTime,
+        location: p.location || p.address || "-",
+        reportTime: p.reportTime || p.expectedReportTime || "-",
+      }));
+
+      setState((prev) => {
+        if (mappedPayments.length > 0) {
+          const existingIds = new Set(prev.l.map((appt) => appt.bookingId));
+          const newPayments = mappedPayments.filter((p) => p.bookingId && !existingIds.has(p.bookingId));
+          console.log("New Payments to Merge:", newPayments);
+          return {
+            ...prev,
+            l: [...prev.l, ...newPayments],
+            loading: false,
+          };
+        }
+        return { ...prev, loading: false };
+      });
+    } catch (error) {
+      console.error("Error fetching lab payments:", error);
+      setState((prev) => ({ ...prev, loading: false }));
+    }
+  };
+
   useEffect(() => {
     if (data) {
-      console.log("📦 Data provided, normalizing...");
+      console.log("Data provided, normalizing...");
       const { doctorAppointments, labAppointments } = normalizeAppointmentsResponse(data);
       setState((prev) => ({
         ...prev,
@@ -250,15 +295,14 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
       }));
       return;
     }
-
     if (!patientId) {
-      console.log("⛔ No patientId, skipping fetch.");
+      console.log("No patientId, skipping fetch.");
       return;
     }
 
-    const fetchAppointments = async () => {
+    const fetchData = async () => {
       try {
-        console.log("📡 Fetching appointments...");
+        console.log("Fetching appointments...");
         setState((prev) => ({ ...prev, loading: true }));
         const response = await getAppointmentsByPatientId(patientId);
         const payload = response?.data ?? [];
@@ -267,10 +311,10 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
           ...prev,
           d: doctorAppointments,
           l: labAppointments,
-          loading: false,
         }));
+        await fetchLabPayments();
       } catch (error) {
-        console.error("❌ Failed to load patient appointments:", error);
+        console.error("Failed to load patient appointments:", error);
         setState((prev) => ({
           ...prev,
           d: [],
@@ -280,37 +324,7 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
       }
     };
 
-    const fetchLabPayments = async () => {
-      try {
-        // setState((prev) => ({ ...prev, loading: true }));
-        const res = await getLabPaymentsByPatient(patientId);
-        const payments = res?.data || [];
-        const mappedPayments = payments.map((p) => ({
-          ...p,
-          bookingId: p.bookingId || "-",
-          testTitle: p.testNames || p.testTitle || "-",
-          labName: p.labName || "-",
-          status: p.status || "-",
-          amountPaid: p.amountPaid ?? p.paymentAmount ?? "-",
-          paymentStatus: p.paymentStatus || p.status || "-",
-        }));
-        setState((prev) => ({
-          ...prev,
-          l: mappedPayments,
-          loading: false,
-        }));
-      } catch (error) {
-        console.error("Error fetching lab payments:", error);
-        setState((prev) => ({
-          ...prev,
-          l: [],
-          loading: false,
-        }));
-      }
-    };
-
-    fetchAppointments();
-    fetchLabPayments();
+    fetchData();
   }, [data, patientId]);
 
   const handleTabChange = (tab) => {
@@ -452,7 +466,6 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
         </span>
       ),
     },
- 
     {
       header: "Action",
       cell: (appointment) => (
@@ -509,16 +522,12 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
   ];
 
   const labViewFields = [
-    { key: "labName", label: "Lab Name", titleKey: true },
-    { key: "testTitle", label: "Test Name", subtitleKey: true },
-    { key: "bookingId", label: "Initials", initialsKey: true },
-    { key: "location", label: "Location" },
-    { key: "date", label: "Date" },
-    { key: "time", label: "Time" },
-    { key: "status", label: "Status" },
-    { key: "reportTime", label: "Report Time" },
-    { key: "amountPaid", label: "Amount Paid" },
-    { key: "paymentStatus", label: "Payment Status" },
+    { key: "bookingId", label: "ID",  },
+   
+    { key: "labName", label: "Lab Name" ,titleKey: true },
+    { key: "testTitle", label: "Test Name" },
+     { key: "status", label: "Test Status" },
+   
   ];
 
   const overviewData = isOverview

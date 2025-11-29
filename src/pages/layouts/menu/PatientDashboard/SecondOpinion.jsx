@@ -83,7 +83,7 @@ const PrintContent = ({ requestData, selectedRecord, formData, user, symptoms })
           <span style={{ color: "#0E1630", marginLeft: 8 }}>{selectedRecord.hospitalName || "--"}</span>
         </div>
         <div>
-          <strong style={{ color: "#555" }}>Diagnosis:</strong>
+          <strong style={{ color: "#555" }}>Symptoms:</strong>
           <span style={{ color: "#0E1630", marginLeft: 8 }}>{symptoms || selectedRecord.diagnosis || "--"}</span>
         </div>
         {isIPDRecord ? (
@@ -132,7 +132,7 @@ const PrintContent = ({ requestData, selectedRecord, formData, user, symptoms })
             <div>Age: { (selectedRecord.age !== null && selectedRecord.age !== undefined && selectedRecord.age !== "") ? selectedRecord.age : "--" }</div>
             <div>Gender: { (selectedRecord.sex && selectedRecord.sex !== "--") ? selectedRecord.sex : "--" }</div>
             <div>Hospital: {selectedRecord.hospitalName}</div>
-            <div>Diagnosis: {symptoms}</div>
+            <div>Symptoms: {symptoms}</div>
             <div>K/C/O: {selectedRecord["K/C/O"] ?? "--"}</div>
           </div>
         </div>
@@ -251,7 +251,7 @@ const MedicalRecordsDetailsPreview = ({ selectedRecord, onClose, user, symptoms,
     { label: "Age", value: displayAge },
     { label: "Gender", value: displayGender },
     { label: "Hospital", value: selectedRecord.hospitalName },
-    { label: "Diagnosis", value: symptoms },
+    { label: "Symptoms", value: symptoms },
     ...(isIPDRecord
       ? [
           { label: "Date of Admission", value: formattedAdmissionDate || "--" },
@@ -260,7 +260,7 @@ const MedicalRecordsDetailsPreview = ({ selectedRecord, onClose, user, symptoms,
       : [
           { label: "Visit Date", value: formattedVisitDate },
         ]),
-    { label: "K/C/O", value: selectedRecord["K/C/O"] ?? "--" },
+    // { label: "K/C/O", value: selectedRecord["K/C/O"] ?? "--" },
   ];
   const renderTabContent = () => {
     const tabContentMap = {
@@ -465,20 +465,20 @@ const SecondOpinion = () => {
   const { clickedRecord, recordTab } = useMedicalRecords();
   const printContentRef = useRef();
   const selectedRecordBase = location.state?.selectedRecord || {
-    patientName: "Kavya Patil",
-    age: "30",
-    sex: "--",
-    id: "P001",
-    hospitalName: "AV Hospital",
-    diagnosis: "Headache",
-    dateOfVisit: "20251121",
-    "K/C/O": "--",
-    vitals: { bp: "120/80", pulse: "72", temp: "98.6" },
-    medicalDetails: {
-      chiefComplaint: "Headache since 2 days",
-      pastHistory: "No significant past history",
-      examination: "Normal",
-    },
+    // patientName: "Kavya Patil",
+    // age: "30",
+    // sex: "--",
+    // id: "P001",
+    // hospitalName: "AV Hospital",
+    // diagnosis: "Headache",
+    // dateOfVisit: "20251121",
+    // "K/C/O": "--",
+    // vitals: { bp: "120/80", pulse: "72", temp: "98.6" },
+    // medicalDetails: {
+    //   chiefComplaint: "Headache since 2 days",
+    //   pastHistory: "No significant past history",
+    //   examination: "Normal",
+    // },
     prescriptionsData: [],
     labTestsData: [],
   };
@@ -719,7 +719,7 @@ const SecondOpinion = () => {
     { label: "Age", value: displayAge },
     { label: "Gender", value: displayGender },
     { label: "Hospital", value: selectedRecord.hospitalName },
-    { label: "Diagnosis", value: symptoms },
+    { label: "Symptomes", value: symptoms },
     ...(isIPDRecord
       ? [
           { label: "Date of Admission", value: formattedAdmissionDate || "--" },
@@ -876,7 +876,7 @@ const SecondOpinion = () => {
               <div>Age: ${ (selectedRecord.age !== null && selectedRecord.age !== undefined && selectedRecord.age !== "") ? selectedRecord.age : "--" }</div>
               <div>Gender: ${ (selectedRecord.sex && selectedRecord.sex !== "--") ? selectedRecord.sex : "--" }</div>
               <div>Hospital: ${selectedRecord.hospitalName}</div>
-              <div>Diagnosis: ${symptoms}</div>
+              <div>Symptoms: ${symptoms}</div>
               <div>K/C/O: ${selectedRecord["K/C/O"] ?? "--"}</div>
             </div>
           </div>
@@ -991,7 +991,7 @@ const SecondOpinion = () => {
           ? `<div><strong>Date of Admission:</strong> <span style='color:#0E1630;'>${formattedAdmissionDate || '--'}</span></div>
              <div><strong>Date of Discharge:</strong> <span style='color:#0E1630;'>${formattedDischargeDate || '--'}</span></div>`
           : ''}
-        <div><strong>K/C/O:</strong> <span style='color:#0E1630;'>${selectedRecord["K/C/O"] ?? "--"}</span></div>
+
       </div>
     `;
     const consultDetailsGrid = `

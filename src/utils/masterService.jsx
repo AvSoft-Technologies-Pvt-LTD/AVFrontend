@@ -303,14 +303,7 @@ export const getPatientMedicalInfo = (patientId, params) =>
   });
 
 
-  export const getVideoConsultationByPatient = (patientId, virtualRecordId) => {
-  return axiosInstance.get(`/videos/${patientId}`, {
-    params: {
-      patientId: patientId,          // query param
-      virtualRecordId: virtualRecordId
-    }
-  });
-};
+
 // GET /api/lab-available-tests?selectedTests=&selectedScans=&selectedPackages=
 export const getAvailableLabsBySelection = ({ selectedTests = [], selectedScans = [], selectedPackages = [] }) =>
   axiosInstance.get("/lab-available-tests", {
@@ -400,3 +393,43 @@ export const getVisitReasons = () =>
   axiosInstance.get("/master/visit-reasons");
 export const updateOpdAppointmentById = (id, data) =>
   axiosInstance.put(`/v1/appointments/opd/${id}`, data);
+
+
+// video tab 
+export const getVideoConsultationByPatient = (patientId, virtualRecordId) => {
+  return axiosInstance.get(`/videos/${patientId}`, {
+    params: {
+      patientId: patientId,          // query param
+      virtualRecordId: virtualRecordId
+    }
+  });
+};
+
+
+
+
+  // visit timing gate pass
+  export const getVisitingTimeSlots = () =>
+  axiosInstance.get("/visiting-time-slot");
+
+  // GET all ID proof types
+export const getIdProofTypes = () =>
+  axiosInstance.get("/id-proof-type");
+   
+
+
+export const getVideos = (patientId, virtualRecordId) =>
+  axiosInstance.get(`/videos/${patientId}`, {
+    params: { patientId, virtualRecordId }
+  });
+
+
+  // nurse get api in nursing and tratement
+  export const getNurseDashboard = () =>
+  axiosInstance.get("/dashboard/staff/nurse");
+
+
+
+
+  export const searchMedicineByName = (query, page = 0, size = 100) =>
+  axiosInstance.get(`/medicines/searchByName?query=${query}&page=${page}&size=${size}`);

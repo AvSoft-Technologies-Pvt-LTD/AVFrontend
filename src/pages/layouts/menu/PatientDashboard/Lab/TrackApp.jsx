@@ -423,21 +423,21 @@ const fetchAppointment = async () => {
                   className="flex items-center gap-2 bg-gray-50 hover:bg-gray-100 text-[var(--primary-color)] px-3 py-2 rounded-lg transition-all duration-200"
                 >
                   <Printer className="w-4 h-4" />
-                  <span>Print</span>
+                 
                 </button>
                 <button
                   onClick={handleDownloadReport}
                   className="flex items-center gap-2 bg-gray-50 hover:bg-gray-100 text-[var(--primary-color)] px-3 py-2 rounded-lg transition-all duration-200"
                 >
                   <Download className="w-4 h-4" />
-                  <span>Download</span>
+                 
                 </button>
                 <button
                   onClick={handleShareDetails}
                   className="flex items-center gap-2 bg-gray-50 hover:bg-gray-100 text-[var(--primary-color)] px-3 py-2 rounded-lg transition-all duration-200"
                 >
                   <Share2 className="w-4 h-4" />
-                  <span>Share</span>
+                 
                 </button>
               </div>
             </div>

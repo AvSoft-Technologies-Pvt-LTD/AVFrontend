@@ -680,3 +680,9 @@ export const getOpdAppointmentById = (appointmentId) => {
   const id = String(appointmentId).trim();
   return axiosInstance.get(`/v1/appointments/opd/appointment-id/${id}`);
 };
+
+
+// get pass post
+// POST create gatepass
+export const createGatepass = (data) =>
+  axiosInstance.post("/ipd/ipdrowaid/gatepass", data);

@@ -723,3 +723,34 @@ body {
     right: 5% !important;
   }
 }
+/* Blur effect for text that needs scrolling */
+.blur-text {
+  position: relative;
+  overflow: hidden;
+}
+
+.blur-text::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2em;
+  background: linear-gradient(to bottom, 
+    rgba(255, 255, 255, 0) 0%, 
+    rgba(255, 255, 255, 0.8) 50%, 
+    rgba(255, 255, 255, 1) 100%);
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+/* This ensures the blur effect is only shown when content is not scrolled */
+.overflow-y-auto:not(:hover) .blur-text:not(:focus)::after {
+  opacity: 1;
+}
+
+/* Remove blur on hover or focus */
+.overflow-y-auto:hover .blur-text::after,
+.overflow-y-auto:focus .blur-text::after {
+  opacity: 0;
+}
