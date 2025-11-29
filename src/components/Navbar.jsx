@@ -1,7 +1,7 @@
 import { Heart, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-
+import logo from "../assets/logo.png";
 const Header = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -35,17 +35,13 @@ const Header = () => {
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
           >
-            <div className="relative">
-              <div className="absolute inset-0 bg-emerald-500/20 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              <div className="relative bg-gradient-to-r from-[var(--primary-color)] to-[var(--accent-color)] p-2 rounded-xl">
-                <Heart className="w-7 h-7 text-white fill-white" />
-              </div>
-            </div>
             <div>
-              <span className="text-2xl font-bold bg-gradient-to-r from-[var(--primary-color)] to-[var(--accent-color)] bg-clip-text text-transparent tracking-tight">
-                PocketClinic
-              </span>
-              <p className="text-xs text-[var(--primary-color)] font-medium leading-none">
+              <img 
+                src={logo} 
+                alt="PocketClinic Logo" 
+                className="h-10 w-auto object-contain" 
+              />
+              <p className="text-xs ml-12 -mt-2 text-[var(--primary-color)] font-medium leading-none">
                 Healthcare Platform
               </p>
             </div>

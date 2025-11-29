@@ -38,6 +38,8 @@ import DrRoutes from "./pages/layouts/menu/DoctorDashboard/DrRoutes";
 import Overview from "./pages/layouts/menu/DoctorDashboard/Overview";
 import LabRoutes from "./pages/layouts/menu/LabDashboard/Ldroutes";
 import LabDashboard from "./pages/layouts/menu/LabDashboard/LabDashboard";
+import FrontDeskRoutes from "./pages/layouts/menu/FrontDeskDashboard/FrontRoutes";
+import FrontDeskDashboard from "./pages/layouts/menu/frontdeskdashboard/frontdeskdashboard";
 import HospitalRoutes from "./pages/layouts/menu/HospitalDashboard/Hdroutes";
 import HospitalDashboard from "./pages/layouts/menu/HospitalDashboard/Dashboard";
 import Dashboard from "./pages/layouts/menu/PatientDashboard/Dashboard";
@@ -271,6 +273,10 @@ const App = () => {
               <Route path="/labdashboard" element={<DashboardLayout />}>
                 <Route index element={<LabDashboard />} />
                 <Route path="*" element={<LabRoutes />} />
+              </Route>
+                 <Route path="/frontdeskdashboard" element={<DashboardLayout />}>
+                <Route index element={<FrontDeskDashboard />} />
+                <Route path="*" element={<FrontDeskRoutes />} />
               </Route>
             </Route>
             {/* ✅ Super Admin Dashboard */}

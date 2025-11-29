@@ -5,7 +5,7 @@ import QRCode from "qrcode";
 import { Download, Crown, Star, Shield, Zap, X, Check } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import logo from "../../assets/logo.png";
+import logo from "../../assets/fav.png";
 import { getSubscriptionPlans } from "../../utils/masterService";
 import {
   getPatientSubscription,
@@ -170,10 +170,10 @@ function Healthcard({ hideLogin, patientId }) {
   }, [currentPatientId]);
 
   // Generate health card
-useEffect(() => {
-  // Health card generation is now handled in Dashboard.jsx
-  // This component only displays existing cards
-}, [currentPatientId, subscription, subscriptionPlans, healthCardData, user]);
+  useEffect(() => {
+    // Health card generation is now handled in Dashboard.jsx
+    // This component only displays existing cards
+  }, [currentPatientId, subscription, subscriptionPlans, healthCardData, user]);
 
   const handleScan = () => {
     toast.info(`OTP sent to ${user.phone}: 123456`, { autoClose: 2000 });
@@ -205,10 +205,10 @@ useEffect(() => {
           plan.name === "Basic"
             ? 1
             : plan.name === "Silver"
-            ? 2
-            : plan.name === "Gold"
-            ? 3
-            : 4,
+              ? 2
+              : plan.name === "Gold"
+                ? 3
+                : 4,
         planName: plan.name,
         status: "ACTIVE",
         startDate: [today.getFullYear(), today.getMonth() + 1, today.getDate()],
@@ -256,73 +256,73 @@ useEffect(() => {
       )}
       {/* HEALTH CARD */}
       <div ref={cardRef} className="relative w-full max-w-[380px] h-[250px] rounded-xl overflow-hidden shadow-lg" style={{ background: currentPlan?.cardGradient || "linear-gradient(135deg,#6B7280,#374151)" }}>
-       <div className="relative h-full p-3 sm:p-4 flex flex-col">
-  {/* Header: Logo and Title */}
-  <div className="flex justify-between items-start">
-    <div className="flex items-center"></div>
-    <div className="text-right">
-      <div className="flex items-center justify-end gap-1 sm:gap-2">
-        <img src={logo} alt="PocketClinic Logo" className="w-12 h-12 sm:w-16 sm:h-16 object-contain" />
-        <h1 className="text-lg sm:text-xl font-bold text-white">PocketClinic</h1>
+        <div className="relative h-full p-3 sm:p-4 flex flex-col">
+          {/* Header: Logo and Title */}
+          <div className="flex justify-between items-start">
+            <div className="flex items-center"></div>
+            <div className="text-right">
+              <div className="flex items-center justify-end gap-1 sm:gap-2">
+                <img src={logo} alt="PocketClinic Logo" className="w-6 h-6 sm:w-8 sm:h-8 object-contain" />
+                <h1 className="  font-bold text-white">PocketClinic</h1>
+              </div>
+            </div>
+          </div>
+
+          {/* User Info: Photo, Name, DOB, Gender */}
+          <div className="flex justify-between items-center -mt-2 sm:-mt-3">
+            <div className="flex items-center gap-2 sm:gap-4">
+              {(healthCardData?.photoPath || user?.photoPath) && (
+                <img
+                  src={
+                    healthCardData?.photoPath ? `http://localhost:8080/${healthCardData.photoPath.replace(/\\/g, '/')}` :
+                      `http://localhost:8080/${user.photoPath.replace(/\\/g, '/')}`
+                  }
+                  alt="User"
+                  className="w-14 h-14 sm:w-20 sm:h-20 object-cover rounded-full border-2 border-white shadow"
+                />
+              )}
+              <div>
+                <p className="font-bold text-base sm:text-lg text-white uppercase">
+                  {healthCardData?.patientName || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || "N/A"}
+                </p>
+                <p className="text-xs sm:text-sm text-white">
+                  DOB: {formatDate(healthCardData?.dob || user?.dob)} | Gender: {healthCardData?.gender || user?.gender || "N/A"}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Health ID and QR Code */}
+          <div className="mt-3 sm:mt-4 flex justify-between items-center px-2 sm:px-3">
+            <div>
+              <span className="text-xs font-semibold text-white">Health ID</span>
+              <div className="font-mono text-lg sm:text-xl tracking-wider font-bold text-white">
+                {healthCardData?.healthCardId || "N/A"}
+              </div>
+
+              {healthCardData?.issueDate && (
+                <div className="text-xs text-white/80">
+                  Valid: {formatDateMonthYear(healthCardData.issueDate)} - {formatDateMonthYear(healthCardData.expiryDate)}
+                </div>
+              )}
+            </div>
+            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white p-1 sm:p-1.5 rounded-lg flex items-center justify-center shadow-lg">
+              {healthCardData?.qrImagePath || healthCardData?.qrBase64 ? (
+                <img
+                  src={healthCardData?.qrBase64 || `http://localhost:8080/${healthCardData.qrImagePath?.replace(/\\/g, '/')}`}
+                  alt="QR Code"
+                  className="w-full h-full cursor-pointer border-2 border-white"
+                  onClick={handleScan}
+                />
+              ) : (
+                <span className="text-xs text-gray-500">No QR</span>
+              )}
+            </div>
+          </div>
+        </div>
+
       </div>
-    </div>
-  </div>
 
-  {/* User Info: Photo, Name, DOB, Gender */}
-  <div className="flex justify-between items-center -mt-2 sm:-mt-3">
-    <div className="flex items-center gap-2 sm:gap-4">
-     {(healthCardData?.photoPath || user?.photoPath) && (
-       <img
-  src={
-    healthCardData?.photoPath ? `http://localhost:8080/${healthCardData.photoPath.replace(/\\/g, '/')}` :
-    `http://localhost:8080/${user.photoPath.replace(/\\/g, '/')}`
-  }
-  alt="User"
-  className="w-14 h-14 sm:w-20 sm:h-20 object-cover rounded-full border-2 border-white shadow"
-/>
-     )}
-      <div>
-        <p className="font-bold text-base sm:text-lg text-white uppercase">
-  {healthCardData?.patientName || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || "N/A"}
-</p>
-<p className="text-xs sm:text-sm text-white">
-  DOB: {formatDate(healthCardData?.dob || user?.dob)} | Gender: {healthCardData?.gender || user?.gender || "N/A"}
-</p>
-      </div>
-    </div>
-  </div>
-
-  {/* Health ID and QR Code */}
-  <div className="mt-3 sm:mt-4 flex justify-between items-center px-2 sm:px-3">
-    <div>
-      <span className="text-xs font-semibold text-white">Health ID</span>
-     <div className="font-mono text-lg sm:text-xl tracking-wider font-bold text-white">
-  {healthCardData?.healthCardId || "N/A"}
-</div>
-
-{healthCardData?.issueDate && (
-  <div className="text-xs text-white/80">
-    Valid: {formatDateMonthYear(healthCardData.issueDate)} - {formatDateMonthYear(healthCardData.expiryDate)}
-  </div>
-)}
-    </div>
-    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white p-1 sm:p-1.5 rounded-lg flex items-center justify-center shadow-lg">
-     {healthCardData?.qrImagePath || healthCardData?.qrBase64 ? (
-  <img
-    src={healthCardData?.qrBase64 || `http://localhost:8080/${healthCardData.qrImagePath?.replace(/\\/g, '/')}`}
-    alt="QR Code"
-    className="w-full h-full cursor-pointer border-2 border-white"
-    onClick={handleScan}
-  />
-) : (
-  <span className="text-xs text-gray-500">No QR</span>
-)}
-    </div>
-  </div>
-</div>
-
-      </div>
-      
       {/* DOWNLOAD BUTTON */}
       <div className="flex gap-3 mt-6">
         <button

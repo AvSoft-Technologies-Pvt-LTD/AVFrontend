@@ -1,5 +1,5 @@
 import React from 'react';
-import logo from "../../assets/logo.png";
+import logo from "../../assets/fav.png";
 
 const HealthCard = () => {
   // Hardcoded user data with placeholder image
@@ -49,8 +49,8 @@ const HealthCard = () => {
           <div className="flex items-center"></div>
           <div className="text-right">
             <div className="flex items-center justify-end gap-1 sm:gap-2">
-              <img src={logo} alt="PocketClinic Logo" className="w-12 h-12 sm:w-16 sm:h-16 object-contain" />
-              <h1 className="text-lg sm:text-xl font-bold text-white">PocketClinic</h1>
+              <img src={logo} alt="PocketClinic Logo" className="w-6 h-6 sm:w-8 sm:h-8 object-contain" />
+              <h1 className="  font-bold text-white">PocketClinic</h1>
             </div>
           </div>
         </div>

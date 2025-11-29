@@ -2,37 +2,9 @@ import React, { useState, useEffect } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { Tooltip } from "react-tooltip";
-
-import {
-  User,
-  BarChart3,
-  LayoutDashboard,
-  CalendarCheck,
-  ShoppingBag,
-  ShoppingCart,
-  Shield,
-  ShieldCheck,
-  AlertTriangle,
-  Settings,
-  LogOut,
-  ChevronLeft,
-  ChevronRight,
-  DollarSign,
-  TestTube,
-  Microscope,
-  Pill,
-  FileText,
-  Hospital,
-  UserCog,
-  Stethoscope,
-  Users,
-  ChevronDown,
-  ChevronUp,
-  X,
-  Power,
-} from "lucide-react";
+import { User, BarChart3, LayoutDashboard,Ticket, CalendarCheck, Settings, ShoppingBag, Stethoscope, ClipboardList, ShieldCheck, AlertTriangle, ChevronLeft, ChevronRight, DollarSign, CreditCard, Microscope, Pill, FileText, Hospital, UserCog, Users, ChevronDown, ChevronUp, Package, Power } from "lucide-react";
 import { logout } from "../../context-api/authSlice";
-import logo from "../../assets/logo.png";
+import logo from "../../assets/fav.png";
 
 export const menuItemsMap = {
   doctor: [
@@ -47,32 +19,16 @@ export const menuItemsMap = {
       { icon: CalendarCheck, label: "Scheduler", path: "/doctordashboard/scheduler" },
     { icon: Settings, label: "Settings", path: "/doctordashboard/settings" },
   ],
-  freelancer: [
-    { icon: LayoutDashboard, label: "Dashboard", path: "/doctordashboard" },
-    {
-      icon: CalendarCheck,
-      label: "Appointments",
-      path: "/doctordashboard/appointments",
-    },
-    { icon: ShoppingBag, label: "Patients", path: "/doctordashboard/patients" },
-    { icon: ShieldCheck, label: "Payments", path: "/doctordashboard/billing" },
-    { icon: Settings, label: "Settings", path: "/doctordashboard/settings" },
-  ],
+  
   lab: [
     { icon: LayoutDashboard, label: "Dashboard", path: "/labdashboard" },
-    { icon: FileText, label: "Test Requests", path: "/labdashboard/requests" },
-    {
-      icon: FileText,
-      label: "Patients List",
-      path: "/labdashboard/patientlist",
-    },
-    {
-      icon: FileText,
-      label: "Test Catalogs",
-      path: "/labdashboard/testcatalogs",
-    },
-    { icon: TestTube, label: "Billing", path: "/labdashboard/billing" },
-    { icon: UserCog, label: "Settings", path: "/labdashboard/settings" },
+    { icon: CalendarCheck, label: "Test Bookings", path: "/labdashboard/test-bookings" },
+    { icon: Users, label: "Patients", path: "/labdashboard/patients" },
+    { icon: UserCog, label: "Lab Technicians", path: "/labdashboard/lab-technicians" },
+    { icon: Package, label: "Inventory", path: "/labdashboard/inventory" },
+    { icon: CreditCard, label: "Payments", path: "/labdashboard/payments" },
+    // { icon: ClipboardList, label: "Test Catalogs", path: "/labdashboard/test-catalogs" },
+    { icon: Settings, label: "Settings", path: "/labdashboard/settings" },
   ],
   hospital: [
     { icon: LayoutDashboard, label: "Dashboard", path: "/hospitaldashboard" },
@@ -164,6 +120,28 @@ export const menuItemsMap = {
     // { icon: Shield, label: "Insurance", path: "/patientdashboard/insurance" },
     { icon: DollarSign, label: "Billing", path: "/patientdashboard/billing" },
     { icon: Settings, label: "Settings", path: "/patientdashboard/settings" },
+  ],
+  frontdesk: [
+    {
+      icon: LayoutDashboard,
+      label: "Dashboard",
+      path: "/frontdeskdashboard"
+    },
+    {
+      icon: Users,
+      label: "Patients",
+      path: "/frontdeskdashboard/patients"
+    },
+    {
+      icon: Ticket,
+      label: "Token Management",
+      path: "/frontdeskdashboard/tokens"
+    },
+    {
+      icon: Settings,
+      label: "Settings",
+      path: "/frontdeskdashboard/settings"
+    }
   ],
 };
 
