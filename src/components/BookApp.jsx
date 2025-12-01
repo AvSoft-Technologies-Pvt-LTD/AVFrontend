@@ -1226,7 +1226,7 @@ const MultiStepForm = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h3 className="text-xl font-bold text-slate-800 mb-2">Booking Confirmed!</h3>
+            <h3 className="text-xl font-bold text-slate-800 mb-2">Booking Request sent!</h3>
             <p className="text-slate-600 text-sm mb-4">Your appointment has been successfully scheduled.</p>
             <div className="flex items-center justify-center gap-2 text-xs text-slate-500">
               <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-emerald-500"></div>

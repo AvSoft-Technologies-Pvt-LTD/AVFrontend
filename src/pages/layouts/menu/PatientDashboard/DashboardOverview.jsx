@@ -324,7 +324,7 @@ const DashboardOverview = () => {
                 Recent Appointments
               </h4>
               <Link
-                to="/patientdashboard/app"
+                to="/patientdashboard/appointments"
                 className="text-[var(--primary-color)] font-medium hover:text-[var(--accent-color)] transition-colors duration-200 flex items-center space-x-1 text-sm"
               >
                 <span>View All</span>

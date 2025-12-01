@@ -121,8 +121,9 @@ const mapDoctorAppointment = (appointment) => {
     const lower = rawStatus.toLowerCase();
     if (lower === "confirmed") normalizedStatus = "Confirmed";
     else if (lower === "rejected") normalizedStatus = "Rejected";
+    else if (lower === "rescheduled") normalizedStatus = "Rescheduled";
     else if (lower === "paid") normalizedStatus = "Paid";
-    else if (lower === "pending" || lower === "upcoming") normalizedStatus = "Pending";
+    else if (lower === "pending" || lower === "upcoming") normalizedStatus = "Booking Request Sent";
     else normalizedStatus = rawStatus;
   }
   const rejectReason =
@@ -286,7 +287,7 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
 
   useEffect(() => {
     if (data) {
-      console.log("Data provided, normalizing...");
+      console.log(" Data provided, normalizing...");
       const { doctorAppointments, labAppointments } = normalizeAppointmentsResponse(data);
       setState((prev) => ({
         ...prev,
@@ -296,13 +297,13 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
       return;
     }
     if (!patientId) {
-      console.log("No patientId, skipping fetch.");
+      console.log(" No patientId, skipping fetch.");
       return;
     }
 
     const fetchData = async () => {
       try {
-        console.log("Fetching appointments...");
+        console.log(" Fetching appointments...");
         setState((prev) => ({ ...prev, loading: true }));
         const response = await getAppointmentsByPatientId(patientId);
         const payload = response?.data ?? [];
@@ -314,7 +315,7 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
         }));
         await fetchLabPayments();
       } catch (error) {
-        console.error("Failed to load patient appointments:", error);
+        console.error(" Failed to load patient appointments:", error);
         setState((prev) => ({
           ...prev,
           d: [],
@@ -385,17 +386,23 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
           )}
         </div>
       );
-    else if (status?.toLowerCase() === "rejected")
+    else if (status === "Rejected")
       return (
         <div className="flex items-center space-x-2 paragraph mt-1 text-xs sm:text-sm">
           <span className="bg-red-100 text-red-700 px-2 py-1 rounded-full">Rejected</span>
           {!isOverview && <div><strong>Reason:</strong> {appointment.rejectReason}</div>}
         </div>
       );
+    else if (status === "Rescheduled")
+      return (
+        <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full text-xs sm:text-sm">
+          Rescheduled
+        </span>
+      );
     else
       return (
         <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full text-xs sm:text-sm">
-          {isOverview ? "Pending" : "Booking request sent"}
+          {status === "Booking Request Sent" ? "Booking Request Sent" : status}
         </span>
       );
   };
@@ -514,7 +521,11 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
     { key: "specialty", label: "Speciality", subtitleKey: true },
     { key: "date", label: "Date" },
     { key: "time", label: "Time" },
-    { key: "status", label: "Status" },
+    { 
+      key: "status", 
+      label: "Status",
+      format: (value) => value === "Pending" ? "Booking Request Sent" : value 
+    },
     { key: "consultationType", label: "Consultation Type" },
     { key: "fees", label: "Fees" },
     { key: "symptoms", label: "Symptoms" },
