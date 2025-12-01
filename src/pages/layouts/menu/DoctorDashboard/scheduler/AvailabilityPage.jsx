@@ -5,7 +5,7 @@ import { Clock, ChevronRight, ChevronLeft, Save } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import {
-  getAvailabilitySchedulesByDoctor,
+  getAvailabilityScheduleById,
   createAvailabilitySchedule,
   updateAvailabilitySchedule,
   getAllAppointmentDurations,
@@ -35,9 +35,8 @@ const AvailabilityPage = () => {
   const navigate = useNavigate();
   const { scheduleId } = useParams();
   const { user } = useSelector((state) => state.auth);
+  const doctorId = user?.doctorId || user?.id;
   const isEditMode = !!scheduleId;
-  const authState = useSelector((state) => state.auth);
-  const doctorId = authState?.user?.doctorId || authState?.user?.id;
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedDays, setSelectedDays] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
@@ -65,10 +64,10 @@ const AvailabilityPage = () => {
 
   // Load existing schedule if in edit mode
   useEffect(() => {
-    if (isEditMode && scheduleId && doctorId) {
+    if (isEditMode && scheduleId) {
       loadSchedule();
     }
-  }, [isEditMode, scheduleId, doctorId]);
+  }, [isEditMode, scheduleId]);
 
   // Auto-regenerate slots when duration changes in step 2
   useEffect(() => {
@@ -117,14 +116,9 @@ const AvailabilityPage = () => {
   };
 
   const loadSchedule = async () => {
-    if (!doctorId) {
-      console.warn("Doctor ID not available. Skipping schedule load.");
-      return;
-    }
     try {
-      const response = await getAvailabilitySchedulesByDoctor(doctorId);
-      const schedules = Array.isArray(response?.data) ? response.data : response;
-      const schedule = Array.isArray(schedules) ? schedules[0] : schedules;
+      const response = await getAvailabilityScheduleById(scheduleId);
+      const schedule = response.data;
       if (schedule) {
         // Convert API dates to JS dates and strings
         const fromDateJS = apiDateToJSDate(schedule.fromDate);
@@ -297,7 +291,6 @@ const AvailabilityPage = () => {
       }));
 
       const scheduleData = {
-        doctorId,
         doctorId,
         fromDate: fromDateAPI,
         toDate: toDateAPI,
