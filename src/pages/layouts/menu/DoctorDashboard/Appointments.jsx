@@ -25,23 +25,6 @@ const TABS = [
   { label: 'Rejected', value: 'rejected' }
 ];
 
-const MAX_RESCHEDULES = 1; // Maximum number of allowed reschedules
-
-// CSS class mappings for consistent styling
-const buttonClasses = {
-  view: 'view-btn flex items-center justify-center rounded p-1 transition hover:animate-bounce',
-  edit: 'edit-btn flex items-center justify-center rounded p-1 transition hover:animate-bounce',
-  delete: 'delete-btn flex items-center justify-center rounded p-1 transition hover:animate-bounce',
-  disabled: 'opacity-50 cursor-not-allowed',
-};
-
-const statusClasses = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  confirmed: 'bg-green-100 text-green-800',
-  rescheduled: 'bg-blue-50 text-blue-600',
-  rejected: 'bg-red-100 text-red-800',
-};
-
 const toDateObject = (value) => {
   if (!value) return null;
   if (Array.isArray(value) && value.length >= 3) {
@@ -581,102 +564,92 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
     }
   };
 
-  const handleAutoReject = async (appointment) => {
-    try {
-      const consultationType = (appointment.consultationType || '').toUpperCase() === 'VIRTUAL' ? 'VIRTUAL' : 'PHYSICAL';
-      await rejectAppointment(appointment.id, {
-        consultationType,
-        status: 'REJECTED',
-        rejectReason: `Maximum reschedule attempts (${MAX_RESCHEDULES}) reached`
-      });
-      await notify(
-        appointment.name,
-        appointment.phone,
-        `❌ Your appointment has been automatically rejected as you've reached the maximum number of reschedule attempts (1).`,
-        false,
-        doctorName
-      );
-      toast.error('Appointment rejected - Maximum reschedule attempts (1) reached');
-      fetchAppointments();
-    } catch (error) {
-      console.error('Error auto-rejecting appointment:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to process reschedule limit';
-      toast.error(errorMessage);
-    }
-  };
-
   const handleReschedule = async (id) => {
-    const appointment = appointments.find(a => a.id === id);
-    if (!appointment) return;
-
     const { date, time, slotId } = reschedule;
     if (!date || !time || !slotId) {
-      toast.error('Please select a date and time slot');
+      toast.error('Please select both date and time');
       return;
     }
-
+    const appointment = appointments.find(x => x.id === id);
+    if (!appointment) {
+      toast.error('Appointment not found');
+      return;
+    }
     const currentRescheduleCount = appointment.rescheduleCount || 0;
-    const newRescheduleCount = currentRescheduleCount + 1;
-    
-    if (newRescheduleCount > MAX_RESCHEDULES) {
-      await handleAutoReject(appointment);
-      return;
+    const MAX_RESCHEDULES = 2;
+    if (currentRescheduleCount >= MAX_RESCHEDULES) {
+      try {
+        const rejectReason = 'Maximum reschedule attempts reached';
+        await rejectAppointment(id, {
+          rejectReason,
+          status: 'REJECTED',
+          consultationType: (appointment.consultationType || '').toUpperCase() === 'VIRTUAL' ? 'VIRTUAL' : 'PHYSICAL'
+        });
+        updateStatus(id, {
+          status: 'Rejected',
+          rejectReason,
+          rescheduleCount: currentRescheduleCount,
+          updatedAt: new Date().toISOString()
+        });
+        await notify(
+          appointment.name,
+          appointment.phone,
+          `❌ Your appointment has been automatically rejected as it has been rescheduled the maximum number of times.`,
+          false,
+          doctorName
+        );
+        setRescheduleId(null);
+        setReschedule({ date: formatDateValue(new Date()), time: '', slotId: null });
+        setAvailableSlots([]);
+        toast.warning('Appointment automatically rejected - maximum reschedule attempts reached');
+        fetchAppointments();
+        return;
+      } catch (error) {
+        console.error('Error auto-rejecting appointment:', error);
+        const errorMessage = error.response?.data?.message || 'Failed to process reschedule limit';
+        toast.error(errorMessage);
+        return;
+      }
     }
-
     try {
       const loadingToast = toast.loading('Rescheduling appointment...');
       const consultationType = (appointment.consultationType || '').toUpperCase() === 'VIRTUAL' ? 'VIRTUAL' : 'PHYSICAL';
-      
       const rescheduleData = {
         consultationType,
         newSlotId: slotId,
         newDate: formatDateValue(date),
         newTime: formatTimeForAPI(time),
-        status: 'RESCHEDULED',
-        rescheduleCount: newRescheduleCount
+        status: 'RESCHEDULED'
       };
-
       await rescheduleAppointment(id, rescheduleData);
-
-      // Update local state
-      updateStatus(id, {
+      const newRescheduleCount = currentRescheduleCount + 1;
+      const updates = {
         date: formatDateValue(date),
         time: formatTimeValue(time),
         rescheduleCount: newRescheduleCount,
-        status: newRescheduleCount >= MAX_RESCHEDULES ? 'Rejected' : 'Rescheduled',
+        status: 'Rescheduled',
         slotId: slotId,
         updatedAt: new Date().toISOString(),
-        consultationType,
-        rejectReason: newRescheduleCount >= MAX_RESCHEDULES 
-          ? `Maximum reschedule attempts (${MAX_RESCHEDULES}) reached` 
-          : appointment.rejectReason
-      });
-
-      // Notify patient
+        consultationType
+      };
+      updateStatus(id, updates);
       await notify(
         appointment.name,
         appointment.phone,
-        newRescheduleCount >= MAX_RESCHEDULES
-          ? `❌ Your appointment has been automatically rejected as you've reached the maximum number of reschedule attempts (${MAX_RESCHEDULES}).`
-          : `✅ Your appointment has been rescheduled to ${formatDateValue(date)} at ${formatTimeValue(time)}. ` +
-            `(Reschedule ${newRescheduleCount} of ${MAX_RESCHEDULES})`,
+        `✅ Your appointment has been rescheduled to ${formatDateValue(date)} at ${formatTimeValue(time)}. ` +
+        `(Reschedule ${newRescheduleCount} of ${MAX_RESCHEDULES})`,
         false,
         doctorName
       );
-
-      toast.update(loadingToast, {
-        render: newRescheduleCount >= MAX_RESCHEDULES
-          ? `Appointment rejected - Maximum reschedule attempts (${MAX_RESCHEDULES}) reached`
-          : `Appointment rescheduled successfully (${newRescheduleCount}/${MAX_RESCHEDULES} reschedules used)`,
-        type: newRescheduleCount >= MAX_RESCHEDULES ? 'error' : 'success',
-        isLoading: false,
-        autoClose: 3000
-      });
-
-      // Reset form and refresh data
       setRescheduleId(null);
       setReschedule({ date: formatDateValue(new Date()), time: '', slotId: null });
       setAvailableSlots([]);
+      toast.update(loadingToast, {
+        render: `Appointment rescheduled successfully (${newRescheduleCount}/${MAX_RESCHEDULES} reschedules used)`,
+        type: 'success',
+        isLoading: false,
+        autoClose: 3000
+      });
       fetchAppointments();
     } catch (error) {
       console.error('Error rescheduling appointment:', error);
@@ -701,15 +674,15 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
 
   const getRowClassName = (row) => {
     if (row.status === 'Confirmed') {
-      return 'hover:bg-green-100';
+      return 'bg-green-100 hover:bg-green-200';
     }
     if (row.status === 'Rejected') {
-      return 'hover:bg-red-100';
+      return 'bg-red-100 hover:bg-red-200';
     }
     if (row.status === 'Rescheduled' || (row.rescheduleCount || 0) > 0) {
-      return 'hover:bg-blue-50';
+      return 'bg-blue-50 hover:bg-blue-100';
     }
-    return 'hover:bg-gray-50';
+    return '';
   };
 
   const columns = [
@@ -719,7 +692,7 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
       cell: row => (
         <button
           onClick={() => handlePatientNameClick(row)}
-          className="font-bold text-black hover:text-blue-600 transition-colors text-left"
+          className="font-bold text-black hover:text-[color:var(--primary-color)] transition-colors text-left"
         >
           {row.name}
         </button>
@@ -747,16 +720,19 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
         }]
       : []),
     {
-      header: tab === 'rejected' ? 'Rejection Reason' : tab === 'rescheduled' || tab === 'confirmed' ? 'Reschedule' : 'Type',
-      accessor: tab === 'rejected' ? 'rejectReason' : tab === 'rescheduled' || tab === 'confirmed' ? 'rescheduleCount' : 'type',
+      header: tab === 'rejected' ? 'Rejection Reason' : tab === 'rescheduled' ? 'Reschedule Count' : 'Type',
+      accessor: tab === 'rejected' ? 'rejectReason' : tab === 'rescheduled' ? 'rescheduleCount' : 'type',
       cell: row => {
         if (tab === 'rejected') {
           return <span className="text-red-600 font-medium flex items-center"><X size={14} className="mr-1" />{row.rejectReason || 'No reason given'}</span>;
-        } else if (tab === 'rescheduled' || tab === 'confirmed') {
-          const remaining = MAX_RESCHEDULES - (row.rescheduleCount || 0);
+        } else if (tab === 'rescheduled') {
+          const remainingReschedules = 2 - (row.rescheduleCount || 0);
           return (
-            <span className={`font-medium ${remaining > 0 ? 'text-blue-600' : 'text-gray-500'}`}>
-              {remaining > 0 ? `${remaining} time${remaining !== 1 ? 's' : ''} left` : 'No reschedules left'}
+            <span className="text-[color:var(--primary-color)] font-medium">
+              {remainingReschedules > 0 ? 
+                `${remainingReschedules} reschedule${remainingReschedules > 1 ? 's' : ''} left` :
+                'No reschedules left'
+              }
             </span>
           );
         }
@@ -768,7 +744,7 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
       accessor: 'actions',
       cell: row => {
         const isRescheduled = (row.rescheduleCount || 0) > 0;
-        const canReschedule = (row.rescheduleCount || 0) < 1;
+        const canReschedule = (row.rescheduleCount || 0) < 2;
 
         if (tab === 'pending') {
           return (
@@ -778,10 +754,10 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
                   e.stopPropagation();
                   handleAccept(row.id);
                 }}
-                className={buttonClasses.view}
+                className="view-btn flex items-center justify-center hover:bg-green-50 rounded  p-1.5 transition hover:animate-bounce"
                 title="Accept Appointment"
               >
-                <Check size={16} />
+                <Check size={16} className="text-green-600" />
               </button>
               <button
                 onClick={(e) => {
@@ -792,10 +768,10 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
                     [row.id]: prev[row.id] || ''
                   }));
                 }}
-                className={buttonClasses.delete}
+                className="delete-btn flex items-center justify-center hover:bg-red-50 rounded  p-1.5 transition hover:animate-bounce"
                 title="Reject Appointment"
               >
-                <X size={16} />
+                <X size={16} className="text-red-600" />
               </button>
             </div>
           );
@@ -804,11 +780,11 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
         if (tab === 'confirmed') {
           return (
             <div className="flex items-center space-x-2">
-              <span className={`text-xs px-2 py-0.5 rounded-full ${
-                isRescheduled ? statusClasses.rescheduled : 'bg-gray-100 text-gray-600'
-              }`}>
-                {row.rescheduleCount || 0}/{MAX_RESCHEDULES}
-              </span>
+              {isRescheduled && (
+                <span className="text-xs bg-[color:var(--primary-color)/0.1] text-[color:var(--primary-color)] px-2 py-0.5 rounded">
+                  {row.rescheduleCount}/2
+                </span>
+              )}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -820,10 +796,10 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
                   });
                 }}
                 disabled={!canReschedule}
-                className={`${buttonClasses.edit} ${!canReschedule ? buttonClasses.disabled : ''}`}
+                className={`edit-btn flex items-center justify-center hover:bg-[color:var(--primary-color)/0.1] rounded  p-1.5 transition ${canReschedule ? 'hover:animate-bounce' : 'opacity-50 cursor-not-allowed'}`}
                 title={canReschedule ? 'Reschedule' : 'Maximum reschedule attempts reached'}
               >
-                <Calendar size={16} />
+                <Calendar size={16} className={canReschedule ? 'text-[color:var(--primary-color)]' : 'text-gray-400'} />
               </button>
               <button
                 onClick={(e) => {
@@ -834,35 +810,21 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
                     [row.id]: prev[row.id] || ''
                   }));
                 }}
-                className={buttonClasses.delete}
+                className="delete-btn flex items-center justify-center hover:bg-red-50 rounded  p-1.5 transition hover:animate-bounce"
                 title="Reject Appointment"
               >
-                <X size={16} />
+                <X size={16} className="text-red-600" />
               </button>
             </div>
           );
         }
 
         if (tab === 'rescheduled') {
-          const remainingReschedules = MAX_RESCHEDULES - (row.rescheduleCount || 0);
-          const canReschedule = remainingReschedules > 0;
-          
           return (
-            <div className="flex items-center space-x-2">
-              <span className={`text-sm font-medium ${
-                canReschedule ? 'text-[var(--primary-color)]' : 'text-gray-500'
-              }`}>
-                {canReschedule 
-                  ? `${remainingReschedules} time${remainingReschedules !== 1 ? 's' : ''} left` 
-                  : 'No reschedules left'}
-              </span>
+            <div className="flex space-x-2">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (!canReschedule) {
-                    toast.error('Maximum reschedule attempts reached');
-                    return;
-                  }
                   setRescheduleId(row.id);
                   setReschedule({
                     date: row.date,
@@ -870,17 +832,10 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
                     slotId: row.slotId
                   });
                 }}
-                className={`${buttonClasses.edit} ${
-                  canReschedule 
-                    ? 'hover:bg-[var(--primary-color)]/10' 
-                    : buttonClasses.disabled
-                }`}
-                title={canReschedule 
-                  ? `Reschedule (${remainingReschedules} ${remainingReschedules === 1 ? 'attempt' : 'attempts'} left)` 
-                  : 'No reschedules left'}
-                disabled={!canReschedule}
+                className="edit-btn flex items-center justify-center hover:bg-[color:var(--primary-color)/0.1] rounded p-1.5 transition hover:animate-bounce"
+                title="Reschedule Again"
               >
-                <Calendar size={14} />
+                <Calendar size={14} className="text-[color:var(--primary-color)]" />
               </button>
               <button
                 onClick={(e) => {
@@ -891,10 +846,10 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
                     [row.id]: prev[row.id] || ''
                   }));
                 }}
-                className={buttonClasses.delete}
+                className="delete-btn flex items-center justify-center hover:bg-red-50 rounded  p-1.5 transition hover:animate-bounce"
                 title="Reject Appointment"
               >
-                <X size={14} />
+                <X size={14} className="text-red-600" />
               </button>
             </div>
           );
@@ -904,9 +859,10 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
           return (
             <button
               onClick={() => handleDeleteRejected(row.id)}
-              className="delete-btn flex items-center justify-center hover:bg-red-100 rounded p-1 transition hover:animate-bounce"
+              className="delete-btn flex items-center justify-center hover:bg-red-100 rounded  p-1.5 transition hover:animate-bounce"
+              title="Delete Appointment"
             >
-              <Trash2 size={14} />
+              <Trash2 size={14} className="text-red-600" />
             </button>
           );
         }
@@ -1011,11 +967,11 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
                           <button
                             key={slot.id}
                             type="button"
-                            className={`p-2 text-sm font-medium rounded-md transition-colors duration-150 ${
+                            className={`p-2 border rounded text-sm ${
                               reschedule.time === slot.time
-                                ? 'bg-blue-600 text-white border border-blue-700 shadow-sm'
-                                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                            }`}
+                                ? 'bg-[color:var(--primary-color)] text-white border-[color:var(--primary-color)/0.8]'
+                                : 'bg-white hover:bg-gray-50 border-gray-300'
+                            } transition-colors duration-150`}
                             onClick={() => {
                               setReschedule({
                                 ...reschedule,
@@ -1034,10 +990,10 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
                             type="button"
                             onClick={handlePrevPage}
                             disabled={currentSlotPage === 0}
-                            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                            className={`px-3 py-1 text-sm rounded ${
                               currentSlotPage === 0
                                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                : 'bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-gray-900'
+                                : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                             }`}
                           >
                             Previous
@@ -1049,10 +1005,10 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
                             type="button"
                             onClick={handleNextPage}
                             disabled={(currentSlotPage + 1) * SLOTS_PER_PAGE >= availableSlots.length}
-                            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                            className={`px-3 py-1 text-sm rounded ${
                               (currentSlotPage + 1) * SLOTS_PER_PAGE >= availableSlots.length
                                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                : 'bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-gray-900'
+                                : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                             }`}
                           >
                             Next
@@ -1069,18 +1025,14 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
                 <div className="flex justify-end gap-2 mt-4">
                   <button
                     onClick={() => setRescheduleId(null)}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                    className="view-btn px-4 py-2"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={() => handleReschedule(rescheduleId)}
+                    className="edit-btn px-4 py-2"
                     disabled={!reschedule.date || !reschedule.time || !reschedule.slotId}
-                    className={`px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors ${
-                      (!reschedule.date || !reschedule.time || !reschedule.slotId) 
-                        ? 'opacity-50 cursor-not-allowed' 
-                        : ''
-                    }`}
                   >
                     Reschedule
                   </button>
@@ -1093,4 +1045,5 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
     </div>
   );
 };
+
 export default DoctorAppointments;

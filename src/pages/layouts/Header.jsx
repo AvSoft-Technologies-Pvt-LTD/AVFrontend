@@ -141,7 +141,7 @@ const HeaderWithNotifications = ({ toggleSidebar }) => {
         return new Date(y, (m || 1) - 1, d || 1, hh || 0, mm || 0, ss || 0, ms).toISOString();
       }
       if (typeof val === "string") return val;
-    } catch (_) {}
+    } catch (_) { }
     return new Date().toISOString();
   };
 
@@ -155,10 +155,10 @@ const HeaderWithNotifications = ({ toggleSidebar }) => {
       const items = Array.isArray(data)
         ? data
         : Array.isArray(data?.content)
-        ? data.content
-        : Array.isArray(data?.data?.content)
-        ? data.data.content
-        : [];
+          ? data.content
+          : Array.isArray(data?.data?.content)
+            ? data.data.content
+            : [];
       const mapped = items.map((n) => ({
         id: n.notificationId || n.id,
         message: n.message || n.title || "New notification",
@@ -203,12 +203,10 @@ const HeaderWithNotifications = ({ toggleSidebar }) => {
     if (diff < 60) return "Just now";
     if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
     if (diff < 86400)
-      return `${Math.floor(diff / 3600)} hr${
-        Math.floor(diff / 3600) > 1 ? "s" : ""
+      return `${Math.floor(diff / 3600)} hr${Math.floor(diff / 3600) > 1 ? "s" : ""
+        } ago`;
+    return `${Math.floor(diff / 86400)} day${Math.floor(diff / 86400) > 1 ? "s" : ""
       } ago`;
-    return `${Math.floor(diff / 86400)} day${
-      Math.floor(diff / 86400) > 1 ? "s" : ""
-    } ago`;
   };
 
   const toggleMobileHeader = () => {
@@ -270,15 +268,15 @@ const HeaderWithNotifications = ({ toggleSidebar }) => {
             {/* Center - Logo/Brand on Mobile & Tablet, User Name and Current Page on Desktop */}
             <div className="flex items-center gap-3">
               {/* Mobile & Tablet - PocketClinic Brand */}
-              <div className="xl:hidden flex items-center gap-2">
+              <div className="xl:hidden">
                 <img
                   src={logo}
                   alt="PocketClinic Logo"
-                  className="h-8 w-8 sm:h-10 sm:w-10"
+                  className="h-10 w-auto object-contain"
                 />
-                <span className="text-[var(--primary-color)] font-bold text-lg sm:text-xl">
-                  PocketClinic
-                </span>
+                <p className="text-xs ml-12 -mt-2 text-[var(--primary-color)] font-medium leading-none">
+                  Healthcare Platform
+                </p>
               </div>
               {/* Desktop - User Name and Current Page */}
               <div className="hidden xl:block">
@@ -365,11 +363,10 @@ const HeaderWithNotifications = ({ toggleSidebar }) => {
                                     )
                                   )
                                 }
-                                className={`group px-6 py-4 border-b cursor-pointer transition-all duration-200 ${
-                                  n.unread
+                                className={`group px-6 py-4 border-b cursor-pointer transition-all duration-200 ${n.unread
                                     ? "bg-[var(--accent-color)]/10"
                                     : "bg-white"
-                                } hover:bg-[var(--accent-color)]/20`}
+                                  } hover:bg-[var(--accent-color)]/20`}
                               >
                                 <div className="flex justify-between gap-3">
                                   <div className="flex-1">
@@ -430,11 +427,11 @@ const HeaderWithNotifications = ({ toggleSidebar }) => {
                       {["doctor", "hospital", "freelancer"].includes(
                         userType
                       ) && (
-                        <ModulesMenu
-                          user={user}
-                          onModuleSelect={handleModuleSelect}
-                        />
-                      )}
+                          <ModulesMenu
+                            user={user}
+                            onModuleSelect={handleModuleSelect}
+                          />
+                        )}
                       <div className="relative">
                         <button
                           onClick={() =>
@@ -482,11 +479,10 @@ const HeaderWithNotifications = ({ toggleSidebar }) => {
                                       )
                                     )
                                   }
-                                  className={`group px-6 py-4 border-b cursor-pointer transition-all duration-200 ${
-                                    n.unread
+                                  className={`group px-6 py-4 border-b cursor-pointer transition-all duration-200 ${n.unread
                                       ? "bg-[var(--accent-color)]/10"
                                       : "bg-white"
-                                  } hover:bg-[var(--accent-color)]/20`}
+                                    } hover:bg-[var(--accent-color)]/20`}
                                 >
                                   <div className="flex justify-between gap-3">
                                     <div className="flex-1">
@@ -554,9 +550,8 @@ const HeaderWithNotifications = ({ toggleSidebar }) => {
 
       {/* Mobile & Tablet Header Drawer */}
       <div
-        className={`fixed top-0 right-0 h-full w-80 max-w-[85vw] bg-white shadow-2xl z-50 xl:hidden transform transition-transform duration-300 ease-in-out ${
-          isMobileHeaderOpen ? "translate-x-0" : "translate-x-full"
-        }`}
+        className={`fixed top-0 right-0 h-full w-80 max-w-[85vw] bg-white shadow-2xl z-50 xl:hidden transform transition-transform duration-300 ease-in-out ${isMobileHeaderOpen ? "translate-x-0" : "translate-x-full"
+          }`}
       >
         {/* Drawer Header */}
         <div
