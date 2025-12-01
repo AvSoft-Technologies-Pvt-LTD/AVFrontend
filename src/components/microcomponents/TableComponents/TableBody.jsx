@@ -1,12 +1,20 @@
 import React from "react";
 
-export default function TableBody({ columns, data, onCellClick }) {
+export default function TableBody({ columns, data, onCellClick, newRowIds = [],onRemoveNewRowId,  }) {
+   const handleRowClick = (rowId) => {
+    if (onRemoveNewRowId) {
+      onRemoveNewRowId(rowId); // Call the parent function
+    }
+  };
   return (
     <tbody className="divide-y divide-gray-200">
       {data.map((row, rowIndex) => (
         <tr
-          key={row.id || rowIndex}
-          className="hover:bg-blue-50 transition-colors duration-150"
+          key={row.recordId || rowIndex}
+          className={`hover:bg-blue-50 transition-colors duration-150 ${
+            newRowIds.includes(row.recordId) ? "bg-blue-50/30 border-l-4 border-l-blue-500" : ""
+          }`}
+          onClick={() => handleRowClick(row.recordId)}
         >
           {columns.map((col) => (
             <td

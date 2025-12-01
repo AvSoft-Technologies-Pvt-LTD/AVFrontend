@@ -5,8 +5,11 @@ import axiosInstance from "./axiosInstance";
 export const getAllPatients = () => axiosInstance.get('/auth/patient/all');
 
 // Get patient by ID (if needed)
-export const getPatientPhoto = (path) =>
-  axiosInstance.get('/auth/patient/photo', { params: { path }, responseType: 'blob',});
+export const getPatientPhoto = (photoPath) => {
+  console.log("getPatientPhoto called with:", photoPath);
+  const BASE_URL = "http://localhost:8080/api/";
+  return `${BASE_URL}auth/patient/photo?path=${photoPath}`;
+};
 export const getPatientById = (id) => axiosInstance.get(`/auth/patient/${id}`);
 
 // Update patient by ID

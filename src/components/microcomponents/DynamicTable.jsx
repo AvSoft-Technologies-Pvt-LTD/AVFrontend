@@ -17,6 +17,8 @@ export default function DynamicTable({
   tabActions = [],
   noDataMessage = "No records found.",
   itemsPerPage = 9,
+  newRowIds = [],
+  onRemoveNewRowId,
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilters, setActiveFilters] = useState({});
@@ -161,13 +163,13 @@ export default function DynamicTable({
               ))}
             </tr>
           </thead>
-          <TableBody columns={columns} data={paginatedData} />
+          <TableBody columns={columns} data={paginatedData}  newRowIds={newRowIds} onRemoveNewRowId={onRemoveNewRowId} />
         </table>
       </div>
 
       {/* Mobile Cards (with scrolling) */}
       <div className="block md:hidden overflow-y-auto  ">
-        <MobileCardList columns={columns} data={filteredData} />
+        <MobileCardList columns={columns} data={filteredData} newRowIds={newRowIds} onRemoveNewRowId={onRemoveNewRowId} />
       </div>
 
       {/* Pagination (hidden on mobile/tablet) */}

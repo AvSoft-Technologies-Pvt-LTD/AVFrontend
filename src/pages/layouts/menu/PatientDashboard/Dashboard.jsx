@@ -15,7 +15,8 @@ import {
 } from '../../../../utils/CrudService';
 import {
   getHealthConditions, getCoverageTypes, getRelations, getBloodGroups,
-  getPatientById, getPatientPhoto, getAllSurgeries, getAllAllergies,
+  getPatientById, getPatientPhoto,
+  getAllSurgeries, getAllAllergies,
 } from '../../../../utils/masterService';
 
 const initialUserData = {
@@ -51,7 +52,7 @@ const SECTIONS = [
 function Dashboard() {
   const { user, patientId: reduxPatientId } = useSelector((state) => state.auth);
   const navigate = useNavigate();
-  
+
   // State declarations
   const [userData, setUserData] = useState(initialUserData);
   const [activeSection, setActiveSection] = useState('basic');
@@ -148,7 +149,6 @@ function Dashboard() {
   // Memoized patient data fetcher
   const fetchPatientData = useCallback(async (patientId) => {
     if (!patientId) return;
-
     try {
       const [patientRes, familyRes, healthRes, additionalRes] = await Promise.all([
         getPatientById(patientId).catch(() => ({ data: null })),
@@ -161,16 +161,6 @@ function Dashboard() {
       if (currentPatient) {
         setPatientData(currentPatient);
         const dob = currentPatient.dob ? new Date(currentPatient.dob[0], currentPatient.dob[1] - 1, currentPatient.dob[2]) : null;
-        let photoUrl = null;
-        
-        if (currentPatient.photo) {
-          try {
-            const photoResponse = await getPatientPhoto(currentPatient.photo);
-            photoUrl = URL.createObjectURL(photoResponse.data);
-          } catch (err) {
-            console.error('Failed to fetch photo:', err);
-          }
-        }
 
         setProfileData({
           name: `${currentPatient.firstName || 'Guest'} ${currentPatient.lastName || ''}`.trim(),
@@ -180,7 +170,7 @@ function Dashboard() {
           gender: currentPatient.gender || '',
           phone: currentPatient.phone || '',
           email: currentPatient.email || '',
-          photo: photoUrl,
+          photo: currentPatient.photo || null,
           address: currentPatient.address || '',
           city: currentPatient.city || '',
           state: currentPatient.state || '',
@@ -260,20 +250,19 @@ function Dashboard() {
   // Main data fetcher
   const fetchAllData = useCallback(async () => {
     if (!user?.patientId) return;
-    
+
     setLoading(true);
     setApiDataLoaded({ masterData: false, patientData: false, healthData: false });
-
     try {
       const patientId = reduxPatientId;
-      
+
       // Fetch all data in parallel where possible
       await Promise.all([
         fetchMasterData(),
         fetchPatientData(patientId),
         checkHealthCardExistence(patientId)
       ]);
-      
+
     } catch (err) {
       console.error('Failed to fetch data:', err);
       showFeedback('Failed to load data. Some features may be limited.', 'warning');
@@ -396,7 +385,6 @@ function Dashboard() {
       showFeedback('Patient ID is required', 'error');
       return;
     }
-
     if (!hasHealthCard) {
       try {
         setLoadingHealthCard(true);
@@ -420,7 +408,6 @@ function Dashboard() {
     const patientId = patientData?.id || reduxPatientId;
     if (!patientId) return showFeedback('Please login to save data', 'error');
     if (!updatedData.height || !updatedData.weight) return showFeedback('Height and weight are required', 'error');
-
     const bloodGroupId = Number(updatedData.bloodGroup?.value || updatedData.bloodGroup || updatedData.bloodGroupId);
     if (!bloodGroupId || isNaN(bloodGroupId)) return showFeedback('Please select a blood group', 'error');
 
@@ -428,7 +415,6 @@ function Dashboard() {
       const allergyIds = Array.isArray(updatedData.allergies)
         ? updatedData.allergies.map((allergy) => Number(allergy.value || allergy))
         : [];
-
       const surgeryIds = Array.isArray(updatedData.surgeries)
         ? updatedData.surgeries.map((surgery) => Number(surgery.value || surgery))
         : [];
@@ -436,7 +422,6 @@ function Dashboard() {
       if (allergyIds.length > 0 && (!updatedData.allergyDuration || Number(updatedData.allergyDuration) <= 0)) {
         return showFeedback('Allergy duration must be greater than 0 when allergies are selected', 'error');
       }
-
       if (surgeryIds.length > 0 && (!updatedData.surgeryDuration || Number(updatedData.surgeryDuration) <= 0)) {
         return showFeedback('Surgery duration must be greater than 0 when surgeries are selected', 'error');
       }
@@ -514,21 +499,21 @@ function Dashboard() {
 
     if (section === 'personal') {
       setModalFields(basePersonalFields);
-      
+
       const allergyIds = userData.allergies && Array.isArray(userData.allergies)
         ? userData.allergies.map(allergyName => {
-            const allergy = allergies.find(a => a.label === allergyName);
-            return allergy ? allergy.value : allergyName;
-          })
+          const allergy = allergies.find(a => a.label === allergyName);
+          return allergy ? allergy.value : allergyName;
+        })
         : [];
-      
+
       const surgeryIds = userData.surgeries && Array.isArray(userData.surgeries)
         ? userData.surgeries.map(surgeryName => {
-            const surgery = surgeries.find(s => s.label === surgeryName);
-            return surgery ? surgery.value : surgeryName;
-          })
+          const surgery = surgeries.find(s => s.label === surgeryName);
+          return surgery ? surgery.value : surgeryName;
+        })
         : [];
-      
+
       setModalData({
         height: userData.height || '',
         weight: userData.weight || '',
@@ -588,7 +573,6 @@ function Dashboard() {
 
   const handleModalSave = useCallback(async (formValues) => {
     const patientId = patientData?.id || reduxPatientId;
-
     if (activeSection === 'personal') {
       const cleanedValues = {
         ...formValues,
@@ -603,7 +587,7 @@ function Dashboard() {
       await saveUserData({ ...userData, ...cleanedValues });
     } else if (activeSection === 'family') {
       if (!formValues.name || !formValues.relation) return showFeedback('Name and relation are required', 'error');
-      
+
       const healthConditionIds = formValues.diseases?.map(disease => {
         if (typeof disease === 'object' && disease.value) return Number(disease.value);
         const found = healthConditions.find(hc => hc.label === disease || hc.value === disease);
@@ -643,10 +627,12 @@ function Dashboard() {
         console.error('Error:', err.response?.data || err.message);
         showFeedback(`Failed to save family member: ${err.response?.data?.message || err.message}`, 'error');
       }
+
       setEditFamilyMember(null);
     } else if (activeSection === 'additional') {
       try {
         if (!patientId) return showFeedback('Patient ID is required', 'error');
+
         const payload = {
           insuranceProviderName: formValues.provider,
           policyNum: formValues.policyNumber,
@@ -656,13 +642,14 @@ function Dashboard() {
           policyEndDate: new Date(formValues.endDate).toISOString(),
           primaryHolder: formValues.primaryHolder === 'Yes',
         };
-        
+
         let response;
         if (additionalDetails.insuranceProviderName) {
           response = await updateAdditionalDetails(patientId, payload);
         } else {
           response = await createAdditionalDetails(patientId, payload);
         }
+
         setAdditionalDetails(response.data);
         showFeedback('Additional details saved successfully');
       } catch (error) {
@@ -670,6 +657,7 @@ function Dashboard() {
         showFeedback('Failed to save additional details', 'error');
       }
     }
+
     setShowModal(false);
     setModalData({});
   }, [activeSection, patientData?.id, reduxPatientId, userData, editFamilyMember, healthConditions, additionalDetails, saveUserData, showFeedback]);
@@ -779,11 +767,15 @@ function Dashboard() {
           <div className="flex-shrink-0 flex flex-col items-center md:items-start text-center md:text-left">
             <div className="w-24 h-24 md:w-24 md:h-24 rounded-full border border-gray-400 overflow-hidden mb-3">
               {profileData?.photo ? (
-                <img
-                  src={profileData.photo}
-                  alt="Profile"
-                  className="w-full h-full object-cover"
-                />
+                  <img
+                    src={getPatientPhoto(profileData.photo)}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      console.error("Image failed to load:", e);
+                      e.target.onerror = null;
+                    }}
+                  />
               ) : (
                 <div className="w-full h-full bg-[var(--primary-color)] flex items-center justify-center">
                   <CircleUser className="w-12 h-12 md:w-16 md:h-16 text-gray-500" />
@@ -840,7 +832,7 @@ function Dashboard() {
       {/* Feedback Message */}
       {feedbackMessage.show && (
         <div className={`fixed top-4 right-4 z-50 p-3 sm:p-4 rounded-lg shadow-lg ${feedbackMessage.type === 'success' ? 'bg-green-100 text-green-800' :
-            feedbackMessage.type === 'warning' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
+          feedbackMessage.type === 'warning' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
           } transition-all duration-300`}>
           {feedbackMessage.message}
         </div>

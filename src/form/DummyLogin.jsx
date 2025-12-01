@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from "react-router-dom";
 import { useDispatch } from 'react-redux';
-import { setUser } from '../context-api/authSlice'; // Import your Redux action
+import { setUser } from '../context-api/authSlice';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -22,12 +22,10 @@ export default function Login() {
     e.preventDefault();
     setError('');
     setLoading(true);
-
     try {
       // Check if the entered email matches any dummy role
       let role = null;
       let validCredentials = null;
-
       if (email === dummyCredentials.lab.email && password === dummyCredentials.lab.password) {
         role = "lab";
         validCredentials = dummyCredentials.lab;
@@ -41,21 +39,15 @@ export default function Login() {
         throw new Error("Invalid email or password");
       }
 
-      // Simulate storing login status and user data in localStorage
-      localStorage.setItem("isAuthenticated", "true");
-      localStorage.setItem("user", JSON.stringify({
-        email,
-        userType: role,
-        role,
-        isAuthenticated: true,
-      }));
-
-      // Update Redux state
+      // Dispatch setUser with all required fields
       dispatch(setUser({
         email,
         userType: role,
         role,
         isAuthenticated: true,
+        token: "dummy-token-" + Date.now(), // Simulate a token
+        name: role.charAt(0).toUpperCase() + role.slice(1),
+        permissions: [],
       }));
 
       // Redirect based on role

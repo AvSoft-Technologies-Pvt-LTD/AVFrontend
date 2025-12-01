@@ -45,7 +45,6 @@ const MOCK_PATIENTS = [
 
 export default function Patients() {
   const [patients, setPatients] = useState(MOCK_PATIENTS);
-  const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
   const [modalMode, setModalMode] = useState('add');
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -93,7 +92,8 @@ export default function Patients() {
 
   const handleViewProfile = (patient) => {
     setSelectedPatient(patient);
-    setIsProfileDrawerOpen(true);
+    setModalMode('viewProfile');
+    setIsModalOpen(true);
   };
 
   const handleEditPatient = (patient) => {
@@ -131,7 +131,10 @@ export default function Patients() {
       header: 'Patient',
       accessor: 'name',
       cell: (row) => (
-        <div className="flex items-center gap-3">
+        <div 
+          className="flex items-center gap-3 cursor-pointer hover:text-blue-400 transition-colors"
+          onClick={() => handleViewProfile(row)}
+        >
           <img src={row.photo} alt={row.name} className="h-10 w-10 rounded-full object-cover" />
           <span className="font-medium">{row.name}</span>
         </div>
@@ -146,17 +149,7 @@ export default function Patients() {
       accessor: 'actions',
       cell: (row) => (
         <div className="flex gap-2">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleViewProfile(row);
-            }}
-            className="p-2 hover:bg-blue-500/10 text-blue-400 rounded-lg transition-colors"
-            title="View Profile"
-          >
-            <Eye size={16} />
-          </button>
-          <button
+<button
             onClick={(e) => {
               e.stopPropagation();
               handleEditPatient(row);
@@ -196,43 +189,28 @@ export default function Patients() {
       />
       <ReusableModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedPatient(null);
+        }}
         mode={modalMode}
-        title={modalMode === 'add' ? 'New Patient' : 'Edit Patient'}
-        fields={patientFields}
+        title={modalMode === 'add' ? 'New Patient' : modalMode === 'edit' ? 'Edit Patient' : 'Patient Profile'}
+        fields={modalMode === 'viewProfile' ? [] : patientFields}
+        viewFields={[
+          { label: 'Name', key: 'name' },
+          { label: 'Age', key: 'age' },
+          { label: 'Blood Group', key: 'blood_group' },
+          { label: 'Phone', key: 'phone' },
+          { label: 'Email', key: 'email' },
+          { label: 'Address', key: 'address' },
+          { label: 'Gender', key: 'gender' },
+          { label: 'Date of Birth', key: 'date_of_birth' },
+        ]}
         data={selectedPatient}
         onSave={handleSavePatient}
         saveLabel={modalMode === 'add' ? 'Add Patient' : 'Update Patient'}
-        cancelLabel="Cancel"
+        cancelLabel="Close"
       />
-      {isProfileDrawerOpen && selectedPatient && (
-        <div className="fixed inset-0 z-50 flex items-start justify-end bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-md h-full glassmorphism-modal border-l border-white/10 overflow-y-auto p-6 space-y-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-slate-100">Patient Profile</h2>
-              <button
-                onClick={() => setIsProfileDrawerOpen(false)}
-                className="p-2 hover:bg-white/10 rounded-full text-slate-300 transition-colors"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <ProfileCard
-              photo={selectedPatient.photo}
-              name={selectedPatient.name}
-              fields={[
-                { label: 'Age', value: selectedPatient.age },
-                { label: 'Blood Group', value: selectedPatient.blood_group },
-                { label: 'Phone', value: selectedPatient.phone },
-                { label: 'Email', value: selectedPatient.email },
-                { label: 'Address', value: selectedPatient.address },
-                { label: 'Gender', value: selectedPatient.gender },
-                { label: 'Date of Birth', value: selectedPatient.date_of_birth },
-              ]}
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

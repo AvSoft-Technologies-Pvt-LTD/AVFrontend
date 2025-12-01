@@ -32,8 +32,6 @@ export const registerUser = createAsyncThunk(
       const response = await axiosInstance.post(endpoint, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-
-      // Helper function to safely get form data values
       const getValue = (key) => {
         const value = formData.get(key);
         if (value !== undefined && value !== null && value !== '') {
@@ -41,43 +39,6 @@ export const registerUser = createAsyncThunk(
         }
         return response.data?.[key] ?? null;
       };
-
-      // Extract all necessary values from form data
-      const firstName = getValue('firstName');
-      const middleName = getValue('middleName');
-      const lastName = getValue('lastName');
-      const phone = getValue('phone');
-      const email = getValue('email');
-      const aadhaar = getValue('aadhaar');
-      const gender = getValue('gender');
-      const genderId = getValue('genderId');
-      const dob = getValue('dob');
-      const pinCode = getValue('pinCode');
-      const city = getValue('city');
-      const district = getValue('district');
-      const stateName = getValue('stateName');
-      const occupation = getValue('occupation');
-      const agreeDeclaration = getValue('agreeDeclaration');
-      const registrationNumber = getValue('registrationNumber');
-      const practiceTypeId = getValue('practiceTypeId');
-      const specializationId = getValue('specializationId');
-      const qualification = getValue('qualification');
-      const isAssociatedWithClinicHospital = getValue('isAssociatedWithClinicHospital');
-      const clinicName = getValue('clinicName');
-      const associatedHospital = getValue('associatedHospital');
-      const hospitalId = getValue('hospitalId');
-      const practiceType = getValue('practiceType');
-      const specialization = getValue('specialization');
-
-      const fullName = [firstName, middleName, lastName].filter(Boolean).join(' ');
-      const address = [
-        getValue('address'),
-        city,
-        district,
-        stateName,
-        pinCode
-      ].filter(Boolean).join(', ');
-
       return {
         ...response.data,
         userType,
@@ -87,7 +48,7 @@ export const registerUser = createAsyncThunk(
         name: fullName,
         fullName,
         phone,
-        number: phone,
+        number,
         email,
         aadhaar,
         gender,
@@ -99,7 +60,7 @@ export const registerUser = createAsyncThunk(
         stateName,
         occupation,
         agreeDeclaration,
-        address: response.data?.address || address,
+        address: addressFromResponse || derivedAddress,
         registrationNumber,
         practiceTypeId,
         practiceType,
@@ -107,22 +68,9 @@ export const registerUser = createAsyncThunk(
         specialization,
         qualification,
         isAssociatedWithClinicHospital,
-        clinicName,
+        associatedClinic,
         associatedHospital,
-        hospitalId,
-        doctorDetails: response.data?.doctorDetails || {
-          registrationNumber,
-          practiceTypeId,
-          specializationId,
-          qualification,
-          practiceType,
-          specialization,
-          isAssociatedWithClinicHospital,
-          clinicName,
-          associatedHospital,
-          hospitalId,
-          agreeDeclaration
-        },
+        doctorDetails,
         patientId: response.data?.patientId ?? null,
         doctorId: response.data?.doctorId ?? null,
         userId: response.data?.userId ?? null,
@@ -137,8 +85,6 @@ export const registerUser = createAsyncThunk(
     }
   }
 );
-
-// Update Patient
 export const updatePatient = createAsyncThunk(
   'auth/updatePatient',
   async ({ id, formData }, { rejectWithValue }) => {
@@ -152,8 +98,10 @@ export const updatePatient = createAsyncThunk(
           },
         }
       );
+      console.log("Update patient API response:", response.data); // <-- Add this
       return response.data;
     } catch (error) {
+      console.error("Update patient API error:", error.response?.data || error.message); // <-- Add this
       return rejectWithValue(
         error.response?.data?.message ||
         error.response?.data?.error ||
@@ -168,10 +116,11 @@ export const updatePatient = createAsyncThunk(
 export const updateDoctor = createAsyncThunk(
   'auth/updateDoctor',
   async ({ id, formData }, { rejectWithValue }) => {
-    if (!id) {
+     if (!id) {
       return rejectWithValue("Doctor ID is required.");
     }
-
+    console.log("Update doctor called with ID:", id ,formData);
+    
     try {
       const response = await axiosInstance.put(
         `${BASE_URL}/doctor/${id}`,
@@ -182,8 +131,10 @@ export const updateDoctor = createAsyncThunk(
           },
         }
       );
+      console.log("Update doctor API response:", response.data);
       return response.data;
     } catch (error) {
+      console.error("Update doctor API error:", error.response?.data || error.message);
       return rejectWithValue(
         error.response?.data?.message ||
         error.response?.data?.error ||
@@ -213,11 +164,10 @@ export const loginUser = createAsyncThunk(
         practiceType: userData.practiceType || null,
         specialization: userData.specialization || null,
         isAssociatedWithClinicHospital: userData.isAssociatedWithClinicHospital || null,
-        clinicName: userData.clinicName || null,
+        associatedClinic: userData.associatedClinic || null,
         associatedHospital: userData.associatedHospital || null,
         agreeDeclaration: userData.agreeDeclaration ?? null,
       } : null);
-
       const userWithToken = {
         ...userData,
         userType: normalizedUserType,
@@ -240,13 +190,12 @@ export const loginUser = createAsyncThunk(
         practiceTypeId: userData.practiceTypeId || doctorDetails?.practiceTypeId || null,
         specializationId: userData.specializationId || doctorDetails?.specializationId || null,
         isAssociatedWithClinicHospital: userData.isAssociatedWithClinicHospital || doctorDetails?.isAssociatedWithClinicHospital || null,
-        clinicName: userData.clinicName || doctorDetails?.clinicName || null,
+        associatedClinic: userData.associatedClinic || doctorDetails?.associatedClinic || null,
         associatedHospital: userData.associatedHospital || doctorDetails?.associatedHospital || null,
         hospitalName: userData.hospitalName || null,
         clinicName: userData.clinicName || null,
         doctorDetails,
       };
-
       // Save in localStorage
       localStorage.setItem('user', JSON.stringify(userWithToken));
       localStorage.setItem('token', userWithToken.token);
@@ -301,101 +250,28 @@ export const sendLoginOTP = createAsyncThunk(
   }
 );
 
-// Verify OTP
+// Mock Verify OTP
 export const verifyOTP = createAsyncThunk(
   'auth/verifyOTP',
-  async ({ identifier, otp, type, registrationData }, { rejectWithValue, dispatch }) => {
+  async ({ identifier, otp, type, registrationData }, { rejectWithValue }) => {
     try {
-      // For testing, we'll use the hardcoded OTP
-      const expectedOTP = process.env.NODE_ENV === 'development' ? MOCK_OTP : otp;
-
-      // In production, you would verify the OTP with your backend
-      // const response = await axiosInstance.post(`${BASE_URL}/verify-otp`, { identifier, otp });
-
       await mockApiDelay();
-
-      if (otp !== expectedOTP) {
+      if (otp !== MOCK_OTP) {
         return rejectWithValue(`Invalid OTP. Please use "${MOCK_OTP}" for testing.`);
       }
-
-      if (type === 'registration' && registrationData) {
-        // Helper function to sanitize file objects
-        const sanitizeFile = (file) => {
-          if (!file) return null;
-          if (file instanceof File) {
-            return {
-              name: file.name,
-              size: file.size,
-              type: file.type,
-              lastModified: file.lastModified
-            };
-          }
-          return file;
-        };
-
-        // Create a sanitized copy of registrationData
-        const sanitizedData = {
-          ...registrationData,
-          // Handle photo file
-          photo: sanitizeFile(registrationData.photo),
-          // Handle other potential file fields
-          ...(registrationData.certificates && {
-            certificates: registrationData.certificates.map(cert => ({
-              ...cert,
-              file: sanitizeFile(cert.file)
-            }))
-          }),
-          // Handle any other file fields that might exist
-          ...(registrationData.documents && {
-            documents: registrationData.documents.map(doc => ({
-              ...doc,
-              file: sanitizeFile(doc.file)
-            }))
-          })
-        };
-
-        const userType = sanitizedData.userType || 'patient';
-        const role = userType.charAt(0).toUpperCase() + userType.slice(1);
-
-        const userData = {
-          ...sanitizedData,
-          isAuthenticated: true,
-          token: `mock-jwt-token-${Date.now()}`,
-          userType,
-          role,
-          permissions: sanitizedData.permissions || [],
-          name: sanitizedData.name || `${sanitizedData.firstName || ''} ${sanitizedData.lastName || ''}`.trim(),
-          number: sanitizedData.phone || sanitizedData.number,
-          ...(userType === 'doctor' && { doctorId: sanitizedData.doctorId }),
-          ...(userType === 'patient' && { patientId: sanitizedData.patientId }),
-          ...(userType === 'hospital' && { hospitalId: sanitizedData.hospitalId }),
-          ...(userType === 'lab' && { labId: sanitizedData.labId }),
-        };
-
-        // Ensure we're not storing any non-serializable data
-        const serializableUserData = JSON.parse(JSON.stringify(userData));
-
-        localStorage.setItem('user', JSON.stringify(serializableUserData));
-        localStorage.setItem('token', userData.token);
-        setAuthToken(userData.token);
-        return serializableUserData;
-      } else if (type === 'login') {
-        return {
-          isAuthenticated: true,
-          token: `mock-jwt-token-${Date.now()}`,
-          userType: 'patient',
-          role: 'Patient',
-          permissions: []
-        };
-      }
-      return rejectWithValue('Invalid verification type or missing data');
+      const isEmail = identifier.includes('@');
+      // Save & Set token
+      localStorage.setItem('user', JSON.stringify(mockUser));
+      localStorage.setItem('token', mockUser.token);
+      localStorage.setItem('identifier', identifier);
+      setAuthToken(mockUser.token);
+      console.log('[MOCK] OTP verification successful. User data:', mockUser);
+      return mockUser;
     } catch (error) {
-      console.error('OTP Verification Error:', error);
       return rejectWithValue(error.message || 'OTP verification failed');
     }
   }
 );
-
 const authSlice = createSlice({
   name: 'auth',
   initialState: {
@@ -425,22 +301,23 @@ const authSlice = createSlice({
     specializationId: storedUser?.specializationId || null,
     registrationNumber: storedUser?.registrationNumber || null,
     isAssociatedWithClinicHospital: storedUser?.isAssociatedWithClinicHospital || null,
-    clinicName: storedUser?.clinicName || null,
+    associatedClinic: storedUser?.associatedClinic || null,
     associatedHospital: storedUser?.associatedHospital || null,
     hospitalName: storedUser?.hospitalName || null,
+    clinicName: storedUser?.clinicName || null,
     doctorDetails: storedUser?.doctorDetails || null,
   },
   reducers: {
     resetAuthState: (state) => {
-      state.user = null;
       state.loading = false;
       state.error = null;
       state.isOTPSent = false;
       state.isVerified = false;
       state.isAuthenticated = false;
-      state.userType = null;
+      state.user = null;
       state.registrationData = null;
       state.token = null;
+      state.userType = null;
       state.patientId = null;
       state.doctorId = null;
       state.userId = null;
@@ -452,20 +329,45 @@ const authSlice = createSlice({
       state.dob = null;
       state.qualification = null;
       state.practiceType = null;
+      state.practiceTypeId = null;
       state.specialization = null;
+      state.specializationId = null;
       state.registrationNumber = null;
       state.isAssociatedWithClinicHospital = null;
-      state.clinicName = null;
+      state.associatedClinic = null;
       state.associatedHospital = null;
       state.hospitalName = null;
+      state.clinicName = null;
       state.doctorDetails = null;
-      localStorage.removeItem('user');
-      localStorage.removeItem('token');
-      localStorage.removeItem('identifier');
       setAuthToken(null);
     },
     setUser: (state, action) => {
       state.user = action.payload;
+      state.isAuthenticated = true;
+      state.userType = action.payload.userType;
+      state.token = action.payload.token;
+      state.patientId = action.payload.patientId;
+      state.doctorId = action.payload.doctorId || null;
+      state.userId = action.payload.userId;
+      state.permissions = action.payload.permissions;
+      state.name = action.payload.name;
+      state.number = action.payload.number;
+      state.address = action.payload.address;
+      state.gender = action.payload.gender;
+      state.dob = action.payload.dob;
+      state.qualification = action.payload.qualification || null;
+      state.practiceType = action.payload.practiceType || null;
+      state.practiceTypeId = action.payload.practiceTypeId || null;
+      state.specialization = action.payload.specialization || null;
+      state.specializationId = action.payload.specializationId || null;
+      state.registrationNumber = action.payload.registrationNumber || null;
+      state.isAssociatedWithClinicHospital = action.payload.isAssociatedWithClinicHospital || null;
+      state.associatedClinic = action.payload.associatedClinic || null;
+      state.associatedHospital = action.payload.associatedHospital || null;
+      state.hospitalName = action.payload.hospitalName || null;
+      state.clinicName = action.payload.clinicName || null;
+      state.doctorDetails = action.payload.doctorDetails || null;
+      setAuthToken(action.payload.token);
     },
     setUserType: (state, action) => {
       state.userType = action.payload;
@@ -473,7 +375,33 @@ const authSlice = createSlice({
     logout: (state) => {
       state.user = null;
       state.isAuthenticated = false;
+      state.userType = null;
+      state.registrationData = null;
       state.token = null;
+      state.isVerified = false;
+      state.isOTPSent = false;
+      state.patientId = null;
+      state.doctorId = null;
+      state.userId = null;
+      state.permissions = [];
+      state.name = null;
+      state.number = null;
+      state.address = null;
+      state.gender = null;
+      state.dob = null;
+      state.qualification = null;
+      state.practiceType = null;
+      state.practiceTypeId = null;
+      state.specialization = null;
+      state.specializationId = null;
+      state.registrationNumber = null;
+      state.isAssociatedWithClinicHospital = null;
+      state.associatedClinic = null;
+      state.associatedHospital = null;
+      state.hospitalName = null;
+      state.clinicName = null;
+      state.doctorDetails = null;
+      // Clear all from localStorage
       localStorage.removeItem('user');
       localStorage.removeItem('token');
       localStorage.removeItem('identifier');
@@ -486,12 +414,14 @@ const authSlice = createSlice({
       const user = JSON.parse(localStorage.getItem('user'));
       const token = localStorage.getItem('token');
       if (user && token) {
-        state.user = user;
-        state.isAuthenticated = true;
+        const normalizedUserType = user.role ? user.role.toLowerCase() : user.userType;
+        state.user = { ...user, userType: normalizedUserType };
         state.token = token;
-        state.userType = user.userType;
+        state.userType = normalizedUserType;
+        state.isAuthenticated = true;
+        state.isVerified = true;
         state.patientId = user.patientId;
-        state.doctorId = user.doctorId;
+        state.doctorId = user.doctorId || null;
         state.userId = user.userId;
         state.permissions = user.permissions;
         state.name = user.name;
@@ -499,15 +429,18 @@ const authSlice = createSlice({
         state.address = user.address;
         state.gender = user.gender;
         state.dob = user.dob;
-        state.qualification = user.qualification;
-        state.practiceType = user.practiceType;
-        state.specialization = user.specialization;
-        state.registrationNumber = user.registrationNumber;
-        state.isAssociatedWithClinicHospital = user.isAssociatedWithClinicHospital;
-        state.clinicName = user.clinicName;
-        state.associatedHospital = user.associatedHospital;
-        state.hospitalName = user.hospitalName;
-        state.doctorDetails = user.doctorDetails;
+        state.qualification = user.qualification || null;
+        state.practiceType = user.practiceType || null;
+        state.practiceTypeId = user.practiceTypeId || null;
+        state.specialization = user.specialization || null;
+        state.specializationId = user.specializationId || null;
+        state.registrationNumber = user.registrationNumber || null;
+        state.isAssociatedWithClinicHospital = user.isAssociatedWithClinicHospital || null;
+        state.associatedClinic = user.associatedClinic || null;
+        state.associatedHospital = user.associatedHospital || null;
+        state.hospitalName = user.hospitalName || null;
+        state.clinicName = user.clinicName || null;
+        state.doctorDetails = user.doctorDetails || null;
         setAuthToken(token);
       }
     },
@@ -520,32 +453,82 @@ const authSlice = createSlice({
       })
       .addCase(registerUser.fulfilled, (state, action) => {
         state.loading = false;
-        state.user = action.payload;
-        state.userType = action.payload.userType;
-        state.isVerified = true;
-        state.isAuthenticated = true;
-        state.registrationData = null;
-        state.token = action.payload.token;
+        state.registrationData = {
+          name: action.payload.name,
+          email: action.payload.email,
+          phone: action.payload.phone,
+          number: action.payload.number,
+          address: action.payload.address,
+          gender: action.payload.gender,
+          dob: action.payload.dob,
+          userType: action.payload.userType,
+          patientId: action.payload.patientId,
+          doctorId: action.payload.doctorId || null,
+          userId: action.payload.userId,
+          qualification: action.payload.qualification || null,
+          practiceType: action.payload.practiceType || null,
+          specialization: action.payload.specialization || null,
+          hospitalName: action.payload.hospitalName || null,
+          clinicName: action.payload.clinicName || null,
+        };
         state.patientId = action.payload.patientId;
         state.doctorId = action.payload.doctorId || null;
         state.userId = action.payload.userId;
-        state.permissions = action.payload.permissions;
-        state.name = action.payload.name;
-        state.number = action.payload.number;
-        state.address = action.payload.address;
-        state.gender = action.payload.gender;
-        state.dob = action.payload.dob;
-        state.qualification = action.payload.qualification || null;
-        state.practiceType = action.payload.practiceType || null;
-        state.specialization = action.payload.specialization || null;
-        state.hospitalName = action.payload.hospitalName || null;
-        state.clinicName = action.payload.clinicName || null;
-        state.doctorDetails = action.payload.doctorDetails || null;
+        state.userType = action.payload.userType;
+        state.isOTPSent = false;
+        state.qualification = action.payload.qualification || state.qualification;
+        state.practiceType = action.payload.practiceType || state.practiceType;
+        state.specialization = action.payload.specialization || state.specialization;
+        state.hospitalName = action.payload.hospitalName || state.hospitalName;
+        state.clinicName = action.payload.clinicName || state.clinicName;
       })
       .addCase(registerUser.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
-        state.isVerified = false;
+      })
+      .addCase(updatePatient.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updatePatient.fulfilled, (state, action) => {
+        state.loading = false;
+          console.log("Update patient response:", action.payload); 
+        state.user = { ...state.user, ...action.payload };
+        state.name = action.payload.firstName || action.payload.name || state.name;
+        state.address = action.payload.address || state.address;
+        state.gender = action.payload.gender || state.gender;
+        state.dob = action.payload.dob || state.dob;
+        state.qualification = action.payload.qualification || state.qualification;
+        state.practiceType = action.payload.practiceType || state.practiceType;
+        state.specialization = action.payload.specialization || state.specialization;
+        state.hospitalName = action.payload.hospitalName || state.hospitalName;
+        state.clinicName = action.payload.clinicName || state.clinicName;
+      })
+      .addCase(updatePatient.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      .addCase(updateDoctor.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateDoctor.fulfilled, (state, action) => {
+        state.loading = false;
+        console.log("Update doctor response:", action.payload);
+        state.user = { ...state.user, ...action.payload };
+        state.name = action.payload.firstName || action.payload.name || state.name;
+        state.address = action.payload.address || state.address;
+        state.gender = action.payload.gender || state.gender;
+        state.dob = action.payload.dob || state.dob;
+        state.qualification = action.payload.qualification || state.qualification;
+        state.practiceType = action.payload.practiceType || state.practiceType;
+        state.specialization = action.payload.specialization || state.specialization;
+        state.hospitalName = action.payload.hospitalName || state.hospitalName;
+        state.clinicName = action.payload.clinicName || state.clinicName;
+      })
+      .addCase(updateDoctor.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
       })
       .addCase(loginUser.pending, (state) => {
         state.loading = true;
@@ -555,6 +538,7 @@ const authSlice = createSlice({
         state.loading = false;
         state.user = action.payload;
         state.userType = action.payload.userType;
+        state.isVerified = true;
         state.isAuthenticated = true;
         state.token = action.payload.token;
         state.patientId = action.payload.patientId;
@@ -571,12 +555,10 @@ const authSlice = createSlice({
         state.specialization = action.payload.specialization || null;
         state.hospitalName = action.payload.hospitalName || null;
         state.clinicName = action.payload.clinicName || null;
-        state.doctorDetails = action.payload.doctorDetails || null;
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
-        state.isAuthenticated = false;
       })
       .addCase(sendOTP.pending, (state) => {
         state.loading = true;
@@ -589,6 +571,7 @@ const authSlice = createSlice({
       .addCase(sendOTP.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+        state.isOTPSent = false;
       })
       .addCase(sendLoginOTP.pending, (state) => {
         state.loading = true;
@@ -601,6 +584,7 @@ const authSlice = createSlice({
       .addCase(sendLoginOTP.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+        state.isOTPSent = false;
       })
       .addCase(verifyOTP.pending, (state) => {
         state.loading = true;
@@ -628,37 +612,12 @@ const authSlice = createSlice({
         state.specialization = action.payload.specialization || null;
         state.hospitalName = action.payload.hospitalName || null;
         state.clinicName = action.payload.clinicName || null;
-        state.doctorDetails = action.payload.doctorDetails || null;
       })
       .addCase(verifyOTP.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
         state.isVerified = false;
       })
-      .addCase(updatePatient.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(updatePatient.fulfilled, (state, action) => {
-        state.loading = false;
-        state.user = { ...state.user, ...action.payload };
-      })
-      .addCase(updatePatient.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      })
-      .addCase(updateDoctor.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(updateDoctor.fulfilled, (state, action) => {
-        state.loading = false;
-        state.user = { ...state.user, ...action.payload };
-      })
-      .addCase(updateDoctor.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      });
   },
 });
 

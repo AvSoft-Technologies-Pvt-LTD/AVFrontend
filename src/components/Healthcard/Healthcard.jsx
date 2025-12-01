@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
-import QRCode from "qrcode";
 import { Download, Crown, Star, Shield, Zap, X, Check } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import logo from "../../assets/fav.png";
-import { getSubscriptionPlans } from "../../utils/masterService";
+import { getSubscriptionPlans, getPatientPhoto } from "../../utils/masterService";
 import {
   getPatientSubscription,
   createPatientSubscription,
@@ -271,16 +270,17 @@ function Healthcard({ hideLogin, patientId }) {
           {/* User Info: Photo, Name, DOB, Gender */}
           <div className="flex justify-between items-center -mt-2 sm:-mt-3">
             <div className="flex items-center gap-2 sm:gap-4">
-              {(healthCardData?.photoPath || user?.photoPath) && (
-                <img
-                  src={
-                    healthCardData?.photoPath ? `http://localhost:8080/${healthCardData.photoPath.replace(/\\/g, '/')}` :
-                      `http://localhost:8080/${user.photoPath.replace(/\\/g, '/')}`
-                  }
-                  alt="User"
-                  className="w-14 h-14 sm:w-20 sm:h-20 object-cover rounded-full border-2 border-white shadow"
-                />
-              )}
+{console.log("Dashboard - healthCardData?.photoPath:", healthCardData?.photoPath)}
+{console.log("Dashboard - user?.photoPath:", user?.photoPath)}
+              {
+                (healthCardData?.photoPath || user?.photoPath) && (
+                  <img
+                    src={getPatientPhoto(healthCardData?.photoPath || user?.photoPath)}
+                    alt="User"
+                    className="w-14 h-14 sm:w-20 sm:h-20 object-cover rounded-full border-2 border-white shadow"
+                  />
+                )
+              }
               <div>
                 <p className="font-bold text-base sm:text-lg text-white uppercase">
                   {healthCardData?.patientName || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || "N/A"}
