@@ -478,6 +478,18 @@ const handleSelected = (r) => {
         console.error("[OPD] Error saving patient:", error);
       }
     };
+
+
+    const handleLink = (r) => {
+      try {
+        localStorage.setItem("selectedThisPatient", JSON.stringify(r));
+        setPatient(r);
+        setQuickLinksPatient(r);
+        setQuickLinksOpen(true);
+      } catch (error) {
+        console.error("[OPD] Error saving patient:", error);
+      }
+    };
     // Removed fetchPatientDetails since extended sections are not shown in ReusableModal
 
     const openModal = useCallback((modalName) => {
@@ -912,7 +924,7 @@ const handleIpdWizardFinish = useCallback(async () => {
                   <FaVideo />
                 </button>
               )}
-              <button
+              {/* <button
                 title="Quick Links"
                 className="p-0.5 text-base text-[var(--primary-color)]"
                 style={{ display: "flex", alignItems: "center" }}
@@ -920,6 +932,16 @@ const handleIpdWizardFinish = useCallback(async () => {
                   setQuickLinksPatient(row);
                   setQuickLinksOpen(true);
                 }}
+              >
+                <FiLink />
+              </button> */}
+
+
+               <button
+                title="Quick Links"
+                className="p-0.5 text-base text-[var(--primary-color)]"
+                style={{ display: "flex", alignItems: "center" }}
+                onClick={() => handleLink(row)}
               >
                 <FiLink />
               </button>

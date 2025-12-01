@@ -436,3 +436,8 @@ export const getVideos = (patientId, virtualRecordId) =>
 
   export const searchMedicineByName = (query, page = 0, size = 100) =>
   axiosInstance.get(`/medicines/searchByName?query=${query}&page=${page}&size=${size}`);
+
+
+  // get getpass  by patient
+  export const getGatepassByPatientId = (patientId) =>
+  axiosInstance.get(`/ipd/ipdrowaid/gatepass/patient/${patientId}`);

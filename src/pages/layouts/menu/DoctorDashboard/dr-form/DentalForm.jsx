@@ -216,7 +216,7 @@ const DentalForm = ({ data, onSave, onPrint }) => {
         </div>
       </div>
       <div className="p-6 bg-gray-50">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           <div>
             <div className="font-medium mb-3 text-[var(--primary-color)]">
               Reference Teeth Numbers

@@ -1,21 +1,21 @@
-
-import React, { useState, useRef, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { Mail, Phone, Building, User, Calendar, Bed, FileText, Activity, ChevronLeft, Plus, Eye, Heart, Edit, Trash2, CheckCircle, Clock, BarChart3, X, Search } from "lucide-react";
+//nursing
+import React, { useState, useRef, useEffect, useContext } from "react";
+import { useNavigate } from "react-router-dom";
+import { Phone, Building, User, Calendar, FileText, Activity, Heart, Search, Plus, Clock, CheckCircle } from "lucide-react";
+import { FaEdit, FaTrash } from "react-icons/fa";
 import { toast } from "react-toastify";
 import axios from "axios";
-import { getFrequencies, getIntakes, getDosageUnits } from "../../../../utils/masterService";
-import { searchMedicineByName } from "../../../../utils/masterService";
+import { getFrequencies, getIntakes, getDosageUnits, getNurseDashboard } from "../../../../utils/masterService";
+import { createIpdNursingRecord } from "../../../../utils/CrudService";
 import VitalsForm from "./dr-form/VitalsForm";
 import ReusableModal from "../../../../components/microcomponents/Modal";
 import DynamicTable from "../../../../components/microcomponents/DynamicTable";
 import VitalsChart from "./dr-form/VitalsChart";
-import { FaEdit, FaTrash } from "react-icons/fa";
+import { usePatientContext } from "../../../../context-api/PatientContext";
 
 const NursingAndTreatment = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const patient = location.state?.patient || { name: "Unknown Patient", email: "unknown@example.com", phone: "N/A", age: "N/A", gender: "N/A", diagnosis: "N/A", wardType: "N/A" };
+  const { patient, setPatient } = usePatientContext();
   const [activeSection, setActiveSection] = useState("records");
   const [showPatientDetails, setShowPatientDetails] = useState(true);
   const [showAddRecordModal, setShowAddRecordModal] = useState(false);
@@ -25,6 +25,21 @@ const NursingAndTreatment = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const searchInputRef = useRef(null);
+  
+  // Initialize patient data if not available
+  useEffect(() => {
+    if (!patient) {
+      const savedPatient = localStorage.getItem("selectedThisPatient");
+      if (savedPatient) {
+        try {
+          const parsedPatient = JSON.parse(savedPatient);
+          setPatient(parsedPatient);
+        } catch (error) {
+          console.error("Error parsing patient data:", error);
+        }
+      }
+    }
+  }, [patient, setPatient]);
   const [records, setRecords] = useState([
     {
       id: 1,
@@ -56,6 +71,7 @@ const NursingAndTreatment = () => {
     }
   ]);
   const [editingRecord, setEditingRecord] = useState(null);
+  const [nurses, setNurses] = useState([]);
   const [formData, setFormData] = useState({
     assignedNurse: "",
     assignedDate: "",
@@ -68,6 +84,7 @@ const NursingAndTreatment = () => {
     status: "pending",
     remarks: ""
   });
+
   const [apiData, setApiData] = useState({
     frequencies: [],
     intakes: [],
@@ -75,17 +92,40 @@ const NursingAndTreatment = () => {
     nurses: []
   });
 
+  // Fetch nurses for dropdown
+  useEffect(() => {
+    const fetchNurses = async () => {
+      try {
+        const response = await getNurseDashboard();
+        if (response.data) {
+          const nurseOptions = response.data.map(nurse => ({
+            value: nurse.id,
+            label: `${nurse.fullName} - ${nurse.roleName}`
+          }));
+          setNurses(nurseOptions);
+        }
+      } catch (error) {
+        console.error("Error fetching nurses:", error);
+        toast.error("Failed to load nurse list");
+      }
+    };
+
+    fetchNurses();
+  }, []);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         const frequenciesRes = await getFrequencies();
         const intakesRes = await getIntakes();
         const dosageUnitsRes = await getDosageUnits();
+
         setApiData({
           frequencies: Array.isArray(frequenciesRes?.data) ? frequenciesRes.data : [],
           intakes: Array.isArray(intakesRes?.data) ? intakesRes.data : [],
           dosageUnits: Array.isArray(dosageUnitsRes?.data) ? dosageUnitsRes.data : []
         });
+
         if (frequenciesRes?.data?.length > 0) {
           setFormData(prev => ({ ...prev, frequency: frequenciesRes.data[0].id }));
         }
@@ -100,16 +140,26 @@ const NursingAndTreatment = () => {
         toast.error('Failed to load form options');
       }
     };
+
     fetchData();
   }, []);
 
-  const nursesList = [
-    { value: "Jane Doe", label: "Jane Doe - Senior Nurse" },
-    { value: "Mary Smith", label: "Mary Smith - Staff Nurse" },
-    { value: "Sarah Johnson", label: "Sarah Johnson - Head Nurse" },
-    { value: "Emily Davis", label: "Emily Davis - ICU Nurse" },
-    { value: "Lisa Wilson", label: "Lisa Wilson - Ward Nurse" }
+  const localDrugList = [
+    { id: 1, name: "Dolo 650", strength: "650mg", form: "Tablet" },
+    { id: 2, name: "Paracetamol", strength: "500mg", form: "Tablet" },
+    { id: 3, name: "Ibuprofen", strength: "400mg", form: "Tablet" },
+    { id: 4, name: "Aspirin", strength: "325mg", form: "Tablet" },
+    { id: 5, name: "Amoxicillin", strength: "250mg", form: "Capsule" },
+    { id: 6, name: "Crocin", strength: "650mg", form: "Tablet" },
+    { id: 7, name: "Combiflam", strength: "325mg", form: "Tablet" },
+    { id: 8, name: "Azithromycin", strength: "500mg", form: "Tablet" },
+    { id: 9, name: "Ciprofloxacin", strength: "500mg", form: "Tablet" },
+    { id: 10, name: "Omeprazole", strength: "20mg", form: "Capsule" },
+    { id: 11, name: "Domperidone", strength: "10mg", form: "Tablet" },
+    { id: 12, name: "Pantoprazole", strength: "40mg", form: "Tablet" }
   ];
+
+  // Using the nurses state for the dropdown
 
   const getOptionLabel = (options, id) => {
     const option = options.find(opt => opt.id === id);
@@ -149,13 +199,10 @@ const NursingAndTreatment = () => {
   };
 
   const getPatientName = () => patient?.name || `${patient?.firstName || ""} ${patient?.middleName || ""} ${patient?.lastName || ""}`.trim() || "Unknown Patient";
-
   const getPatientAge = () => patient?.age && patient?.age !== "N/A" ? patient.age : calculateAge(patient?.dob);
 
   const handleBack = () => navigate(-1);
-
   const handleShowVitalSigns = () => setActiveSection("vitals");
-
   const handleShowNurseRecords = () => setActiveSection("records");
 
   const handleSearchToggle = () => {
@@ -175,6 +222,7 @@ const NursingAndTreatment = () => {
 
   const filteredRecords = records.filter((record) => {
     if (!searchQuery) return true;
+
     const searchLower = searchQuery.toLowerCase();
     return (
       record.nurseId.toLowerCase().includes(searchLower) ||
@@ -207,83 +255,79 @@ const NursingAndTreatment = () => {
   };
 
   const fetchDrugSuggestions = async (query) => {
-  
+    console.log("calling the api  fetchDrugSuggestions ")
+    if (query.length < 2) return [];
     try {
-      console.log("Searching for medicine with query:", query);
-      const response = await searchMedicineByName(query);
-      console.log("Raw API response:", response.data);
-
-      let medicines = [];
-      if (Array.isArray(response.data)) {
-        medicines = response.data;
-      } else if (response.data && Array.isArray(response.data.content)) {
-        medicines = response.data.content;
-      } else if (response.data && response.data.data) {
-        medicines = Array.isArray(response.data.data) ? response.data.data : [response.data.data];
-      } else if (response.data) {
-        medicines = response.data;
-      }
-
-      if (!medicines || medicines.length === 0) {
-        console.warn("No medicines found in response");
-        return [];
-      }
-
-      const formattedMedicines = medicines.map(medicine => ({
-        id: medicine.id || Math.random().toString(36).substr(2, 9),
-        name: medicine.name || medicine.drugName || 'Unknown Medicine',
-        form: medicine.type || medicine.form || 'Tablet',
-        strength: medicine.strength || medicine.packSizeLabel || ''
-      }));
-
-      console.log("Returning formatted medicines:", formattedMedicines);
-      return formattedMedicines;
+      const response = await axios.get("https://mocki.io/v1/efc542df-dc4c-4b06-9e5b-32567facef11");
+      const drugs = response.data.length ? response.data : localDrugList;
+      return drugs.filter((drug) => drug.name.toLowerCase().includes(query.toLowerCase()));
     } catch (error) {
-      console.error("Error in fetchDrugSuggestions:", {
-        name: error.name,
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-        config: {
-          url: error.config?.url,
-          method: error.config?.method,
-          params: error.config?.params
-        }
-      });
-      toast.error(`Error loading medicine suggestions: ${error.message}`);
-      return [];
+      return localDrugList.filter((drug) => drug.name.toLowerCase().includes(query.toLowerCase()));
     }
   };
 
-  const handleDrugSelection = (drug) => {
-    setFormData((prev) => ({
-      ...prev,
-      drugName: drug.name,
-      dosageUnit: drug.form?.toLowerCase() === "tablet" ? "tablet" : drug.form?.toLowerCase() === "capsule" ? "capsule" : "mg"
-    }));
-  };
+  const handleDrugSelection = (drug) => setFormData((prev) => ({
+    ...prev,
+    drugName: drug.name,
+    dosageUnit: drug.form?.toLowerCase() === "tablet" ? "tablet" : drug.form?.toLowerCase() === "capsule" ? "capsule" : "mg"
+  }));
 
-  const handleSaveRecord = (recordData) => {
+  const handleSaveRecord = async (recordData) => {
+    // Find the selected nurse's name
+    const selectedNurse = nurses.find(n => n.value === recordData.assignedNurse);
+    const nurseName = selectedNurse ? selectedNurse.label.split(' - ')[0] : 'Unknown Nurse';
+    
     if (!recordData.assignedNurse || !recordData.drugName) {
       toast.error("Please fill in required fields (Nurse and Medicine)");
       return;
     }
-    if (editingRecord) {
-      setRecords((prev) => prev.map((record) => (record.id === editingRecord.id ? { ...record, ...recordData, nurseId: record.nurseId } : record)));
-      toast.success("Record updated successfully!");
-    } else {
-      const newRecord = { id: Date.now(), nurseId: `NUR${Math.floor(Math.random() * 1000)}`, ...recordData };
-      setRecords((prev) => [...prev, newRecord]);
-      toast.success("Record added successfully!");
+
+    try {
+      const payload = {
+        ipdrowaid: patient?.id, // Get IPD ID from patient context
+        nurseId: recordData.assignedNurse,
+        assignedDate: recordData.assignedDate,
+        drugName: recordData.drugName,
+        dosage: recordData.dosage,
+        dosageUnit: recordData.dosageUnit,
+        frequency: recordData.frequency,
+        intake: recordData.intake,
+        duration: recordData.duration,
+        status: recordData.status || "pending",
+        remarks: recordData.remarks || ""
+      };
+
+      if (editingRecord) {
+        // Update existing record
+        // Note: You might want to implement an update endpoint
+        setRecords((prev) => prev.map((record) => 
+          record.id === editingRecord.id ? { ...record, ...recordData, nurseId: record.nurseId } : record
+        ));
+        toast.success("Record updated successfully!");
+      } else {
+        // Create new record
+        const response = await createIpdNursingRecord(payload);
+        const newRecord = { 
+          id: response.data?.id || Date.now(),
+          nurseId: `NUR${Math.floor(Math.random() * 1000)}`, 
+          ...recordData 
+        };
+        setRecords((prev) => [...prev, newRecord]);
+        toast.success("Record added successfully!");
+      }
+    } catch (error) {
+      console.error("Error saving nursing record:", error);
+      toast.error(error.response?.data?.message || "Failed to save nursing record");
+    } finally {
+      setShowAddRecordModal(false);
+      setEditingRecord(null);
     }
-    setShowAddRecordModal(false);
-    setEditingRecord(null);
   };
 
   const handleEditRecord = (record) => {
     setEditingRecord(record);
     setFormData({
-      assignedNurse: record.assignedNurse,
+      assignedNurse: record.assignedNurseId || record.assignedNurse,
       assignedDate: record.assignedDate,
       drugName: record.drugName,
       dosage: record.dosage,
@@ -369,67 +413,47 @@ const NursingAndTreatment = () => {
     }
   ];
 
-  const DrugInputComponent = ({ value, onChange }) => {
+  const DrugInputComponent = ({ value, onChange, onFocus, placeholder }) => {
     const inputRef = useRef(null);
     const [suggestions, setSuggestions] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
 
     const handleInputChange = async (e) => {
       const inputValue = e.target.value;
       onChange(inputValue);
-      console.log("Input value:", inputValue);
-
-      if (inputValue.length >= 2) {
-        setIsLoading(true);
-        console.log("Fetching suggestions for:", inputValue);
-        const filteredSuggestions = await fetchDrugSuggestions(inputValue);
-        console.log("Fetched suggestions:", filteredSuggestions);
-        setSuggestions(filteredSuggestions);
-        setShowSuggestions(filteredSuggestions.length > 0);
-        setIsLoading(false);
-      } else {
-        setShowSuggestions(false);
-      }
+      const filteredSuggestions = await fetchDrugSuggestions(inputValue);
+      setSuggestions(filteredSuggestions);
+      setShowSuggestions(inputValue.length > 0);
     };
 
     const handleInputFocus = async () => {
-      if (value && value.length >= 2) {
-        setIsLoading(true);
+      if (value && value.length > 0) {
         const filteredSuggestions = await fetchDrugSuggestions(value);
         setSuggestions(filteredSuggestions);
-        setShowSuggestions(filteredSuggestions.length > 0);
-        setIsLoading(false);
+        setShowSuggestions(true);
       }
+      if (onFocus) onFocus();
     };
 
     const handleSuggestionClick = (suggestion) => {
-      onChange(suggestion.name);
       handleDrugSelection(suggestion);
       setShowSuggestions(false);
+      onChange(suggestion.name);
     };
 
     return (
       <div className="relative">
-        <div className="relative">
-          <input
-            ref={inputRef}
-            type="text"
-            value={value}
-            onChange={handleInputChange}
-            onFocus={handleInputFocus}
-            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-            placeholder="Search medicine..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-8"
-          />
-          {isLoading && (
-            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-            </div>
-          )}
-        </div>
+        <input
+          ref={inputRef}
+          type="text"
+          value={value}
+          onChange={handleInputChange}
+          onFocus={handleInputFocus}
+          placeholder={placeholder}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        />
         {showSuggestions && suggestions.length > 0 && (
-          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto">
             {suggestions.map((drug) => (
               <div
                 key={drug.id}
@@ -437,11 +461,7 @@ const NursingAndTreatment = () => {
                 className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm border-b border-gray-100 last:border-b-0"
               >
                 <div className="font-medium text-gray-900">{drug.name}</div>
-                {drug.strength && (
-                  <div className="text-xs text-gray-500">
-                    {drug.strength}{drug.form && ` • ${drug.form}`}
-                  </div>
-                )}
+                <div className="text-xs text-gray-500">{drug.strength}, {drug.form}</div>
               </div>
             ))}
           </div>
@@ -451,21 +471,9 @@ const NursingAndTreatment = () => {
   };
 
   const modalFields = [
-    { name: "assignedNurse", label: "Assigned Nurse", type: "select", required: true, options: nursesList, colSpan: 2 },
+    { name: "assignedNurse", label: "Assigned Nurse", type: "select", required: true, options: nurses, colSpan: 2 },
     { name: "assignedDate", label: "Assigned Date", type: "date", required: true, colSpan: 1 },
-    {
-      name: "drugName",
-      label: "Medicine",
-      type: "custom",
-      required: true,
-      colSpan: 2,
-      component: ({ value, onChange }) => (
-        <DrugInputComponent
-          value={value}
-          onChange={onChange}
-        />
-      )
-    },
+    { name: "drugName", label: "Medicine", type: "text", required: true, suggestions: localDrugList.map((drug) => drug.name), placeholder: "Search medicine...", colSpan: 2 },
     { name: "dosage", label: "Dosage", type: "number", placeholder: "Enter dosage", colSpan: 1 },
     { name: "dosageUnit", label: "Unit", type: "select", options: dosageUnitOptions, colSpan: 1 },
     { name: "frequency", label: "Frequency", type: "select", options: frequencyOptions, colSpan: 1 },
@@ -476,82 +484,91 @@ const NursingAndTreatment = () => {
   ];
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen ">
       <header>
         <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center gap-4 -ml-4">
+  <div className="flex items-center gap-4 -ml-4">
+ 
+</div>
+
+
+{showPatientDetails && (
+  <div className="bg-gradient-to-r from-[#01B07A] to-[#1A223F] rounded-xl p-4 border border-[#01B07A]/40 mb-4 shadow-md animate-fadeIn text-white">
+    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 w-full">
+      <div className="flex items-center gap-6 flex-wrap w-full lg:w-auto">
+        <div className="w-12 h-12 flex items-center justify-center rounded-full bg-white text-[#01B07A] text-sm font-bold shadow-lg uppercase">
+          {getPatientName()?.split(" ").map((n) => n[0]).join("") || "N/A"}
+        </div>
+        <div className="flex flex-col gap-1 min-w-0">
+          <div>
+            <h2 className="text-lg font-semibold text-white truncate">
+              {getPatientName()}
+            </h2>
+            {/* <div className="flex items-center gap-2 text-sm text-gray-200 truncate">
+              <Mail className="w-4 h-4 text-white/80" />
+              <span className="truncate">{patient?.email || "N/A"}</span>
+            </div> */}
           </div>
-          {showPatientDetails && (
-            <div className="bg-gradient-to-r from-[#01B07A] to-[#1A223F] rounded-xl p-4 border border-[#01B07A]/40 mb-4 shadow-md animate-fadeIn text-white">
-              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 w-full">
-                <div className="flex items-center gap-6 flex-wrap w-full lg:w-auto">
-                  <div className="w-12 h-12 flex items-center justify-center rounded-full bg-white text-[#01B07A] text-sm font-bold shadow-lg uppercase">
-                    {getPatientName()?.split(" ").map((n) => n[0]).join("") || "N/A"}
-                  </div>
-                  <div className="flex flex-col gap-1 min-w-0">
-                    <div>
-                      <h2 className="text-lg font-semibold text-white truncate">
-                        {getPatientName()}
-                      </h2>
-                    </div>
-                    <div className="flex flex-wrap gap-x-12 gap-y-3 text-sm pt-1">
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-1">
-                          <Phone className="w-4 h-4 text-white/80" />
-                          <span><strong>Contact:</strong> {patient?.phone || "N/A"}</span>
-                        </div>
-                        {isIPDPatient && (
-                          <div className="flex items-center gap-1">
-                            <Building className="w-4 h-4 text-white/80" />
-                            <span><strong>Ward:</strong> {getCombinedWardInfo(patient)}</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-1">
-                          <User className="w-4 h-4 text-white/80" />
-                          <span><strong>Age:</strong> {getPatientAge()}</span>
-                        </div>
-                        {isIPDPatient && (
-                          <div className="flex items-center gap-1">
-                            <Activity className="w-4 h-4 text-white/80" />
-                            <span>
-                              <strong>Status:</strong>
-                              <span
-                                className={`ml-1 px-2 py-1 rounded-full text-xs font-semibold ${
-                                  patient?.status?.toUpperCase() === "ADMITTED"
-                                    ? "bg-green-200 text-green-900"
-                                    : patient?.status === "Under Treatment"
-                                    ? "bg-yellow-200 text-yellow-900"
-                                    : patient?.status?.toUpperCase() === "DISCHARGED"
-                                    ? "bg-gray-200 text-gray-900"
-                                    : "bg-blue-200 text-blue-900"
-                                }`}
-                              >
-                                {patient?.status?.toUpperCase() || "N/A"}
-                              </span>
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="w-4 h-4 text-white/80" />
-                          <span><strong>Gender:</strong> {patient?.gender || "N/A"}</span>
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-1">
-                          <FileText className="w-4 h-4 text-white/80" />
-                          <span><strong>Diagnosis:</strong> {patient?.diagnosis || "N/A"}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+          <div className="flex flex-wrap gap-x-12 gap-y-3 text-sm pt-1">
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-1">
+                <Phone className="w-4 h-4 text-white/80" />
+                <span><strong>Contact:</strong> {patient?.phone || "N/A"}</span>
+              </div>
+              {isIPDPatient && (
+                <div className="flex items-center gap-1">
+                  <Building className="w-4 h-4 text-white/80" />
+                  <span><strong>Ward:</strong> {getCombinedWardInfo(patient)}</span>
                 </div>
+              )}
+            </div>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-1">
+                <User className="w-4 h-4 text-white/80" />
+                <span><strong>Age:</strong> {getPatientAge()}</span>
+              </div>
+              {isIPDPatient && (
+                <div className="flex items-center gap-1">
+                  <Activity className="w-4 h-4 text-white/80" />
+                  <span>
+                    <strong>Status:</strong>
+                    <span
+                      className={`ml-1 px-2 py-1 rounded-full text-xs font-semibold ${
+                        patient?.status?.toUpperCase() === "ADMITTED"
+                          ? "bg-green-200 text-green-900"
+                          : patient?.status === "Under Treatment"
+                          ? "bg-yellow-200 text-yellow-900"
+                          : patient?.status?.toUpperCase() === "DISCHARGED"
+                          ? "bg-gray-200 text-gray-900"
+                          : "bg-blue-200 text-blue-900"
+                      }`}
+                    >
+                      {patient?.status?.toUpperCase() || "N/A"}
+                    </span>
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-1">
+                <Calendar className="w-4 h-4 text-white/80" />
+                <span><strong>Gender:</strong> {patient?.gender || "N/A"}</span>
               </div>
             </div>
-          )}
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-1">
+                <FileText className="w-4 h-4 text-white/80" />
+                <span><strong>Diagnosis:</strong> {patient?.diagnosis || "N/A"}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
+
           <div className="flex flex-wrap items-center justify-between gap-4 mt-4">
             <div className="flex flex-wrap gap-2">
               <button
@@ -575,6 +592,7 @@ const NursingAndTreatment = () => {
                 <Heart className="w-4 h-4" /> Show Vital Signs
               </button>
             </div>
+
             {activeSection === "records" && (
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-2">
@@ -589,6 +607,7 @@ const NursingAndTreatment = () => {
                   >
                     <Search className="w-4 h-4" />
                   </button>
+
                   <div className={`transition-all duration-300 ease-in-out ${
                     isSearchExpanded ? "w-64 opacity-100" : "w-0 opacity-0"
                   } overflow-hidden`}>
@@ -632,6 +651,7 @@ const NursingAndTreatment = () => {
             />
           </div>
         )}
+
         {activeSection === "records" && (
           <div className="animate-fadeIn">
             {searchQuery && (
@@ -764,3 +784,8 @@ const NursingAndTreatment = () => {
 };
 
 export default NursingAndTreatment;
+
+
+
+
+

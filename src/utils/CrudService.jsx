@@ -682,7 +682,15 @@ export const getOpdAppointmentById = (appointmentId) => {
 };
 
 
+// 
+
 // get pass post
 // POST create gatepass
 export const createGatepass = (data) =>
   axiosInstance.post("/ipd/ipdrowaid/gatepass", data);
+
+
+// post api for nursing
+// POST create new IPD nursing record
+export const createIpdNursingRecord = (data) =>
+  axiosInstance.post("/ipd/nursing", data);

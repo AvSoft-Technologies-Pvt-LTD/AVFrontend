@@ -327,13 +327,15 @@ const PatientMedicalRecordDetails = () => {
 
   // Handle second opinion navigation
   const handleSecondOpinion = () => {
-    navigate("/second-opinion", {
-      state: {
-        patientId,
-        recordId,
-        recordType: recordTab?.toLowerCase(),
-        recordData: selectedRecord,
-      },
+    const recordToPass = {
+      ...selectedRecord,
+      patientId,
+      recordId,
+      recordType: recordTab?.toLowerCase(),
+      // Include any other necessary data that the SecondOpinion component might need
+    };
+    navigate("/patientdashboard/second-opinion", { 
+      state: { selectedRecord: recordToPass } 
     });
   };
 

@@ -24,25 +24,36 @@ const LabResultsForm = ({ data = {}, onSave, onPrint, hospitalName, ptemail }) =
   }, [activeTab, patientId]);
 
   // Fetch lab tests
-  useEffect(() => {
-    getLabTests()
-      .then((res) => {
-        const normalizedData = res.data.map((item) => ({
+useEffect(() => {
+  console.log("Fetching lab tests..."); // Log when fetching starts
+
+  getLabTests()
+    .then((res) => {
+      console.log("Raw response from API:", res.data); // Log raw API data
+
+      const normalizedData = res.data.map((item) => {
+        const normalizedItem = {
           id: item.id,
-          name: item.name || item.testName || "Unknown Test",
+          name: item.title || item.testName || "Unknown Test",
           code:
             item.code ||
             item.testCode ||
             (item.name ? item.name.toLowerCase().replace(/\s+/g, "_") : "N/A"),
           instructions: item.instructions || item.description || "No instructions provided",
-        }));
-        setLabTests(normalizedData);
-      })
-      .catch((error) => {
-        console.error("Error fetching lab tests:", error);
-        setLabTests([]);
+        };
+        console.log("Normalized item:", normalizedItem); // Log each normalized item
+        return normalizedItem;
       });
-  }, []);
+
+      setLabTests(normalizedData);
+      console.log("Lab tests set in state:", normalizedData); // Log final state
+    })
+    .catch((error) => {
+      console.error("Error fetching lab tests:", error);
+      setLabTests([]);
+    });
+}, []);
+
 
   // Search filter
   useEffect(() => {
@@ -63,7 +74,8 @@ const LabResultsForm = ({ data = {}, onSave, onPrint, hospitalName, ptemail }) =
       const payload = {
         patientId,
         doctorId: doctorId || 1,
-        context: (activeTab || "").toUpperCase(),
+        context: (activeTab || "").toUpperCase(), 
+      contextId: patient?.id || 0, 
         labIds,
       };
       console.log("Payload for createLabAction:", payload);
