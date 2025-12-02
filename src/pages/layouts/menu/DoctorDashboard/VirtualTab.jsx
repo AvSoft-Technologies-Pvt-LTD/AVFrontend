@@ -50,12 +50,12 @@ const VirtualTab = forwardRef(
     const [verifiedPatient, setVerifiedPatient] = useState(null);
     const { setPatient } = usePatientContext();
     const [consultationFormData, setConsultationFormData] = useState({
-      scheduledDate: getCurrentDateArray(),
-      scheduledTime: null,
-      duration: 30,
-      symptoms: [],
-      notes: "",
-    });
+  scheduledDate: new Date().toISOString().split("T")[0], // "yyyy-MM-dd"
+  scheduledTime: null,
+  duration: 30,
+  symptoms: [],
+  notes: "",
+});
 
     useImperativeHandle(ref, () => ({
       openScheduleConsultationModal: () => openModal("verifyPatient"),
@@ -77,28 +77,28 @@ const VirtualTab = forwardRef(
       fetchSymptoms();
     }, []);
 
-    const fetchAvailability = async (dateArray) => {
-      try {
-        if (!doctorId) {
-          setAvailableSlots([]);
-          return;
-        }
-        let dateStr;
-        if (Array.isArray(dateArray) && dateArray.length === 3) {
-          dateStr = `${dateArray[0]}-${String(dateArray[1]).padStart(2, "0")}-${String(dateArray[2]).padStart(2, "0")}`;
-        } else if (typeof dateArray === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateArray)) {
-          dateStr = dateArray;
-        } else {
-          setAvailableSlots([]);
-          return;
-        }
-        const res = await getDoctorAvailabilityByDate(doctorId, dateStr);
-        const data = res?.data || {};
-        formatSlots(data.availability || [], data.bookedSlots || []);
-      } catch (err) {
-        setAvailableSlots([]);
-      }
-    };
+const fetchAvailability = async (dateArrayOrString) => {
+  try {
+    if (!doctorId) {
+      setAvailableSlots([]);
+      return;
+    }
+    let dateStr;
+    if (Array.isArray(dateArrayOrString) && dateArrayOrString.length === 3) {
+      dateStr = `${dateArrayOrString[0]}-${String(dateArrayOrString[1]).padStart(2, "0")}-${String(dateArrayOrString[2]).padStart(2, "0")}`;
+    } else if (typeof dateArrayOrString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateArrayOrString)) {
+      dateStr = dateArrayOrString; // Already in "yyyy-MM-dd" format
+    } else {
+      setAvailableSlots([]);
+      return;
+    }
+    const res = await getDoctorAvailabilityByDate(doctorId, dateStr);
+    const data = res?.data || {};
+    formatSlots(data.availability || [], data.bookedSlots || []);
+  } catch (err) {
+    setAvailableSlots([]);
+  }
+};
 
     const formatSlots = (availability = [], booked = []) => {
       if (!availability.length) {
@@ -199,114 +199,99 @@ const VirtualTab = forwardRef(
       openModal("viewPatient");
     };
 
-    const handleEditPatient = (p) => {
-      if (!p) return;
-      setSelectedPatient(p);
-      let dateArray = getCurrentDateArray();
-      if (Array.isArray(p.scheduledDate) && p.scheduledDate.length === 3) {
-        dateArray = p.scheduledDate;
-      } else if (p.scheduledDate && p.scheduledDate !== "N/A") {
-        const parts = p.scheduledDate.split("-");
-        if (parts.length === 3) {
-          dateArray = [parseInt(parts[0]), parseInt(parts[1]), parseInt(parts[2])];
+ const handleEditPatient = (p) => {
+  if (!p) return;
+  setSelectedPatient(p);
+  let dateStr = new Date().toISOString().split("T")[0];
+  if (p.scheduledDate && p.scheduledDate !== "N/A") {
+    dateStr = p.scheduledDate; // Already in "yyyy-MM-dd" format
+  }
+  setConsultationFormData({
+    scheduledDate: dateStr,
+    scheduledTime: p.slotId ? Number(p.slotId) : null,
+    duration: p.duration || 30,
+    symptoms: [],
+    notes: p.consultationNotes || "",
+  });
+  closeModal("viewPatient");
+  openModal("editPatient");
+};
+
+
+  const handleScheduleConsultation = async () => {
+  try {
+    const selectedSlot = consultationFormData.scheduledTime;
+    if (!selectedSlot) return;
+    const patientIdToUse = verifiedPatient?.id || patientId || 1;
+    const scheduledDateArray = typeof consultationFormData.scheduledDate === 'string'
+      ? consultationFormData.scheduledDate.split('-').map(Number)
+      : consultationFormData.scheduledDate;
+    const payload = {
+      doctorId,
+      patientId: patientIdToUse,
+      scheduledDate: scheduledDateArray,
+      slotId: Number(selectedSlot),
+      duration: Number(consultationFormData.duration) || 30,
+      symptomIds: (consultationFormData.symptoms || [])
+        .map((s) => Number(s.value))
+        .filter(Boolean),
+      consultationNotes: consultationFormData.notes || "",
+    };
+    await createVirtualAppointment(payload);
+    closeModal("scheduleConsultation");
+    await fetchAllPatients();
+  } catch (error) {}
+};
+
+const handleUpdateConsultation = async (formDataParam) => {
+  try {
+    if (!selectedPatient?.id) return;
+    const formData = formDataParam || consultationFormData;
+    const selectedSlot = formData.scheduledTime ?? consultationFormData.scheduledTime;
+    if (selectedSlot === null || selectedSlot === undefined) return;
+    let scheduledDateArray;
+    if (typeof formData.scheduledDate === 'string') {
+      scheduledDateArray = formData.scheduledDate.split('-').map(Number);
+    } else if (Array.isArray(formData.scheduledDate)) {
+      scheduledDateArray = formData.scheduledDate;
+    } else {
+      return;
+    }
+    const payload = {
+      doctorId,
+      patientId: selectedPatient.patientId || patientId || 1,
+      scheduledDate: scheduledDateArray,
+      slotId: Number(selectedSlot),
+      duration: Number(formData.duration) || 30,
+      symptomIds: (formData.symptoms || []).map(s => {
+        if (typeof s === 'object' && s !== null) {
+          return Number(s.value || s.id || s);
         }
-      }
-      setConsultationFormData({
-        scheduledDate: dateArray,
-        scheduledTime: p.slotId ? Number(p.slotId) : null,
-        duration: p.duration || 30,
-        symptoms: [],
-        notes: p.consultationNotes || "",
-      });
-      closeModal("viewPatient");
-      openModal("editPatient");
+        return Number(s);
+      }).filter(Boolean),
+      consultationNotes: formData.notes || "",
     };
+    await updateVirtualAppointment(selectedPatient.id, payload);
+    closeModal("editPatient");
+    await fetchAllPatients();
+  } catch (error) {}
+};
 
-    const handleScheduleConsultation = async () => {
-      try {
-        const selectedSlot = consultationFormData.scheduledTime;
-        if (!selectedSlot) return;
-        const patientIdToUse = verifiedPatient?.id || patientId || 1;
-        const scheduledDateArray = Array.isArray(consultationFormData.scheduledDate)
-          ? consultationFormData.scheduledDate
-          : String(consultationFormData.scheduledDate).split("-").map(Number);
-        const payload = {
-          doctorId,
-          patientId: patientIdToUse,
-          scheduledDate: scheduledDateArray,
-          slotId: Number(selectedSlot),
-          duration: Number(consultationFormData.duration) || 30,
-          symptomIds: (consultationFormData.symptoms || [])
-            .map((s) => Number(s.value))
-            .filter(Boolean),
-          consultationNotes: consultationFormData.notes || "",
-        };
-        await createVirtualAppointment(payload);
-        closeModal("scheduleConsultation");
-        await fetchAllPatients();
-      } catch (error) {}
-    };
-
-    const handleUpdateConsultation = async (formDataParam) => {
-      try {
-        if (!selectedPatient?.id) return;
-        const formData = formDataParam || consultationFormData;
-        const selectedSlot = formData.scheduledTime ?? consultationFormData.scheduledTime;
-        if (selectedSlot === null || selectedSlot === undefined) return;
-        let scheduledDateArray;
-        if (Array.isArray(formData.scheduledDate)) {
-          scheduledDateArray = formData.scheduledDate;
-        } else if (typeof formData.scheduledDate === 'string') {
-          const dateParts = formData.scheduledDate.includes('-')
-            ? formData.scheduledDate.split('-')
-            : formData.scheduledDate.split('/');
-          if (dateParts.length === 3) {
-            scheduledDateArray = [
-              parseInt(dateParts[0]),
-              parseInt(dateParts[1]),
-              parseInt(dateParts[2])
-            ];
-          } else {
-            return;
-          }
-        } else {
-          return;
-        }
-        const payload = {
-          doctorId,
-          patientId: selectedPatient.patientId || patientId || 1,
-          scheduledDate: scheduledDateArray,
-          slotId: Number(selectedSlot),
-          duration: Number(formData.duration) || 30,
-          symptomIds: (formData.symptoms || []).map(s => {
-            if (typeof s === 'object' && s !== null) {
-              return Number(s.value || s.id || s);
-            }
-            return Number(s);
-          }).filter(Boolean),
-          consultationNotes: formData.notes || "",
-        };
-        await updateVirtualAppointment(selectedPatient.id, payload);
-        closeModal("editPatient");
-        await fetchAllPatients();
-      } catch (error) {}
-    };
-
-    const handleVerifyPatient = (patient) => {
-      setVerifiedPatient(patient);
-      closeModal("verifyPatient");
-      const date = getCurrentDateArray();
-      const newForm = {
-        scheduledDate: date,
-        scheduledTime: null,
-        duration: 30,
-        symptoms: [],
-        notes: "",
-      };
-      setConsultationFormData(newForm);
-      fetchAvailability(date);
-      openModal("scheduleConsultation");
-    };
+const handleVerifyPatient = (patient) => {
+  setVerifiedPatient(patient);
+  closeModal("verifyPatient");
+  const date = new Date().toISOString().split("T")[0]; // "yyyy-MM-dd"
+  const newForm = {
+    scheduledDate: date,
+    scheduledTime: null,
+    duration: 30,
+    symptoms: [],
+    notes: "",
+  };
+  setConsultationFormData(newForm);
+  fetchAvailability(date);
+  openModal("scheduleConsultation");
+};
 
     const columns = [
       {

@@ -17,7 +17,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { updatePatient } from "../../../../context-api/authSlice";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { getPatientById, getPatientPhoto } from "../../../../utils/masterService";
+import { getPatientById } from "../../../../utils/masterService";
 
 const formFields = {
   personal: [
@@ -64,16 +64,11 @@ const Settings = () => {
       try {
         const response = await getPatientById(patientId);
         const patient = response.data;
+
         if (patient.photo) {
-          try {
-            const photoRes = await getPatientPhoto(patient.photo);
-            const blob = photoRes.data;
-            const imageUrl = URL.createObjectURL(blob);
-            setProfileImage(imageUrl);
-          } catch (e) {
-            console.warn("Failed to load patient photo");
-          }
+          setProfileImage(patient.photo);
         }
+
         const formattedDob = Array.isArray(patient.dob)
           ? new Date(patient.dob[0], patient.dob[1] - 1, patient.dob[2]).toISOString().split("T")[0]
           : "";
@@ -100,77 +95,57 @@ const Settings = () => {
     setHasUnsavedChanges(true);
   };
 
-  const handleFileUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => setProfileImage(reader.result);
-    reader.readAsDataURL(file);
-    setHasUnsavedChanges(true);
+ const handleFileUpload = (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onloadend = () => {
+    setProfileImage(reader.result); // This is the base64 string
   };
+  reader.readAsDataURL(file);
+  setHasUnsavedChanges(true);
+};
 
-  const handleSaveChanges = async (e) => {
-    e.preventDefault();
-    try {
-      setIsSaving(true);
-      const updatedFormData = new FormData();
-      updatedFormData.append("firstName", formData.firstName || "");
-      updatedFormData.append("middleName", formData.middleName || "");
-      updatedFormData.append("lastName", formData.lastName || "");
-      updatedFormData.append("phone", formData.phone || "");
-      updatedFormData.append("email", formData.email || "");
-      updatedFormData.append("genderId", formData.genderId || "");
-      updatedFormData.append("currentPassword", formData.currentPassword || "");
-      updatedFormData.append("Password", formData.newPassword || "");
-      updatedFormData.append("confirmPassword", formData.confirmPassword || "");
-      updatedFormData.append("aadhaar", formData.aadhaar || "");
-      updatedFormData.append("dob", formData.dob || "");
-      updatedFormData.append("occupation", formData.occupation || "");
-      updatedFormData.append("pinCode", formData.pinCode || "");
-      updatedFormData.append("city", formData.city || "");
-      updatedFormData.append("district", formData.district || "");
-      updatedFormData.append("state", formData.state || "");
-      if (fileInputRef.current?.files?.[0]) {
-        updatedFormData.append("photo", fileInputRef.current.files[0]);
-      }
-      await dispatch(updatePatient({ id: patientId, formData: updatedFormData })).unwrap();
-      toast.success("Patient updated successfully!");
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 2500);
-      setIsEditMode(false);
-      setHasUnsavedChanges(false);
-      const response = await getPatientById(patientId);
-      const patient = response.data;
-      if (patient.photo) {
-        try {
-          const photoRes = await getPatientPhoto(patient.photo);
-          const blob = photoRes.data;
-          const imageUrl = URL.createObjectURL(blob);
-          setProfileImage(imageUrl);
-        } catch (e) {
-          console.warn("Failed to load patient photo");
-        }
-      }
-      const formattedDob = Array.isArray(patient.dob)
-        ? new Date(patient.dob[0], patient.dob[1] - 1, patient.dob[2]).toISOString().split("T")[0]
-        : "";
-      const permanentAddress = `${patient.pinCode || ""}, ${patient.city || ""}, ${patient.district || ""
-        }, ${patient.state || ""}`.trim();
-      setFormData({
-        ...patient,
-        dob: formattedDob,
-        permanentAddress,
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: "",
-      });
-    } catch (error) {
-      console.error("Failed to save patient:", error);
-      toast.error(error.message || "Failed to save changes. Please try again.");
-    } finally {
-      setIsSaving(false);
-    }
-  };
+const handleSaveChanges = async (e) => {
+  e.preventDefault();
+  try {
+    setIsSaving(true);
+
+    const updatedFormData = {
+      firstName: formData.firstName || "",
+      middleName: formData.middleName || "",
+      lastName: formData.lastName || "",
+      phone: formData.phone || "",
+      email: formData.email || "",
+      genderId: formData.genderId || "",
+      currentPassword: formData.currentPassword || "",
+      Password: formData.newPassword || "",
+      confirmPassword: formData.confirmPassword || "",
+      aadhaar: formData.aadhaar || "",
+      dob: formData.dob || "",
+      occupation: formData.occupation || "",
+      pinCode: formData.pinCode || "",
+      city: formData.city || "",
+      district: formData.district || "",
+      state: formData.state || "",
+      photo: profileImage, // <-- This is the base64 string
+    };
+
+    const response = await dispatch(updatePatient({ id: patientId, formData: updatedFormData })).unwrap();
+
+    toast.success("Patient updated successfully!");
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 2500);
+    setIsEditMode(false);
+    setHasUnsavedChanges(false);
+  } catch (error) {
+    console.error("Failed to save patient:", error);
+    toast.error(error.message || "Failed to save changes. Please try again.");
+  } finally {
+    setIsSaving(false);
+  }
+};
+
 
   const handleCancelEdit = () => {
     setIsEditMode(false);
@@ -386,8 +361,8 @@ const Settings = () => {
                     key={tab}
                     onClick={() => setActiveTab(tab)}
                     className={`inline-flex items-center gap-3 px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${isActive
-                        ? "bg-[var(--primary-color)] text-white shadow-lg"
-                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                      ? "bg-[var(--primary-color)] text-white shadow-lg"
+                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
                       }`}
                     disabled={!isEditMode && tab === "password"}
                   >

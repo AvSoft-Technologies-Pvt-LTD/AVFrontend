@@ -91,17 +91,17 @@ export const updatePatient = createAsyncThunk(
     try {
       const response = await axiosInstance.put(
         `${BASE_URL}/patient/${id}`,
-        formData,
+        formData, // Send the JSON payload directly
         {
           headers: {
-            'Content-Type': 'multipart/form-data',
+            'Content-Type': 'application/json', // Use application/json
           },
         }
       );
-      console.log("Update patient API response:", response.data); // <-- Add this
+      console.log("Update patient API response:", response.data);
       return response.data;
     } catch (error) {
-      console.error("Update patient API error:", error.response?.data || error.message); // <-- Add this
+      console.error("Update patient API error:", error.response?.data || error.message);
       return rejectWithValue(
         error.response?.data?.message ||
         error.response?.data?.error ||
@@ -111,6 +111,7 @@ export const updatePatient = createAsyncThunk(
     }
   }
 );
+
 
 // Update Doctor
 export const updateDoctor = createAsyncThunk(

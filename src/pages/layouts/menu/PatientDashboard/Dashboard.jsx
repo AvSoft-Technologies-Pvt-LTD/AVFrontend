@@ -15,7 +15,7 @@ import {
 } from '../../../../utils/CrudService';
 import {
   getHealthConditions, getCoverageTypes, getRelations, getBloodGroups,
-  getPatientById, getPatientPhoto,
+  getPatientById,
   getAllSurgeries, getAllAllergies,
 } from '../../../../utils/masterService';
 
@@ -768,7 +768,7 @@ function Dashboard() {
             <div className="w-24 h-24 md:w-24 md:h-24 rounded-full border border-gray-400 overflow-hidden mb-3">
               {profileData?.photo ? (
                   <img
-                    src={getPatientPhoto(profileData.photo)}
+                    src={profileData.photo}
                     alt="Profile"
                     className="w-full h-full object-cover"
                     onError={(e) => {
