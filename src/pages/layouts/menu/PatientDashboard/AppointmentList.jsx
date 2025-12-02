@@ -6,7 +6,10 @@ import DynamicTable from "../../../../components/microcomponents/DynamicTable";
 import PaymentGateway from "../../../../components/microcomponents/PaymentGatway";
 import ReusableModal from "../../../../components/microcomponents/Modal";
 import { initializeAuth } from "../../../../context-api/authSlice";
-import { getAppointmentsByPatientId, getLabPaymentsByPatient } from "../../../../utils/CrudService";
+import {
+  getAppointmentsByPatientId,
+  getLabPaymentsByPatient,
+} from "../../../../utils/CrudService";
 
 const toDateObject = (value) => {
   if (!value) return null;
@@ -36,21 +39,26 @@ const formatTimeValue = (value) => {
   if (Array.isArray(value) && value.length >= 2) {
     const [hours, minutes = 0] = value;
     const suffix = hours >= 12 ? "PM" : "AM";
-    const normalizedHours = ((hours % 12) || 12).toString().padStart(2, "0");
+    const normalizedHours = (hours % 12 || 12).toString().padStart(2, "0");
     const normalizedMinutes = String(minutes).padStart(2, "0");
     return `${normalizedHours}:${normalizedMinutes}${suffix}`;
   }
   if (typeof value === "string") {
     const trimmed = value.trim();
-    if (/\d\s?[AP]M$/i.test(trimmed) || /\d{1,2}:\d{2}\s?[AP]M$/i.test(trimmed)) {
+    if (
+      /\d\s?[AP]M$/i.test(trimmed) ||
+      /\d{1,2}:\d{2}\s?[AP]M$/i.test(trimmed)
+    ) {
       return trimmed.toUpperCase().replace(/\s+/g, "");
     }
-    const timeMatch = trimmed.match(/^(\d{1,2})(?::(\d{1,2}))?(?::(\d{1,2}))?$/);
+    const timeMatch = trimmed.match(
+      /^(\d{1,2})(?::(\d{1,2}))?(?::(\d{1,2}))?$/
+    );
     if (timeMatch) {
       const hours = parseInt(timeMatch[1], 10);
       const minutes = parseInt(timeMatch[2] || "0", 10);
       const suffix = hours >= 12 ? "PM" : "AM";
-      const normalizedHours = ((hours % 12) || 12).toString().padStart(2, "0");
+      const normalizedHours = (hours % 12 || 12).toString().padStart(2, "0");
       const normalizedMinutes = String(minutes).padStart(2, "0");
       return `${normalizedHours}:${normalizedMinutes}${suffix}`;
     }
@@ -87,20 +95,21 @@ const mapDoctorAppointment = (appointment) => {
     appointment?.consultationMode ||
     appointment?.appointmentType ||
     appointment?.type ||
-    "PHYSICAL" // Default to PHYSICAL if not specified
-  ).toString().trim().toUpperCase();
+    "PHYSICAL"
+  ) // Default to PHYSICAL if not specified
+    .toString()
+    .trim()
+    .toUpperCase();
 
   // Normalize to match backend enum values
-  if (consultationType === 'VIDEO' || consultationType === 'VIRTUAL') {
-    consultationType = 'VIRTUAL';
+  if (consultationType === "VIDEO" || consultationType === "VIRTUAL") {
+    consultationType = "VIRTUAL";
   } else {
-    consultationType = 'PHYSICAL'; // Default to PHYSICAL for any other value
+    consultationType = "PHYSICAL"; // Default to PHYSICAL for any other value
   }
 
   const rawStatus =
-    appointment?.status ||
-    appointment?.appointmentStatus ||
-    appointment?.state;
+    appointment?.status || appointment?.appointmentStatus || appointment?.state;
   const location =
     appointment?.location ||
     appointment?.hospitalName ||
@@ -123,7 +132,8 @@ const mapDoctorAppointment = (appointment) => {
     else if (lower === "rejected") normalizedStatus = "Rejected";
     else if (lower === "rescheduled") normalizedStatus = "Rescheduled";
     else if (lower === "paid") normalizedStatus = "Paid";
-    else if (lower === "pending" || lower === "upcoming") normalizedStatus = "Booking Request Sent";
+    else if (lower === "pending" || lower === "upcoming")
+      normalizedStatus = "Booking Request Sent";
     else normalizedStatus = rawStatus;
   }
   const rejectReason =
@@ -132,7 +142,7 @@ const mapDoctorAppointment = (appointment) => {
     appointment?.reason ??
     appointment?.notes ??
     null;
- return {
+  return {
     ...appointment,
     doctorName: doctorName || "-",
     specialty: specializationName || "-",
@@ -143,7 +153,8 @@ const mapDoctorAppointment = (appointment) => {
     rawTime,
     consultationType: consultationType, // Use the normalized consultation type
     status: normalizedStatus,
-    location: consultationType.toLowerCase() === 'virtual' ? 'Online' : (location || "-"), // Show 'Online' for virtual appointments
+    location:
+      consultationType.toLowerCase() === "virtual" ? "Online" : location || "-", // Show 'Online' for virtual appointments
     fees: fees ?? "-",
     symptoms: symptoms || "-",
     rejectReason: rejectReason || undefined,
@@ -151,26 +162,41 @@ const mapDoctorAppointment = (appointment) => {
 };
 
 const mapLabAppointment = (appointment) => {
-  const bookingId = appointment?.bookingId || appointment?.id || appointment?.referenceId;
-  const status = appointment?.status || appointment?.appointmentStatus || appointment?.state;
+  const bookingId =
+    appointment?.bookingId || appointment?.id || appointment?.referenceId;
+  const status =
+    appointment?.status || appointment?.appointmentStatus || appointment?.state;
   return {
     ...appointment,
     bookingId: bookingId || "-",
-    testTitle: appointment?.testTitle || appointment?.testName || appointment?.procedureName || "-",
+    testTitle:
+      appointment?.testTitle ||
+      appointment?.testName ||
+      appointment?.procedureName ||
+      "-",
     labName: appointment?.labName || appointment?.providerName || "-",
     status: status || "Pending",
     location: appointment?.location || appointment?.address || "-",
     date: formatDateValue(
-      appointment?.date || appointment?.appointmentDate || appointment?.scheduledDate
+      appointment?.date ||
+        appointment?.appointmentDate ||
+        appointment?.scheduledDate
     ),
     time: formatTimeValue(
-      appointment?.time || appointment?.appointmentTime || appointment?.scheduledTime
+      appointment?.time ||
+        appointment?.appointmentTime ||
+        appointment?.scheduledTime
     ),
     rawDate:
-      appointment?.date || appointment?.appointmentDate || appointment?.scheduledDate,
+      appointment?.date ||
+      appointment?.appointmentDate ||
+      appointment?.scheduledDate,
     rawTime:
-      appointment?.time || appointment?.appointmentTime || appointment?.scheduledTime,
-    reportTime: appointment?.reportTime || appointment?.expectedReportTime || "-",
+      appointment?.time ||
+      appointment?.appointmentTime ||
+      appointment?.scheduledTime,
+    reportTime:
+      appointment?.reportTime || appointment?.expectedReportTime || "-",
     amountPaid: appointment?.amountPaid ?? appointment?.paymentAmount ?? "-",
     paymentStatus: appointment?.paymentStatus || appointment?.status || "-",
   };
@@ -184,7 +210,14 @@ const normalizeAppointmentsResponse = (payload) => {
   }
   if (Array.isArray(payload)) {
     payload.forEach((appointment) => {
-      const typeValue = (appointment?.type || appointment?.appointmentType || appointment?.category || "").toString().toLowerCase();
+      const typeValue = (
+        appointment?.type ||
+        appointment?.appointmentType ||
+        appointment?.category ||
+        ""
+      )
+        .toString()
+        .toLowerCase();
       if (typeValue.includes("lab")) {
         labAppointments.push(mapLabAppointment(appointment));
       } else {
@@ -194,8 +227,18 @@ const normalizeAppointmentsResponse = (payload) => {
     return { doctorAppointments, labAppointments };
   }
   if (typeof payload === "object") {
-    const doctorKeys = ["doctorAppointments", "doctor", "doctorAppointmentList", "doctorAppointmentsList"];
-    const labKeys = ["labAppointments", "lab", "labAppointmentList", "labAppointmentsList"];
+    const doctorKeys = [
+      "doctorAppointments",
+      "doctor",
+      "doctorAppointmentList",
+      "doctorAppointmentsList",
+    ];
+    const labKeys = [
+      "labAppointments",
+      "lab",
+      "labAppointmentList",
+      "labAppointmentsList",
+    ];
     doctorKeys.forEach((key) => {
       if (Array.isArray(payload[key])) {
         doctorAppointments = payload[key].map(mapDoctorAppointment);
@@ -206,21 +249,36 @@ const normalizeAppointmentsResponse = (payload) => {
         labAppointments = payload[key].map(mapLabAppointment);
       }
     });
-    if (Array.isArray(payload.appointments) && doctorAppointments.length === 0 && labAppointments.length === 0) {
+    if (
+      Array.isArray(payload.appointments) &&
+      doctorAppointments.length === 0 &&
+      labAppointments.length === 0
+    ) {
       return normalizeAppointmentsResponse(payload.appointments);
     }
   }
   return { doctorAppointments, labAppointments };
 };
 
-const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = false, data }) => {
+const AppointmentList = ({
+  displayType,
+  showOnlyTable = false,
+  isOverview = false,
+  data,
+}) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const patientIdFromStore = useSelector(
     (state) => state.auth?.user?.patientId ?? state.auth?.patientId ?? null
   );
-  const patientId = patientIdFromStore == null ? null : Number(patientIdFromStore);
-  const initialType = displayType || localStorage.getItem("appointmentTab") || "doctor";
+  const patientDetails = useSelector(
+    (state) => state.auth?.user ?? state.auth?.patientId ?? null
+  );
+
+  const patientId =
+    patientIdFromStore == null ? null : Number(patientIdFromStore);
+  const initialType =
+    displayType || localStorage.getItem("appointmentTab") || "doctor";
   const [state, setState] = useState({
     t: initialType,
     d: [],
@@ -269,7 +327,9 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
       setState((prev) => {
         if (mappedPayments.length > 0) {
           const existingIds = new Set(prev.l.map((appt) => appt.bookingId));
-          const newPayments = mappedPayments.filter((p) => p.bookingId && !existingIds.has(p.bookingId));
+          const newPayments = mappedPayments.filter(
+            (p) => p.bookingId && !existingIds.has(p.bookingId)
+          );
           console.log("New Payments to Merge:", newPayments);
           return {
             ...prev,
@@ -288,7 +348,8 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
   useEffect(() => {
     if (data) {
       console.log(" Data provided, normalizing...");
-      const { doctorAppointments, labAppointments } = normalizeAppointmentsResponse(data);
+      const { doctorAppointments, labAppointments } =
+        normalizeAppointmentsResponse(data);
       setState((prev) => ({
         ...prev,
         d: doctorAppointments,
@@ -307,7 +368,8 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
         setState((prev) => ({ ...prev, loading: true }));
         const response = await getAppointmentsByPatientId(patientId);
         const payload = response?.data ?? [];
-        const { doctorAppointments, labAppointments } = normalizeAppointmentsResponse(payload);
+        const { doctorAppointments, labAppointments } =
+          normalizeAppointmentsResponse(payload);
         setState((prev) => ({
           ...prev,
           d: doctorAppointments,
@@ -359,7 +421,9 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
 
   const handlePaymentFailure = (error) => {
     console.error("Payment Failure:", error);
-    alert(`Payment failed: ${error.reason}. Please try again or use a different payment method.`);
+    alert(
+      `Payment failed: ${error.reason}. Please try again or use a different payment method.`
+    );
     setState((prev) => ({ ...prev, showPaymentGateway: false }));
   };
 
@@ -389,8 +453,14 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
     else if (status === "Rejected")
       return (
         <div className="flex items-center space-x-2 paragraph mt-1 text-xs sm:text-sm">
-          <span className="bg-red-100 text-red-700 px-2 py-1 rounded-full">Rejected</span>
-          {!isOverview && <div><strong>Reason:</strong> {appointment.rejectReason}</div>}
+          <span className="bg-red-100 text-red-700 px-2 py-1 rounded-full">
+            Rejected
+          </span>
+          {!isOverview && (
+            <div>
+              <strong>Reason:</strong> {appointment.rejectReason}
+            </div>
+          )}
         </div>
       );
     else if (status === "Rescheduled")
@@ -433,7 +503,11 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
     { header: "Date", accessor: "date" },
     { header: "Time", accessor: "time" },
     { header: "Consultation Type", accessor: "consultationType" },
-    { header: "Status", accessor: "status", cell: (row) => getStatusBadge(row.status, row) },
+    {
+      header: "Status",
+      accessor: "status",
+      cell: (row) => getStatusBadge(row.status, row),
+    },
   ];
 
   const doctorFilters = [
@@ -468,7 +542,11 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
       header: "Status",
       accessor: "status",
       cell: (appointment) => (
-        <span className={`px-2 py-1 rounded-full paragraph text-xs sm:text-sm ${getStatusClass(appointment.status)}`}>
+        <span
+          className={`px-2 py-1 rounded-full paragraph text-xs sm:text-sm ${getStatusClass(
+            appointment.status
+          )}`}
+        >
           {appointment.status || "Pending"}
         </span>
       ),
@@ -477,7 +555,11 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
       header: "Action",
       cell: (appointment) => (
         <button
-          onClick={() => navigate(`/patientdashboard/track-appointment/${appointment.bookingId}`)}
+          onClick={() =>
+            navigate(
+              `/patientdashboard/track-appointment/${appointment.bookingId}`
+            )
+          }
           className="group relative inline-flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-1 border border-[var(--accent-color)] text-[var(--accent-color)] rounded-full font-semibold bg-transparent overflow-hidden transition-colors duration-300 ease-in-out hover:bg-[var(--accent-color)] hover:text-white text-xs sm:text-sm"
         >
           <FiMapPin className="text-sm sm:text-lg transition-transform duration-300 ease-in-out group-hover:scale-110" />
@@ -521,10 +603,10 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
     { key: "specialty", label: "Speciality", subtitleKey: true },
     { key: "date", label: "Date" },
     { key: "time", label: "Time" },
-    { 
-      key: "status", 
+    {
+      key: "status",
       label: "Status",
-      format: (value) => value === "Pending" ? "Booking Request Sent" : value 
+      format: (value) => (value === "Pending" ? "Booking Request Sent" : value),
     },
     { key: "consultationType", label: "Consultation Type" },
     { key: "fees", label: "Fees" },
@@ -533,46 +615,75 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
   ];
 
   const labViewFields = [
-    { key: "bookingId", label: "ID",  },
-   
-    { key: "labName", label: "Lab Name" ,titleKey: true },
+    { key: "bookingId", label: "ID" },
+
+    { key: "labName", label: "Lab Name", titleKey: true },
     { key: "testTitle", label: "Test Name" },
-     { key: "status", label: "Test Status" },
-   
+    { key: "status", label: "Test Status" },
   ];
 
   const overviewData = isOverview
     ? (state.t === "doctor" ? state.d : state.l).slice(0, 3)
-    : (state.t === "doctor" ? state.d : state.l);
+    : state.t === "doctor"
+    ? state.d
+    : state.l;
 
-  const tabs = displayType === "doctor" ? [] : [
-    { label: "Doctor Appointments", value: "doctor" },
-    { label: "Lab Appointments", value: "lab" },
-  ];
+  const tabs =
+    displayType === "doctor"
+      ? []
+      : [
+          { label: "Doctor Appointments", value: "doctor" },
+          { label: "Lab Appointments", value: "lab" },
+        ];
 
-  const tabActions = displayType === "doctor" ? [] : [
-    {
-      label: state.t === "lab" ? "Book Appointment" : "Book Appointment",
-      onClick: () =>
-        navigate(state.t === "lab" ? "/patientdashboard/lab-tests" : "/patientdashboard/book-appointment"),
-      className: "group relative inline-flex items-center px-3 sm:px-6 py-1 sm:py-2 view-btn text-xs sm:text-sm",
-      icon: <FiCalendar className="text-sm sm:text-lg mr-1 sm:mr-2" />,
-    },
-  ];
+  const tabActions =
+    displayType === "doctor"
+      ? []
+      : [
+          {
+            label: state.t === "lab" ? "Book Appointment" : "Book Appointment",
+            onClick: () =>
+              navigate(
+                state.t === "lab"
+                  ? "/patientdashboard/lab-tests"
+                  : "/patientdashboard/book-appointment"
+              ),
+            className:
+              "group relative inline-flex items-center px-3 sm:px-6 py-1 sm:py-2 view-btn text-xs sm:text-sm",
+            icon: <FiCalendar className="text-sm sm:text-lg mr-1 sm:mr-2" />,
+          },
+        ];
+  console.log("APPOIMTMENT DETAILS", state.selectedAppointment);
 
   return (
     <div className={isOverview ? "p-0" : "p-2 sm:p-4 md:p-6"}>
       {state.showPaymentGateway && state.selectedAppointment && (
         <PaymentGateway
           isOpen={state.showPaymentGateway}
-          onClose={() => setState((prev) => ({ ...prev, showPaymentGateway: false }))}
-          amount={state.selectedAppointment.fees}
-          bookingId={state.selectedAppointment.id}
-          merchantName="PocketClinic"
-          methods={["upi", "card", "netbanking", "wallet", "paylater"]}
+          onClose={() =>
+            setState((prev) => ({ ...prev, showPaymentGateway: false }))
+          }
+          amount={state?.selectedAppointment?.fees}
+          bookingId={state?.selectedAppointment?.id}
+          invoiceId={`INV-${patientId}-${
+            state?.selectedAppointment?.id
+          }-${Date.now()}`}
+          doctorId={state?.selectedAppointment?.doctorId || 1}
+          patientId={patientId}
+          appointmentId={state?.selectedAppointment?.id}
+          patientDetails={{
+            name: state?.selectedAppointment?.patientName,
+            email: state?.selectedAppointment?.patientEmailId,
+            phone: state?.selectedAppointment?.patientPhoneNumber,
+          }}
+          services={[
+            {
+              id: state?.selectedAppointment?.appointmentUid,
+              type: state?.selectedAppointment?.consultationType,
+            },
+          ]}
           onPay={handlePaymentSuccess}
           onPaymentFailure={handlePaymentFailure}
-          currency="₹"
         />
       )}
       {state.showModal && state.selectedAppointment && (
@@ -580,7 +691,11 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
           isOpen={state.showModal}
           onClose={() => setState((prev) => ({ ...prev, showModal: false }))}
           mode="viewProfile"
-          title={state.t === "doctor" ? "Doctor Appointment Details" : "Lab Appointment Details"}
+          title={
+            state.t === "doctor"
+              ? "Doctor Appointment Details"
+              : "Lab Appointment Details"
+          }
           data={state.selectedAppointment}
           viewFields={state.t === "doctor" ? doctorViewFields : labViewFields}
           size="lg"
@@ -596,7 +711,9 @@ const AppointmentList = ({ displayType, showOnlyTable = false, isOverview = fals
           onTabChange={handleTabChange}
           showSearchBar={!isOverview}
           showPagination={!isOverview}
-          filters={isOverview ? [] : (state.t === "doctor" ? doctorFilters : labFilters)}
+          filters={
+            isOverview ? [] : state.t === "doctor" ? doctorFilters : labFilters
+          }
           loading={state.loading}
         />
       )}

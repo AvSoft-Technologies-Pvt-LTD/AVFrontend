@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import * as Lucide from "lucide-react";
+import axios from "axios";
 
 const PaymentGateway = ({
   isOpen,
@@ -13,6 +14,13 @@ const PaymentGateway = ({
   currency = "₹",
   bookingDetails = null,
   asPage = false,
+  // New props for backend integration
+  invoiceId,
+  doctorId,
+  patientId,
+  appointmentId,
+  patientDetails = {},
+  services = [],
 }) => {
   // Navigation hook
   const navigate = useNavigate();
@@ -41,6 +49,29 @@ const PaymentGateway = ({
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [discountAmount, setDiscountAmount] = useState(0);
   const [errors, setErrors] = useState({});
+  const [razorpayLoaded, setRazorpayLoaded] = useState(false);
+  const [orderData, setOrderData] = useState(null);
+  const [scriptError, setScriptError] = useState(false);
+
+  // API Configuration from environment variables (Vite uses import.meta.env)
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+  const RAZORPAY_KEY_ID = import.meta.env.VITE_RAZORPAY_KEY_ID;
+
+  // Validate required environment variables
+  if (!API_BASE_URL) {
+    console.error('API_BASE_URL is not defined in environment variables');
+  }
+  if (!RAZORPAY_KEY_ID) {
+    console.error('RAZORPAY_KEY_ID is not defined in environment variables');
+  }
+
+  // Log initial configuration (don't log sensitive data in production)
+  // console.log('[PaymentGateway] Initialized with config:', {
+  //   apiBase: API_BASE_URL ? 'configured' : 'missing',
+  //   isOpen: isOpen,
+  //   amount: amount,
+  //   razorpayKey: RAZORPAY_KEY_ID ? 'configured' : 'missing'
+  // });
 
   // Effects
   useEffect(() => {
@@ -58,6 +89,37 @@ const PaymentGateway = ({
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
+
+  // Load Razorpay script
+  useEffect(() => {
+    if (!razorpayLoaded && !scriptError && (isOpen || asPage)) {
+      loadRazorpayScript();
+    }
+  }, [isOpen, asPage, razorpayLoaded, scriptError]);
+
+  // Load Razorpay script dynamically
+  const loadRazorpayScript = () => {
+    if (window.Razorpay) {
+      setRazorpayLoaded(true);
+      setScriptError(false);
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => {
+      console.log("Razorpay script loaded");
+      setRazorpayLoaded(true);
+      setScriptError(false);
+    };
+    script.onerror = () => {
+      console.error("Failed to load Razorpay script");
+      setScriptError(true);
+      setRazorpayLoaded(false);
+    };
+    document.body.appendChild(script);
+  };
 
   // Handlers
   const formatTime = (seconds) => {
@@ -77,8 +139,61 @@ const PaymentGateway = ({
     setOtp("");
     setQrCodeGenerated(false);
     setErrors({});
+    setOrderData(null);
   };
 
+  // Create Order in Backend
+  const createRazorpayOrder = async () => {
+    console.log('[PaymentGateway] Creating Razorpay order...', {
+      amount: finalAmount,
+      appointmentId,
+      patientId,
+      invoiceId,
+      doctorId
+    });
+
+    try {
+      setLoading(true);
+
+      const response = await axios.post(`${API_BASE_URL}/razorpay/create-order`, {
+        invoiceId: invoiceId || `INV-${Date.now()}`,
+        doctorId: doctorId || 1,
+        patientId: patientId || 1,
+        appointmentId: appointmentId || bookingId,
+        currency: "INR",
+        captured: true,
+        bank: "",
+        billedAmount: finalAmount,
+        paidAmount: finalAmount,
+        services: services.length > 0 ? services : [
+          { id: 1, type: "Healthcare Consultation" }
+        ]
+      });
+
+      console.log("Order created:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("Failed to create order:", error);
+      throw new Error('Failed to create payment order. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Verify Payment in Backend
+  const verifyRazorpayPayment = async (verificationData) => {
+    try {
+      const response = await axios.post(`${API_BASE_URL}/razorpay/verify`, verificationData);
+      console.log("Payment verified:", response.data);
+      console.log("Now Create Billing")
+      return response.data;
+    } catch (error) {
+      console.error("Payment verification failed:", error);
+      throw new Error('Payment verification failed. Please try again.');
+    }
+  };
+
+  // Handle OTP Verification (for demo/simulation)
   const handleOtpVerify = async () => {
     if (!otp || otp.length !== 4) {
       alert("Please enter the 4-digit OTP.");
@@ -87,15 +202,29 @@ const PaymentGateway = ({
 
     setLoading(true);
     try {
-      const data = {
-        action: "verify",
-        otp,
-        upiMode: selectedMethod === "upi" ? upiPaymentOption : "",
-        name: selectedMethod === "card" ? cardData.name : "",
-      };
-      const delay = new Promise((resolve) => setTimeout(resolve, 4000));
-      await Promise.all([onPay(selectedMethod, data), delay]);
-      setCurrentStep("success");
+      // Simulate OTP verification
+      const delay = new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // For demo purposes, simulate successful verification
+      if (otp === "1234") {
+        // In real scenario, this would be handled by Razorpay
+        // For now, we'll simulate success
+        setCurrentStep("success");
+
+        // Call the original onPay callback if provided
+        if (onPay) {
+          await onPay(selectedMethod, {
+            action: "verify",
+            status: "success",
+            amount: finalAmount,
+            orderId: orderData?.orderId
+          });
+        }
+      } else {
+        throw new Error("Invalid OTP. Try '1234' for demo.");
+      }
+
+      await delay;
     } catch (error) {
       alert(error?.message || "Payment verification failed. Please try again.");
     } finally {
@@ -103,10 +232,13 @@ const PaymentGateway = ({
     }
   };
 
+  // Handle Payment Submission
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log('[PaymentGateway] Payment submission started', { selectedMethod, finalAmount });
     const newErrors = {};
 
+    // Validation based on selected method
     if (selectedMethod === "upi" && upiPaymentOption === "id") {
       if (!upiId.trim()) {
         newErrors.upiId = "UPI ID is required";
@@ -154,26 +286,138 @@ const PaymentGateway = ({
 
     setErrors({});
     setLoading(true);
-    try {
-      const baseData =
-        selectedMethod === "upi"
-          ? { upiId, upiMode: upiPaymentOption }
-          : selectedMethod === "card"
-          ? cardData
-          : selectedMethod === "netbanking"
-          ? { bank: selectedBank }
-          : { wallet: selectedWallet };
 
-      await onPay(selectedMethod, { ...baseData, action: "create" });
-      setCurrentStep("otp-step");
+    try {
+      // Ensure Razorpay is loaded
+      if (!window.Razorpay) {
+        throw new Error('Payment gateway is not available. Please refresh the page and try again.');
+      }
+
+      // Step 1: Create order in backend
+      const orderResponse = await createRazorpayOrder();
+      setOrderData(orderResponse);
+
+      // Step 2: Initialize Razorpay
+      const options = {
+        key: RAZORPAY_KEY_ID,
+        amount: orderResponse.amount * 100, // Convert to paise
+        currency: orderResponse.currency,
+        name: merchantName,
+        description: `Payment for ${invoiceId ? `Invoice #${invoiceId}` : `Booking #${bookingId}`}`,
+        order_id: orderResponse.orderId,
+        handler: async (response) => {
+          console.log('[PaymentGateway] Razorpay payment response:', response);
+
+          if (!response.razorpay_payment_id || !response.razorpay_order_id || !response.razorpay_signature) {
+            throw new Error('Invalid payment response from gateway');
+          }
+
+          // Step 3: Verify payment in backend
+          const verificationData = {
+            razorpayOrderId: response.razorpay_order_id,
+            razorpayPaymentId: response.razorpay_payment_id,
+            razorpaySignature: response.razorpay_signature,
+            paymentMethod: selectedMethod,
+            invoiceId: orderResponse.invoiceId,
+            appointmentId: orderResponse.appointmentId,
+            patientId: patientId || 1,
+            doctorId: doctorId || 1,
+            // Add method-specific data
+            ...(selectedMethod === 'upi' && { 
+              upiId, 
+              upiMode: upiPaymentOption,
+              vpa: upiId 
+            }),
+            ...(selectedMethod === 'card' && { 
+              cardNumber: cardData.number.replace(/\s+/g, ""), 
+              cardName: cardData.name,
+              cardExpiry: cardData.expiry,
+              cardCvv: cardData.cvv
+            }),
+            ...(selectedMethod === 'netbanking' && { bank: selectedBank }),
+            ...(selectedMethod === 'wallet' && { wallet: selectedWallet })
+          };
+
+          try {
+            const verificationResponse = await verifyRazorpayPayment(verificationData);
+            
+            if (verificationResponse.status === 'SUCCESS') {
+              setCurrentStep("success");
+              
+              // Call the original onPay callback
+              if (onPay) {
+                onPay(selectedMethod, {
+                  action: "success",
+                  ...verificationData,
+                  amount: finalAmount,
+                  bookingId: bookingId
+                });
+              }
+              
+              // Update booking/appointment status
+              updateBookingStatus(orderResponse.appointmentId || bookingId);
+            } else {
+              throw new Error("Payment verification failed");
+            }
+          } catch (error) {
+            console.error("Payment verification error:", error);
+            alert("Payment verification failed. Please contact support.");
+            setCurrentStep("method-selection");
+          }
+        },
+        prefill: {
+          name: patientDetails.name || orderResponse.patientName || "Patient Name",
+          email: patientDetails.email || orderResponse.patientEmail || "patient@example.com",
+          contact: patientDetails.phone || orderResponse.patientPhone || "9876543210"
+        },
+        notes: {
+          bookingId: bookingId,
+          appointmentId: appointmentId,
+          invoiceId: invoiceId,
+          patientId: patientId
+        },
+        theme: {
+          color: "#20B2AA"
+        },
+        modal: {
+          ondismiss: () => {
+            console.log("Payment modal dismissed");
+            setLoading(false);
+          }
+        }
+      };
+
+      // Additional options for UPI
+      if (selectedMethod === "upi" && upiPaymentOption === "qr") {
+        options.method = {
+          upi: {
+            flow: "collect",
+            vpa: "merchant@razorpay"
+          }
+        };
+      }
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+      
     } catch (error) {
-      alert(error?.message || "Failed to start payment. Please try again.");
+      console.error("Payment initialization error:", error);
+      alert(error?.message || "Failed to initialize payment. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGenerateQR = () => setQrCodeGenerated(true);
+  // Update booking status after successful payment
+  const updateBookingStatus = async (bookingId) => {
+    try {
+      // Call your booking service API
+      // await axios.put(`/api/bookings/${bookingId}/status`, { status: "confirmed" });
+      console.log(`Booking ${bookingId} status updated to confirmed`);
+    } catch (error) {
+      console.error("Failed to update booking status:", error);
+    }
+  };
 
   // Fixed help handler using React Router navigation
   const handleHelp = () => {
@@ -203,6 +447,16 @@ const PaymentGateway = ({
     setAppliedCoupon(null);
     setDiscountAmount(0);
     setCouponCode("");
+  };
+
+  // Handle payment simulation for demo
+  const handleDemoPayment = async () => {
+    if (selectedMethod === "upi" && upiPaymentOption === "qr" && !qrCodeGenerated) {
+      setQrCodeGenerated(true);
+      return;
+    }
+
+    await handleSubmit(new Event('submit'));
   };
 
   // Data
@@ -254,19 +508,63 @@ const PaymentGateway = ({
     appointmentDate: new Date().toLocaleDateString(),
     appointmentTime: "10:30 AM",
     patient: [
-      { name: "Kavya Patil", age: 28, gender: "Female", patientId: "PT12345" },
+      { name: patientDetails.name || "Kavya Patil", age: 28, gender: "Female", patientId: "PT12345" },
     ],
-    contactEmail: "kavya.patil@email.com",
-    contactPhone: "9876543210",
+    contactEmail: patientDetails.email || "kavya.patil@email.com",
+    contactPhone: patientDetails.phone || "9876543210",
     fareBreakup: {
       consultationFee: amount * 0.8,
       taxes: amount * 0.15,
       serviceFee: amount * 0.05,
     },
   };
+  
   const displayBookingDetails = bookingDetails || defaultBookingDetails;
 
-  // Render
+  // Render loading state - only show during initial script loading
+  if (!razorpayLoaded && !scriptError && (isOpen || asPage)) {
+    return (
+      <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-50">
+        <div className="bg-white rounded-xl shadow-2xl p-8 flex flex-col items-center">
+          <div className="w-12 h-12 border-4 border-[color:var(--primary-color,#20B2AA)] border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p className="text-gray-600">Loading payment gateway...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Render error state
+  if (scriptError && (isOpen || asPage)) {
+    return (
+      <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-50">
+        <div className="bg-white rounded-xl shadow-2xl p-8 flex flex-col items-center max-w-md">
+          <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
+            <Lucide.AlertCircle className="w-6 h-6 text-red-600" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Payment Gateway Unavailable</h3>
+          <p className="text-gray-600 text-center mb-4">
+            Unable to load the payment gateway. Please check your internet connection and try again.
+          </p>
+          <button
+            onClick={() => {
+              setScriptError(false);
+              loadRazorpayScript();
+            }}
+            className="px-4 py-2 bg-[color:var(--primary-color,#20B2AA)] text-white rounded-lg hover:bg-[color:var(--primary-color,#20B2AA)]/90 transition-colors"
+          >
+            Retry
+          </button>
+          <button
+            onClick={onClose}
+            className="mt-2 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (!isOpen && !asPage) return null;
 
   return (
@@ -319,12 +617,12 @@ const PaymentGateway = ({
                         Amount to Pay
                       </div>
                       <div className="text-xl font-bold">
-                        {currency} {finalAmount}
+                        {currency} {finalAmount.toFixed(2)}
                       </div>
                       {discountAmount > 0 && (
                         <div className="text-xs text-green-200 mt-1">
                           Saved {currency}
-                          {discountAmount}
+                          {discountAmount.toFixed(2)}
                         </div>
                       )}
                     </div>
@@ -338,6 +636,11 @@ const PaymentGateway = ({
                   {bookingId && (
                     <div className="text-white/60 text-xs mt-2">
                       ID: #{bookingId}
+                    </div>
+                  )}
+                  {invoiceId && (
+                    <div className="text-white/60 text-xs">
+                      Invoice: #{invoiceId}
                     </div>
                   )}
                 </div>
@@ -386,7 +689,7 @@ const PaymentGateway = ({
                             </div>
                             <div className="text-xs text-green-200">
                               Saved {currency}
-                              {appliedCoupon.amount}
+                              {appliedCoupon.amount.toFixed(2)}
                             </div>
                           </div>
                         </div>
@@ -448,7 +751,7 @@ const PaymentGateway = ({
                 {/* Security Badge */}
                 <div className="flex items-center gap-1 text-white/60 text-xs">
                   <Lucide.Shield size={12} />
-                  <span>SSL Encrypted</span>
+                  <span>SSL Encrypted • Powered by Razorpay</span>
                 </div>
               </div>
 
@@ -579,18 +882,22 @@ const PaymentGateway = ({
                                       />
                                       <button
                                         type="button"
-                                        onClick={handleGenerateQR}
+                                        onClick={() => setQrCodeGenerated(true)}
                                         className="absolute z-10 bg-red-600 text-white py-1 px-3 rounded-full hover:bg-red-700 transition-colors font-medium text-xs"
                                       >
                                         Generate QR
                                       </button>
                                     </>
                                   ) : (
-                                    <img
-                                      src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=upi://pay?pa=merchant@upi&pn=${merchantName}&am=${finalAmount}&cu=INR&tr=TXN123456`}
-                                      alt="QR Code for Payment"
-                                      className="w-28 h-28"
-                                    />
+                                    <div className="p-4">
+                                      <div className="text-xs text-gray-500 mb-2">
+                                        Scan QR with UPI App
+                                      </div>
+                                      <div className="w-24 h-24 bg-black mx-auto"></div>
+                                      <div className="text-xs text-gray-400 mt-2">
+                                        Powered by Razorpay
+                                      </div>
+                                    </div>
                                   )}
                                 </div>
                                 {qrCodeGenerated ? (
@@ -600,9 +907,14 @@ const PaymentGateway = ({
                                     </p>
                                     <button
                                       type="submit"
-                                      className="w-full py-3 bg-[color:var(--primary-color,#20B2AA)] text-white rounded-lg hover:bg-[color:var(--primary-color,#20B2AA)]/90 transition-colors font-medium"
+                                      disabled={!razorpayLoaded}
+                                      className={`w-full py-3 rounded-lg font-medium transition-colors ${
+                                        razorpayLoaded
+                                          ? "bg-[color:var(--primary-color,#20B2AA)] text-white hover:bg-[color:var(--primary-color,#20B2AA)]/90"
+                                          : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                                      }`}
                                     >
-                                      Proceed
+                                      {loading ? "Processing..." : `Pay ${currency} ${finalAmount.toFixed(2)}`}
                                     </button>
                                   </div>
                                 ) : (
@@ -637,9 +949,14 @@ const PaymentGateway = ({
                               </div>
                               <button
                                 type="submit"
-                                className="w-full py-3 bg-[color:var(--primary-color,#20B2AA)] text-white rounded-lg hover:bg-[color:var(--primary-color,#20B2AA)]/90 transition-colors font-medium"
+                                disabled={!razorpayLoaded || loading}
+                                className={`w-full py-3 rounded-lg font-medium transition-colors ${
+                                  razorpayLoaded && !loading
+                                    ? "bg-[color:var(--primary-color,#20B2AA)] text-white hover:bg-[color:var(--primary-color,#20B2AA)]/90"
+                                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                                }`}
                               >
-                                Pay {currency} {finalAmount}
+                                {loading ? "Processing..." : `Pay ${currency} ${finalAmount.toFixed(2)}`}
                               </button>
                             </>
                           )}
@@ -731,9 +1048,14 @@ const PaymentGateway = ({
                         </div>
                         <button
                           type="submit"
-                          className="w-full py-3 bg-[color:var(--primary-color,#20B2AA)] text-white rounded-lg hover:bg-[color:var(--primary-color,#20B2AA)]/90 transition-colors font-medium"
+                          disabled={!razorpayLoaded || loading}
+                          className={`w-full py-3 rounded-lg font-medium transition-colors ${
+                            razorpayLoaded && !loading
+                              ? "bg-[color:var(--primary-color,#20B2AA)] text-white hover:bg-[color:var(--primary-color,#20B2AA)]/90"
+                              : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                          }`}
                         >
-                          Pay {currency} {finalAmount}
+                          {loading ? "Processing..." : `Pay ${currency} ${finalAmount.toFixed(2)}`}
                         </button>
                       </form>
                     )}
@@ -760,14 +1082,14 @@ const PaymentGateway = ({
                         </div>
                         <button
                           type="submit"
-                          disabled={!selectedBank}
+                          disabled={!selectedBank || !razorpayLoaded || loading}
                           className={`w-full py-3 rounded-lg font-medium transition-colors ${
-                            selectedBank
+                            selectedBank && razorpayLoaded && !loading
                               ? "bg-[color:var(--primary-color,#20B2AA)] text-white hover:bg-[color:var(--primary-color,#20B2AA)]/90"
                               : "bg-gray-300 text-gray-500 cursor-not-allowed"
                           }`}
                         >
-                          Pay {currency} {finalAmount}
+                          {loading ? "Processing..." : `Pay ${currency} ${finalAmount.toFixed(2)}`}
                         </button>
                       </form>
                     )}
@@ -794,21 +1116,21 @@ const PaymentGateway = ({
                         </div>
                         <button
                           type="submit"
-                          disabled={!selectedWallet}
+                          disabled={!selectedWallet || !razorpayLoaded || loading}
                           className={`w-full py-3 rounded-lg font-medium transition-colors ${
-                            selectedWallet
+                            selectedWallet && razorpayLoaded && !loading
                               ? "bg-[color:var(--primary-color,#20B2AA)] text-white hover:bg-[color:var(--primary-color,#20B2AA)]/90"
                               : "bg-gray-300 text-gray-500 cursor-not-allowed"
                           }`}
                         >
-                          Pay {currency} {finalAmount}
+                          {loading ? "Processing..." : `Pay ${currency} ${finalAmount.toFixed(2)}`}
                         </button>
                       </form>
                     )}
                   </div>
                 )}
 
-                {/* OTP Step */}
+                {/* OTP Step (for demo) */}
                 {currentStep === "otp-step" && (
                   <div className="text-center space-y-4 max-w-sm mx-auto">
                     <div className="w-16 h-16 bg-[color:var(--primary-color,#20B2AA)]/10 rounded-full flex items-center justify-center mx-auto">
@@ -878,16 +1200,30 @@ const PaymentGateway = ({
                         Payment Successful!
                       </h3>
                       <p className="text-sm text-gray-600">
-                        Payment of {currency} {finalAmount} processed
+                        Payment of {currency} {finalAmount.toFixed(2)} processed
                         successfully.
                       </p>
+                      {orderData?.invoiceId && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Invoice #{orderData.invoiceId}
+                        </p>
+                      )}
                     </div>
-                    <button
-                      onClick={onClose}
-                      className="w-full py-3 bg-[color:var(--primary-color,#20B2AA)] text-white rounded-lg hover:bg-[color:var(--primary-color,#20B2AA)]/90 transition-colors font-medium"
-                    >
-                      Close
-                    </button>
+                    <div className="space-y-2">
+                      <button
+                        onClick={onClose}
+                        className="w-full py-3 bg-[color:var(--primary-color,#20B2AA)] text-white rounded-lg hover:bg-[color:var(--primary-color,#20B2AA)]/90 transition-colors font-medium"
+                      >
+                        Close
+                      </button>
+                      <button
+                        onClick={() => window.print()}
+                        className="w-full py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium text-sm"
+                      >
+                        <Lucide.Printer size={16} className="inline mr-2" />
+                        Print Receipt
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -916,12 +1252,12 @@ const PaymentGateway = ({
                         Amount to Pay
                       </div>
                       <div className="text-2xl sm:text-3xl font-bold">
-                        {currency} {finalAmount}
+                        {currency} {finalAmount.toFixed(2)}
                       </div>
                       {discountAmount > 0 && (
                         <div className="text-xs text-green-200 mt-1">
                           You saved {currency}
-                          {discountAmount}
+                          {discountAmount.toFixed(2)}
                         </div>
                       )}
                     </div>
@@ -934,7 +1270,12 @@ const PaymentGateway = ({
                   </div>
                   {bookingId && (
                     <div className="text-white/60 text-xs mt-2">
-                      Invoice ID: #{bookingId}
+                      Booking ID: #{bookingId}
+                    </div>
+                  )}
+                  {invoiceId && (
+                    <div className="text-white/60 text-xs">
+                      Invoice ID: #{invoiceId}
                     </div>
                   )}
                 </div>
@@ -989,7 +1330,7 @@ const PaymentGateway = ({
                             </div>
                             <div className="text-xs text-green-200">
                               {appliedCoupon.discount}% off • Saved {currency}
-                              {appliedCoupon.amount}
+                              {appliedCoupon.amount.toFixed(2)}
                             </div>
                           </div>
                         </div>
@@ -1051,7 +1392,7 @@ const PaymentGateway = ({
                 <div className="mt-auto">
                   <div className="flex items-center gap-2 text-white/60 text-xs">
                     <Lucide.Shield size={16} />
-                    <span>Secured by SSL Encryption</span>
+                    <span>Secured by SSL Encryption • Powered by Razorpay</span>
                   </div>
                 </div>
               </div>
@@ -1073,9 +1414,17 @@ const PaymentGateway = ({
                   )}
                 </div>
                 <h2 className="text-xl sm:text-2xl font-semibold text-[color:var(--primary-color,#20B2AA)]">
-                  {currentStep === "payment-form" && selectedMethod === "upi"
-                    ? "UPI"
-                    : "Payment Options"}
+                  {currentStep === "method-selection"
+                    ? "Payment Options"
+                    : currentStep === "payment-form"
+                    ? selectedMethod === "upi"
+                      ? "UPI Payment"
+                      : selectedMethod === "card"
+                      ? "Card Payment"
+                      : selectedMethod === "netbanking"
+                      ? "Net Banking"
+                      : "Wallet Payment"
+                    : currentStep}
                 </h2>
                 <div className="flex items-center gap-4">
                   <div className="flex flex-col items-end gap-1">
@@ -1204,18 +1553,22 @@ const PaymentGateway = ({
                                         />
                                         <button
                                           type="button"
-                                          onClick={handleGenerateQR}
+                                          onClick={() => setQrCodeGenerated(true)}
                                           className="absolute z-10 bg-red-600 text-white text-sm py-2 px-6 rounded-full hover:bg-red-700 transition-colors font-medium"
                                         >
                                           Generate QR code & pay
                                         </button>
                                       </>
                                     ) : (
-                                      <img
-                                        src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi://pay?pa=merchant@upi&pn=${merchantName}&am=${finalAmount}&cu=INR&tr=TXN123456`}
-                                        alt="QR Code for Payment"
-                                        className="w-48 h-48"
-                                      />
+                                      <div className="p-8">
+                                        <div className="text-sm text-gray-500 mb-3">
+                                          Scan QR with UPI App
+                                        </div>
+                                        <div className="w-40 h-40 bg-black mx-auto"></div>
+                                        <div className="text-xs text-gray-400 mt-3">
+                                          Powered by Razorpay
+                                        </div>
+                                      </div>
                                     )}
                                   </div>
                                   {qrCodeGenerated ? (
@@ -1226,9 +1579,14 @@ const PaymentGateway = ({
                                       </p>
                                       <button
                                         type="submit"
-                                        className="w-full py-3 bg-[color:var(--primary-color,#20B2AA)] text-white rounded-lg hover:bg-[color:var(--primary-color,#20B2AA)]/90 transition-colors font-medium"
+                                        disabled={!razorpayLoaded}
+                                        className={`w-full py-3 rounded-lg font-medium transition-colors ${
+                                          razorpayLoaded
+                                            ? "bg-[color:var(--primary-color,#20B2AA)] text-white hover:bg-[color:var(--primary-color,#20B2AA)]/90"
+                                            : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                                        }`}
                                       >
-                                        Proceed to Payment
+                                        {loading ? "Processing..." : "Proceed to Payment"}
                                       </button>
                                     </div>
                                   ) : (
@@ -1264,9 +1622,14 @@ const PaymentGateway = ({
                                 </div>
                                 <button
                                   type="submit"
-                                  className="w-full py-3 bg-[color:var(--primary-color,#20B2AA)] text-white rounded-lg hover:bg-[color:var(--primary-color,#20B2AA)]/90 transition-colors font-medium"
+                                  disabled={!razorpayLoaded || loading}
+                                  className={`w-full py-3 rounded-lg font-medium transition-colors ${
+                                    razorpayLoaded && !loading
+                                      ? "bg-[color:var(--primary-color,#20B2AA)] text-white hover:bg-[color:var(--primary-color,#20B2AA)]/90"
+                                      : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                                  }`}
                                 >
-                                  Pay {currency} {finalAmount}
+                                  {loading ? "Processing..." : `Pay ${currency} ${finalAmount.toFixed(2)}`}
                                 </button>
                               </>
                             )}
@@ -1366,9 +1729,14 @@ const PaymentGateway = ({
                           </div>
                           <button
                             type="submit"
-                            className="w-full py-3 bg-[color:var(--primary-color,#20B2AA)] text-white rounded-lg hover:bg-[color:var(--primary-color,#20B2AA)]/90 transition-colors font-medium"
+                            disabled={!razorpayLoaded || loading}
+                            className={`w-full py-3 rounded-lg font-medium transition-colors ${
+                              razorpayLoaded && !loading
+                                ? "bg-[color:var(--primary-color,#20B2AA)] text-white hover:bg-[color:var(--primary-color,#20B2AA)]/90"
+                                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                            }`}
                           >
-                            Pay {currency} {finalAmount}
+                            {loading ? "Processing..." : `Pay ${currency} ${finalAmount.toFixed(2)}`}
                           </button>
                         </form>
                       )}
@@ -1401,14 +1769,14 @@ const PaymentGateway = ({
                           </div>
                           <button
                             type="submit"
-                            disabled={!selectedBank}
+                            disabled={!selectedBank || !razorpayLoaded || loading}
                             className={`w-full py-3 rounded-lg font-medium transition-colors ${
-                              selectedBank
+                              selectedBank && razorpayLoaded && !loading
                                 ? "bg-[color:var(--primary-color,#20B2AA)] text-white hover:bg-[color:var(--primary-color,#20B2AA)]/90"
                                 : "bg-gray-300 text-gray-500 cursor-not-allowed"
                             }`}
                           >
-                            Pay {currency} {finalAmount}
+                            {loading ? "Processing..." : `Pay ${currency} ${finalAmount.toFixed(2)}`}
                           </button>
                         </form>
                       )}
@@ -1443,14 +1811,14 @@ const PaymentGateway = ({
                           </div>
                           <button
                             type="submit"
-                            disabled={!selectedWallet}
+                            disabled={!selectedWallet || !razorpayLoaded || loading}
                             className={`w-full py-3 rounded-lg font-medium transition-colors ${
-                              selectedWallet
+                              selectedWallet && razorpayLoaded && !loading
                                 ? "bg-[color:var(--primary-color,#20B2AA)] text-white hover:bg-[color:var(--primary-color,#20B2AA)]/90"
                                 : "bg-gray-300 text-gray-500 cursor-not-allowed"
                             }`}
                           >
-                            Pay {currency} {finalAmount}
+                            {loading ? "Processing..." : `Pay ${currency} ${finalAmount.toFixed(2)}`}
                           </button>
                         </form>
                       )}
@@ -1529,16 +1897,30 @@ const PaymentGateway = ({
                           Payment Successful!
                         </h3>
                         <p className="text-sm text-gray-600">
-                          Your payment of {currency} {finalAmount} has been
+                          Your payment of {currency} {finalAmount.toFixed(2)} has been
                           processed successfully.
                         </p>
+                        {orderData?.invoiceId && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Invoice #{orderData.invoiceId} • Transaction ID: {orderData.orderId}
+                          </p>
+                        )}
                       </div>
-                      <button
-                        onClick={onClose}
-                        className="w-full py-3 bg-[color:var(--primary-color,#20B2AA)] text-white rounded-lg hover:bg-[color:var(--primary-color,#20B2AA)]/90 transition-colors font-medium"
-                      >
-                        Close
-                      </button>
+                      <div className="space-y-3">
+                        <button
+                          onClick={onClose}
+                          className="w-full py-3 bg-[color:var(--primary-color,#20B2AA)] text-white rounded-lg hover:bg-[color:var(--primary-color,#20B2AA)]/90 transition-colors font-medium"
+                        >
+                          Close
+                        </button>
+                        <button
+                          onClick={() => window.print()}
+                          className="w-full py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium text-sm"
+                        >
+                          <Lucide.Printer size={16} className="inline mr-2" />
+                          Print Receipt
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1606,6 +1988,49 @@ const PaymentGateway = ({
                         </div>
                       )
                     )}
+                  </div>
+                </div>
+                {services.length > 0 && (
+                  <div>
+                    <h4 className="font-medium text-sm text-gray-600 mb-2">
+                      Services
+                    </h4>
+                    <ul className="space-y-1">
+                      {services.map((service, index) => (
+                        <li key={index} className="text-sm">
+                          • {service.type}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                <div>
+                  <h4 className="font-medium text-sm text-gray-600 mb-2">
+                    Payment Breakdown
+                  </h4>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span>Consultation Fee:</span>
+                      <span>{currency} {(amount * 0.8).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Taxes:</span>
+                      <span>{currency} {(amount * 0.15).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Service Fee:</span>
+                      <span>{currency} {(amount * 0.05).toFixed(2)}</span>
+                    </div>
+                    {discountAmount > 0 && (
+                      <div className="flex justify-between text-green-600">
+                        <span>Discount:</span>
+                        <span>-{currency} {discountAmount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-bold border-t pt-1 mt-1">
+                      <span>Total:</span>
+                      <span>{currency} {finalAmount.toFixed(2)}</span>
+                    </div>
                   </div>
                 </div>
               </div>

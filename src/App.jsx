@@ -206,6 +206,7 @@ const App = () => {
   );
 
   return (
+    <ColorProvider>
     <PatientProvider>
       <MedicalRecordsProvider>
         <Router>
@@ -244,11 +245,7 @@ const App = () => {
               <Route path="/doctordashboard" element={<DashboardLayout />}>
                 <Route index element={<Overview />} />
                 {sharedRoutes}
-                <Route path="template" element={
-                  <ColorProvider>
-                    <ImageAnnotationCanvas />
-                  </ColorProvider>
-                } />
+                <Route path="template" element={<ImageAnnotationCanvas />} />
                 <Route path="bedroom-management/bedmaster" element={<BedMaster />} />
                 <Route path="scheduler" element={<Scheduler />} />
                 <Route path="scheduler/availability" element={<AvailabilityOverviewPage />} />
@@ -307,7 +304,7 @@ const App = () => {
         </Router>
       </MedicalRecordsProvider>
     </PatientProvider>
-
+    </ColorProvider>
 
   );
 };
