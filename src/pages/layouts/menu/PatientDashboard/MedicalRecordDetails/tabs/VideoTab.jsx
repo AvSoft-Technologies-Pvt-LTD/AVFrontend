@@ -79,30 +79,8 @@ const VideoTab = ({
       <div className="ml-6 mr-6 space-y-4 md:space-y-6">
         {videoRecordings.length > 0 && (
           <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-3 sm:mb-4 md:mb-6 gap-2 sm:gap-3">
-            <div className="flex items-center gap-2 md:gap-3">
-              <Video size={16} className="md:size-[20px] text-red-600" />
-              <h4 className="text-lg md:text-xl font-semibold text-start">
-                Consultation Recordings
-              </h4>
-            </div>
-            <button
-              className="px-2 sm:px-3 py-1 sm:py-1.5 bg-[var(--primary-color)] text-white rounded-md sm:rounded-lg hover:opacity-90 transition-opacity text-xs sm:text-sm self-start md:self-auto"
-              onClick={() => {
-                if (videoRecordings.length > 0) {
-                  setVideoModal({
-                    isOpen: true,
-                    videoUrl: videoRecordings[0].videoUrl,
-                    metadata: {
-                      timestamp: videoRecordings[0].date,
-                      doctorName: videoRecordings[0].doctorName,
-                      type: videoRecordings[0].type,
-                    },
-                  });
-                }
-              }}
-            >
-              View Original
-            </button>
+           
+            
           </div>
         )}
 
@@ -158,7 +136,7 @@ const VideoTab = ({
                           date: row.date || 'N/A'
                         });
                       }}
-                      className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+                      className="px-3 py-1 btn-primary text-white rounded  text-sm"
                     >
                       View Video
                     </button>

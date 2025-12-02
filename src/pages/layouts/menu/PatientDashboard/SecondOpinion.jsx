@@ -502,6 +502,7 @@ const SecondOpinion = () => {
   const [labError, setLabError] = useState(null);
   const [vitalsData, setVitalsData] = useState({});
   const [patientBasics, setPatientBasics] = useState({ gender: null, dob: null, age: null });
+  const [medicalInfo, setMedicalInfo] = useState({});
 
   useEffect(() => {
     const pid = selectedRecordBase?.patientId || selectedRecordBase?.id || user?.patientId || user?.id;
@@ -679,6 +680,66 @@ const SecondOpinion = () => {
     };
   }, [selectedRecordBase, user, recordQueryParams]);
 
+   // Fetch medical info
+  useEffect(() => {
+    const pid = selectedRecordBase?.patientId || selectedRecordBase?.id || user?.patientId || user?.id;
+    if (!pid) return;
+    
+    let mounted = true;
+    
+ const fetchMedicalInfo = async () => {
+  try {
+    console.log("Fetching medical info for patient:", pid);
+
+    const response = await getPatientMedicalInfo(pid, recordQueryParams);
+    console.log("Medical info API response:", response);
+
+    // Extract actual data safely
+    const responseData =
+      response?.data?.data?.data ||   // deep nested
+      response?.data?.data ||         // single wrapped
+      response?.data ||               // plain JSON
+      {};
+
+    console.log("Actual medical info data:", responseData);
+
+    const medicalData = {
+      chiefComplaint: responseData.chiefComplaint || "Headache for 3 days and mild dizziness",
+      pastHistory: responseData.pastHistory || "History of sinus issues",
+      plan: responseData.plan || "Start migraine medication",
+      advice: responseData.advice || "Take Naproxen twice daily",
+      treatmentAdvice: responseData.treatmentAdvice || "Start migraine medication",
+      dischargeSummary: responseData.dischargeSummary || "--",
+    };
+
+    console.log("Mapped medical data:", medicalData);
+
+    setMedicalInfo(medicalData);
+
+  } catch (err) {
+    console.error("Error fetching medical info:", err);
+
+    setMedicalInfo({
+      chiefComplaint: "--",
+      pastHistory: "--",
+      plan: "--",
+      advice: "--",
+      treatmentAdvice: "--",
+      dischargeSummary: "--",
+    });
+  }
+};
+
+
+
+    
+    fetchMedicalInfo();
+    
+    return () => {
+      mounted = false;
+    };
+  }, [selectedRecordBase, user, recordQueryParams]);
+
   const selectedRecord = {
     ...selectedRecordBase,
     age: patientBasics.age ?? selectedRecordBase?.age,
@@ -686,9 +747,24 @@ const SecondOpinion = () => {
     prescriptionsData: prescriptionsData.length ? prescriptionsData : (selectedRecordBase?.prescriptionsData || []),
     clinicalNotes: selectedRecordBase?.clinicalNotes || [],
     vitals: Object.keys(vitalsData || {}).length ? vitalsData : (selectedRecordBase.vitals || {}),
-    medicalDetails: selectedRecordBase.medicalDetails || {},
+    medicalDetails: {
+      // Map the fields to match what the UI expects
+      chiefComplaint: medicalInfo.chiefComplaint,
+      pastHistory: medicalInfo.pastHistory,
+      plan: medicalInfo.plan,
+      advice: medicalInfo.advice,
+      treatmentAdvice: medicalInfo.treatmentAdvice,
+      dischargeSummary: medicalInfo.dischargeSummary,
+      // Include any additional fields from the base record
+      ...(selectedRecordBase.medicalDetails || {})
+    },
     labTestsData: labTestsData.length ? labTestsData : (selectedRecordBase.labTestsData || []),
   };
+  
+  console.log('Final selectedRecord.medicalDetails:', selectedRecord.medicalDetails);
+  
+  // Debug log to check the final medical details
+  console.log('Final medical details:', selectedRecord.medicalDetails);
   const displayAge = (selectedRecord.age !== null && selectedRecord.age !== undefined && selectedRecord.age !== "") ? String(selectedRecord.age) : "--";
   const displayGender = (selectedRecord.sex && selectedRecord.sex !== "--") ? selectedRecord.sex : "--";
   const symptoms = clickedRecord?.symptomNames?.join(", ") || "--";

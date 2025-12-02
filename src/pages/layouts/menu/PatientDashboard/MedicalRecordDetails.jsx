@@ -277,7 +277,7 @@ const PatientMedicalRecordDetails = () => {
     console.log("Record ID:", recordId);
     console.log("Record Type:", recordTab);
   }, [selectedRecord, patientId, recordId, recordTab]);
-
+const firstSymptomNames = selectedRecord?.symptoms?.[0]?.symptomNames || [];
   // State declarations
   const [labScansData, setLabScansData] = useState([]);
   const [labScansLoading, setLabScansLoading] = useState(false);
@@ -661,6 +661,12 @@ const ScrollHintBox = ({ children, className = "" }) => {
     : "";
 
   // Profile fields
+  // Format symptoms for display
+  const symptomNames = selectedRecord?.symptomNames || [];
+  const formattedSymptoms = symptomNames.length > 0
+    ? symptomNames.join(', ')
+    : 'No symptoms recorded';
+
   const profileFields = [
     { label: "Age", value: displayAge },
     { label: "Gender", value: displayGender },
@@ -686,8 +692,7 @@ const ScrollHintBox = ({ children, className = "" }) => {
             ),
           },
         ]),
-    { label: "Diagnosis", value: displayDiagnosis },
-    { label: "K/C/O", value: selectedRecord["K/C/O"] ?? "--" },
+    { label: "Symptoms", value: formattedSymptoms },
   ];
 
   // Details tabs

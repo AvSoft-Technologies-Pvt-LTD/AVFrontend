@@ -608,11 +608,11 @@ const GatePass = () => {
                   required
                 >
                   <option value="">Select ID Type</option>
-                  {idProofTypes.map((type) => (
-                    <option key={type.id} value={type.id}>
-                      {type.name}
-                    </option>
-                  ))}
+                {idProofTypes.map((type) => (
+  <option key={type.id} value={type.id}>
+    {type.typeName || type.name || 'Unnamed ID Type'}
+  </option>
+))}
                 </select>
               </div>
               <div className="relative floating-input" data-placeholder="ID Proof Number">
@@ -658,11 +658,11 @@ const GatePass = () => {
                     required
                   >
                     <option value="">Select Time Slot</option>
-                    {visitingTimeSlots.map((slot) => (
-                      <option key={slot.id} value={slot.id}>
-                        {slot.startTime} - {slot.endTime} {slot.name ? `(${slot.name})` : ""}
-                      </option>
-                    ))}
+                   {visitingTimeSlots.map((slot) => (
+  <option key={slot.id} value={slot.id}>
+    {slot.timeSlot || `${slot.startTime || ''} - ${slot.endTime || ''} ${slot.name ? `(${slot.name})` : ''}`.trim()}
+  </option>
+))}
                   </select>
                 </div>
               )}

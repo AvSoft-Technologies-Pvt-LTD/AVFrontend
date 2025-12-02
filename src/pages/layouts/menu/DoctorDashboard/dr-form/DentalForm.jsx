@@ -221,19 +221,19 @@ const DentalForm = ({ data, onSave, onPrint }) => {
             <div className="font-medium mb-3 text-[var(--primary-color)]">
               Reference Teeth Numbers
             </div>
-            <div className="flex flex-col gap-3">
-              <div className="grid grid-cols-8 gap-2">
+            <div className="flex flex-col gap-4">
+              <div className="grid grid-cols-8 gap-4">
                 {DENTAL_TEETH_NUMBERS.map((num) => (
                   <label
                     key={num}
-                    className="flex justify-center items-center text-xs cursor-pointer hover:bg-blue-50 py-2 rounded"
+                    className="flex justify-center items-center text-xs cursor-pointer hover:bg-blue-50 py-2  rounded"
                   >
-                    <span className="text-[var(--primary-color)]">{num}</span>
+                    <span className="text-[var(--primary-color)]   ">{num}</span>
                     <input
                       type="checkbox"
                       checked={currentPlan.teeth.includes(num)}
                       onChange={() => handleTeethChange(num)}
-                      className="ml-1 text-[var(--accent-color)] focus:ring-[var(--accent-color)]"
+                      className="mr-1 text-[var(--accent-color)] me-1 focus:ring-[var(--accent-color)]"
                     />
                   </label>
                 ))}

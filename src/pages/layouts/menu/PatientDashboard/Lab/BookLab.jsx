@@ -3,8 +3,10 @@ import { useSelector } from "react-redux";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Clock, MapPin, Home, TestTube, User, DollarSign, FileText, CheckCircle, Circle } from "lucide-react";
 import { createAppointment } from "../../../../../utils/CrudService";
-
+import { useDispatch } from 'react-redux';
+import { clearCart } from '../../../../../context-api/cartSlice';
 const BookLab = () => {
+  const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
   const { patientId } = useSelector((state) => state.auth);
@@ -107,20 +109,24 @@ const BookLab = () => {
       };
       const { data } = await createAppointment(payload);
       console.log("labs data",data);
-      navigate("/patientdashboard/payment1", {
-        state: {
-          name: form.fullName,
-          email: form.email,
-          date: form.date,
-          time: form.time,
-          location: visitLocation,
-          amount: totalPrice,
-          testTitle: cart.map((test) => test.title).join(", "),
-          labName: lab.labName,
-          labLocation: lab.location,
-          appointment: data,
-        },
-      });
+      if (data) {
+        // Clear the cart after successful booking
+        dispatch(clearCart());
+        navigate("/patientdashboard/payment1", {
+          state: {
+            name: form.fullName,
+            email: form.email,
+            date: form.date,
+            time: form.time,
+            location: visitLocation,
+            amount: totalPrice,
+            testTitle: cart.map((test) => test.title).join(", "),
+            labName: lab.labName,
+            labLocation: lab.location,
+            appointment: data,
+          },
+        });
+      }
     } catch (e) {
       console.error(e?.response?.data || e.message);
     } finally {

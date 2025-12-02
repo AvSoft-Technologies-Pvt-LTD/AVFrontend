@@ -694,3 +694,8 @@ export const createGatepass = (data) =>
 // POST create new IPD nursing record
 export const createIpdNursingRecord = (data) =>
   axiosInstance.post("/ipd/nursing", data);
+
+
+// POST: Get lab available tests
+export const getLabAvailableTests = (requestData) =>
+  axiosInstance.post('/lab-available-tests', requestData);

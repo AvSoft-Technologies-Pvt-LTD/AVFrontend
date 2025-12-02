@@ -1,6 +1,9 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { MapPin, Star, Clock, CheckCircle2, ArrowLeft } from "lucide-react";
 import ProfileCard from "../../../../../components/microcomponents/ProfileCard";
+import { getLabAvailableTests } from "../../../../../utils/CrudService";
+import { useState } from "react";
+import { toast } from "react-toastify";
 
 const LabBooking = () => {
   const location = useLocation();
@@ -28,11 +31,45 @@ const LabBooking = () => {
     0
   );
 
-  const handleClick = () => {
-    navigate(`/patientdashboard/book-app`, { state: { lab, cart } });
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleClick = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Prepare request data
+      const requestData = {
+        labcenterId: lab.id || 0,
+        rating: lab.rating || 0.1,
+        reportTime: lab.reportTime || "24 Hours",
+        homeCollection: lab.homeCollection || false,
+        testIds: cart.filter(item => item.type === 'test').map(test => test.id || 0),
+        scanIds: cart.filter(item => item.type === 'scan').map(scan => scan.id || 0),
+        packageIds: cart.filter(item => item.type === 'package').map(pkg => pkg.id || 0)
+      };
+
+      // Call the API
+      const response = await getLabAvailableTests(requestData);
+      
+      // If API call is successful, navigate to the booking page
+      if (response.data) {
+        navigate(`/patientdashboard/book-app`, { 
+          state: { 
+            lab: { ...lab, ...response.data.labDetails },
+            cart,
+            availableSlots: response.data.availableSlots || []
+          } 
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching available test slots:", error);
+      toast.error("Failed to fetch available time slots. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const initials = (lab?.name || "")
+  const initials = (lab?.labName || lab?.name || "")
     .split(" ")
     .filter(Boolean)
     .slice(0, 2)
@@ -52,7 +89,7 @@ const LabBooking = () => {
     
 
       {/* Lab Summary via ProfileCard */}
-      <ProfileCard initials={initials} name={lab.name} fields={profileFields}>
+      <ProfileCard initials={initials} name={lab.labName || lab.name || 'Lab Center'} fields={profileFields}>
         <div className="flex items-center gap-1 bg-white/10 rounded-full px-2 py-1 text-xs">
           <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
           <span>{lab.rating ?? "4.5"}</span>
@@ -98,14 +135,15 @@ const LabBooking = () => {
         <p className="text-sm text-gray-600 mb-4">Choose home collection or visit the lab for your selected tests.</p>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="text-sm text-gray-700">
-            <div><span className="font-semibold">Lab:</span> {lab.name}</div>
+            <div><span className="font-semibold">Lab:</span> {lab.labName || lab.name || 'Lab Center'}</div>
             <div><span className="font-semibold">Location:</span> {lab.location}</div>
           </div>
           <button
             onClick={handleClick}
-            className="px-5 py-2 rounded-lg bg-[var(--primary-color)] text-white font-medium hover:opacity-90"
+            disabled={isLoading}
+            className={`px-5 py-2 rounded-lg bg-[var(--primary-color)] text-white font-medium hover:opacity-90 ${isLoading ? 'opacity-75 cursor-not-allowed' : ''}`}
           >
-            Book Appointment
+            {isLoading ? 'Checking Availability...' : 'Book Appointment'}
           </button>
         </div>
       </div>

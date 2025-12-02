@@ -77,22 +77,22 @@ const LabTab = ({
           <DynamicTable
             columns={[
               { header: "Date", accessor: "date" },
-              { header: "Scan Name", accessor: "scanName" },
+              { header: "Test name", accessor: "testName" },
               { header: "Result", accessor: "result" },
               { header: "Normal Range", accessor: "normalRange" },
               { header: "Status", accessor: "status" },
-              {
-                header: "Actions",
-                accessor: "actions",
-                Cell: ({ row }) => (
-                  <button
-                    onClick={() => window.open(row.original.fileUrl, "_blank")}
-                    className="text-blue-500 hover:text-blue-700"
-                  >
-                    View
-                  </button>
-                ),
-              },
+              // {
+              //   header: "Actions",
+              //   accessor: "actions",
+              //   Cell: ({ row }) => (
+              //     <button
+              //       onClick={() => window.open(row.original.fileUrl, "_blank")}
+              //       className="text-blue-500 hover:text-blue-700"
+              //     >
+              //       View
+              //     </button>
+              //   ),
+              // },
             ]}
             showSearchBar={true}
             data={labScansData}
