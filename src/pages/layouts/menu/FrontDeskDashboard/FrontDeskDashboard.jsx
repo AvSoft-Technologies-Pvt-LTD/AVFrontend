@@ -162,10 +162,18 @@ export default function FrontDeskDashboard() {
           animate={{ opacity: 1, y: 0 }}
           className="bg-gradient-to-br from-blue-50/50 to-green-50/30 shadow-sm border border-gray-100 p-6 rounded-2xl hover:shadow-md transition-shadow"
         >
-          <h2 className="font-semibold text-[var(--primary-color)] text-lg mb-3 flex items-center gap-2">
-            <MdQueue className="text-[var(--accent-color)] text-xl" />
-            Live Token Queue
-          </h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold text-[var(--primary-color)] text-lg flex items-center gap-2">
+              <MdQueue className="text-[var(--accent-color)] text-xl" />
+              Live Token Queue
+            </h2>
+            <button 
+              onClick={() => navigate('/frontdeskdashboard/tokens')}
+              className="text-xs font-medium text-[var(--accent-color)] hover:underline flex items-center gap-1"
+            >
+              View All <span className="text-xs">→</span>
+            </button>
+          </div>
           <div className="space-y-3">
             {["T-101", "T-102", "T-103", "T-104"].map((t, i) => (
               <div

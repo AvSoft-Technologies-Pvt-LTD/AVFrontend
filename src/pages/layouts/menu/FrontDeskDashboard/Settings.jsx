@@ -1,17 +1,80 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { User, Bell, Monitor, Printer, Save, Shield } from "lucide-react";
+import {
+  User,
+  Shield,
+  Save,
+  Edit2,
+  Trash2,
+  Plus,
+  Mail,
+  Phone,
+  MapPin,
+  Search,
+  ChevronDown,
+  SlidersHorizontal,
+  Clock,
+  Check,
+  X,
+} from "lucide-react";
 import { toast } from "react-toastify";
 
-// UI Components (inline, no separate folder)
+// Mock Data
+const mockTestCatalog = [
+  {
+    id: 1,
+    name: "Complete Blood Count (CBC)",
+    category: "Hematology",
+    price: 1200,
+    duration: "4 hours",
+    description:
+      "Measures various components of blood including red blood cells, white blood cells, and platelets.",
+    popular: true,
+  },
+  {
+    id: 2,
+    name: "Lipid Profile",
+    category: "Biochemistry",
+    price: 1500,
+    duration: "6 hours",
+    description:
+      "Measures cholesterol and triglyceride levels to assess heart disease risk.",
+  },
+];
+
+const CATEGORIES = [
+  "All Categories",
+  "Hematology",
+  "Biochemistry",
+  "Endocrinology",
+  "Diabetes",
+  "Microbiology",
+  "Serology",
+  "Histopathology",
+];
+
+const PERMISSIONS = [
+  "View Dashboard",
+  "Manage Tests",
+  "Manage Patients",
+  "Manage Appointments",
+  "View Reports",
+  "Manage Users",
+  "System Settings",
+];
+
+// UI Components
 const Button = ({ className = "", variant = "default", size = "default", ...props }) => {
-  const base = "inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
-  
+  const base =
+    "inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
+
   const variants = {
-    default: "bg-gradient-to-r from-[var(--gradient-start)] to-[var(--accent-color)] text-white px-4 py-2 hover:opacity-90 hover:shadow-lg",
-    outline: "border-2 border-gray-200 bg-white text-[var(--primary-color)] px-4 py-2 hover:bg-gray-50 hover:border-[var(--accent-color)]/30",
+    default:
+      "bg-gradient-to-r from-[var(--gradient-start)] to-[var(--accent-color)] text-white px-4 py-2 hover:opacity-90 hover:shadow-lg",
+    outline:
+      "border-2 border-gray-200 bg-white text-[var(--primary-color)] px-4 py-2 hover:bg-gray-50 hover:border-[var(--accent-color)]/30",
   };
-  
+
   const sizes = {
     default: "text-sm",
     sm: "text-xs px-3 py-1.5",
@@ -33,26 +96,29 @@ const Input = ({ className = "", ...props }) => (
 );
 
 const Label = ({ className = "", children, ...props }) => (
-  <label className={`text-sm font-medium text-[var(--primary-color)] ${className}`} {...props}>
+  <label
+    className={`text-sm font-medium text-[var(--primary-color)] ${className}`}
+    {...props}
+  >
     {children}
   </label>
 );
 
 const Switch = ({ defaultChecked, onChange }) => {
   const [checked, setChecked] = useState(!!defaultChecked);
-
   const toggle = () => {
     const next = !checked;
     setChecked(next);
     onChange?.(next);
   };
-
   return (
     <button
       type="button"
       onClick={toggle}
       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-200 ${
-        checked ? "bg-gradient-to-r from-[var(--gradient-start)] to-[var(--accent-color)]" : "bg-gray-300"
+        checked
+          ? "bg-gradient-to-r from-[var(--gradient-start)] to-[var(--accent-color)]"
+          : "bg-gray-300"
       }`}
     >
       <span
@@ -64,16 +130,13 @@ const Switch = ({ defaultChecked, onChange }) => {
   );
 };
 
-// Select Components
 const Select = ({ value, defaultValue, onValueChange, children }) => {
   const [internal, setInternal] = useState(defaultValue ?? "");
   const current = value !== undefined ? value : internal;
-
   const handleChange = (e) => {
     setInternal(e.target.value);
     onValueChange?.(e.target.value);
   };
-
   return React.cloneElement(children, { value: current, onChange: handleChange });
 };
 
@@ -90,9 +153,10 @@ const SelectItem = ({ value, children }) => (
   <option value={value}>{children}</option>
 );
 
-// Card Components
 const Card = ({ className = "", children }) => (
-  <div className={`rounded-xl border-2 border-gray-100 bg-white shadow-sm overflow-hidden hover:shadow-md transition-shadow ${className}`}>
+  <div
+    className={`rounded-xl border-2 border-gray-100 bg-white shadow-sm overflow-hidden hover:shadow-md transition-shadow ${className}`}
+  >
     {children}
   </div>
 );
@@ -110,18 +174,13 @@ const CardTitle = ({ className = "", children }) => (
 );
 
 const CardDescription = ({ className = "", children }) => (
-  <p className={`text-sm text-gray-500 ${className}`}>
-    {children}
-  </p>
+  <p className={`text-sm text-gray-500 ${className}`}>{children}</p>
 );
 
 const CardContent = ({ className = "", children }) => (
-  <div className={`px-6 py-4 ${className}`}>
-    {children}
-  </div>
+  <div className={`px-6 py-4 ${className}`}>{children}</div>
 );
 
-// Tabs Components
 const Tabs = ({ defaultValue, children }) => {
   const [value, setValue] = useState(defaultValue);
   return React.Children.map(children, (child) =>
@@ -154,24 +213,82 @@ const TabsTrigger = ({ value: tabValue, current, setValue, children }) => {
   );
 };
 
-const TabsContent = ({ tab, value, children }) => 
+const TabsContent = ({ tab, value, children }) =>
   tab === value ? <div className="mt-6">{children}</div> : null;
 
 const Separator = () => <div className="h-px w-full bg-gray-200" />;
 
-// Main Settings Component
-export default function Settings() {
-  const [loading, setLoading] = useState(false);
+// Main FrontDeskSettings Component
+export default function FrontDeskSettings() {
+  // State for Profile
+  const [profileImage, setProfileImage] = useState(null);
+  const [emailNotifications, setEmailNotifications] = useState(true);
+  const [smsNotifications, setSmsNotifications] = useState(true);
+  const [activeTab, setActiveTab] = useState("profile");
 
-  const handleSave = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      toast.success("Settings saved successfully! Your preferences have been updated.", {
-        position: "top-right",
-        autoClose: 3000,
-      });
-    }, 1000);
+  // State for Roles
+  const [roles, setRoles] = useState([
+    {
+      role: "Administrator",
+      permissions: ["Full Access", "User Management", "Financial Reports", "System Settings"],
+      users: 2,
+    },
+    {
+      role: "Front Desk Staff",
+      permissions: ["Test Booking", "Patient Registration", "Basic Reports"],
+      users: 3,
+    },
+  ]);
+  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
+  const [selectedRole, setSelectedRole] = useState(null);
+
+  // Handlers
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const imageUrl = URL.createObjectURL(file);
+    setProfileImage(imageUrl);
+  };
+
+  const handleSaveProfile = () => {
+    toast.success("Profile updated successfully!");
+  };
+
+  const handleAddRole = () => {
+    setSelectedRole(null);
+    setIsRoleModalOpen(true);
+  };
+
+  const handleEditRole = (role) => {
+    setSelectedRole(role);
+    setIsRoleModalOpen(true);
+  };
+
+  const handleDeleteRole = (roleToDelete) => {
+    if (window.confirm(`Are you sure you want to delete the role "${roleToDelete.role}"?`)) {
+      setRoles(roles.filter((role) => role.role !== roleToDelete.role));
+      toast.success("Role deleted successfully");
+    }
+  };
+
+  const handleSaveRole = (formData) => {
+    if (selectedRole) {
+      setRoles(
+        roles.map((role) =>
+          role.role === selectedRole.role ? { ...formData, users: role.users } : role
+        )
+      );
+      toast.success("Role updated successfully");
+    } else {
+      const newRole = {
+        ...formData,
+        users: 0,
+        permissions: formData.permissions || [],
+      };
+      setRoles([...roles, newRole]);
+      toast.success("Role added successfully");
+    }
+    setIsRoleModalOpen(false);
   };
 
   return (
@@ -182,205 +299,197 @@ export default function Settings() {
     >
       {/* Header with Save Button */}
       <div className="flex justify-end mb-8">
-        <Button 
-          onClick={handleSave} 
-          disabled={loading} 
-          className="gap-2 px-6 py-2.5 font-medium shadow-md"
-        >
-          {loading ? (
-            <span className="animate-spin">⏳</span>
-          ) : (
-            <Save className="h-4 w-4" />
-          )}
-          {loading ? "Saving..." : "Save Changes"}
+        <Button onClick={handleSaveProfile} className="gap-2 px-6 py-2.5 font-medium shadow-md">
+          <Save className="h-4 w-4" />
+          Save Changes
         </Button>
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="general">
-        <TabsList className="grid w-full grid-cols-4 mb-6">
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="hardware">Hardware</TabsTrigger>
-          <TabsTrigger value="security">Security</TabsTrigger>
+      <Tabs defaultValue="profile">
+        <TabsList className="grid w-full grid-cols-3 mb-6">
+          <TabsTrigger value="profile">
+            <User className="h-4 w-4 mr-2" />
+            Profile
+          </TabsTrigger>
+          <TabsTrigger value="roles">
+            <Shield className="h-4 w-4 mr-2" />
+            Roles
+          </TabsTrigger>
+          <TabsTrigger value="security">
+            <Shield className="h-4 w-4 mr-2" />
+            Security
+          </TabsTrigger>
         </TabsList>
 
-        {/* General Tab */}
-        <TabsContent tab="general" value="general">
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Monitor className="h-5 w-5 text-[var(--accent-color)]" />
-                  Display & Interface
-                </CardTitle>
-                <CardDescription>
-                  Customize how the dashboard looks and behaves.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-base">Auto Refresh Dashboard</Label>
-                    <p className="text-sm text-gray-500">
-                      Automatically update patient lists and stats.
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-                <Separator />
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Refresh Interval</Label>
-                    <Select defaultValue="30">
-                      <SelectTrigger>
-                        <SelectItem value="15">Every 15 seconds</SelectItem>
-                        <SelectItem value="30">Every 30 seconds</SelectItem>
-                        <SelectItem value="60">Every minute</SelectItem>
-                      </SelectTrigger>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Language</Label>
-                    <Select defaultValue="en">
-                      <SelectTrigger>
-                        <SelectItem value="en">English (US)</SelectItem>
-                        <SelectItem value="hi">Hindi</SelectItem>
-                        <SelectItem value="es">Spanish</SelectItem>
-                      </SelectTrigger>
-                    </Select>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5 text-[var(--accent-color)]" />
-                  Profile Information
-                </CardTitle>
-                <CardDescription>Update your personal details.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Full Name</Label>
-                    <Input defaultValue="FrontDesk Staff" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Email Address</Label>
-                    <Input defaultValue="frontdesk@pocketclinic.com" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Phone Number</Label>
-                    <Input defaultValue="+91 98765 43210" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Employee ID</Label>
-                    <Input
-                      defaultValue="EMP-2024-001"
-                      disabled
-                      className="bg-gray-100"
+        {/* Profile Tab */}
+        <TabsContent tab="profile" value={activeTab}>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-50 p-6">
+            <div className="flex flex-col md:flex-row gap-6">
+              <div className="w-full md:w-1/3 lg:w-1/4">
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                  <div className="relative group">
+                    <div className="w-32 h-32 mx-auto rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center overflow-hidden">
+                      <img
+                        src={
+                          profileImage ||
+                          "https://api.dicebear.com/7.x/avataaars/svg?seed=frontdesk"
+                        }
+                        alt="Profile"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <input
+                      type="file"
+                      id="profileUpload"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleImageChange}
                     />
+                    <label
+                      htmlFor="profileUpload"
+                      className="absolute bottom-0 right-0 bg-white p-2 rounded-full shadow-md border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
+                    >
+                      <Edit2 className="w-4 h-4 text-gray-600" />
+                    </label>
+                  </div>
+                  <div className="mt-4 text-center">
+                    <h2 className="text-lg font-semibold">Front Desk Staff</h2>
+                    <p className="text-sm text-gray-500">Front Desk Operator</p>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        {/* Notifications Tab */}
-        <TabsContent tab="notifications" value="notifications">
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Bell className="h-5 w-5 text-[var(--accent-color)]" />
-                  Alert Preferences
-                </CardTitle>
-                <CardDescription>Manage how you receive notifications.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-base">New Patient Alerts</Label>
-                    <p className="text-sm text-gray-500">
-                      Get notified when a new patient registers online.
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-base">Appointment Reminders</Label>
-                    <p className="text-sm text-gray-500">
-                      Receive reminders 15 mins before appointments.
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-base">Sound Effects</Label>
-                    <p className="text-sm text-gray-500">
-                      Play a sound when a new token is generated.
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        {/* Hardware Tab */}
-        <TabsContent tab="hardware" value="hardware">
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Printer className="h-5 w-5 text-[var(--accent-color)]" />
-                  Printer Configuration
-                </CardTitle>
-                <CardDescription>
-                  Manage connected devices for token printing.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Default Token Printer</Label>
-                    <Select defaultValue="hp">
-                      <SelectTrigger>
-                        <SelectItem value="hp">HP LaserJet Pro M404dw</SelectItem>
-                        <SelectItem value="canon">Canon Pixma G3000</SelectItem>
-                        <SelectItem value="epson">Epson Thermal POS-80</SelectItem>
-                      </SelectTrigger>
-                    </Select>
-                  </div>
-                  <div className="flex items-center justify-between rounded-lg border-2 border-green-100 bg-green-50/50 p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="h-2 w-2 animate-pulse rounded-full bg-green-500" />
-                      <div>
-                        <p className="text-sm font-medium text-[var(--primary-color)]">Status: Connected</p>
-                        <p className="text-xs text-gray-500">Ready to print</p>
+              </div>
+              <div className="flex-1">
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4 text-[var(--primary-color)]">
+                      Personal Information
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="relative floating-input">
+                        <input
+                          type="text"
+                          defaultValue="FrontDesk"
+                          className="peer w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-[var(--primary-color)] transition-colors"
+                          placeholder=" "
+                        />
+                        <label className="absolute left-3 top-2 text-base text-gray-400 transition-all duration-200 pointer-events-none peer-focus:text-[var(--primary-color)] peer-focus:bg-white peer-focus:px-1 peer-focus:text-xs peer-focus:-top-2 peer-focus:left-2 peer-focus:z-10 peer-[:not(:placeholder-shown)]:text-[var(--primary-color)] peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-1 peer-[:not(:placeholder-shown)]:text-xs peer-[:not(:placeholder-shown)]:-top-2 peer-[:not(:placeholder-shown)]:left-2 peer-[:not(:placeholder-shown)]:z-10">
+                          First Name
+                        </label>
+                      </div>
+                      <div className="relative floating-input">
+                        <input
+                          type="text"
+                          defaultValue="Staff"
+                          className="peer w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-[var(--primary-color)] transition-colors"
+                          placeholder=" "
+                        />
+                        <label className="absolute left-3 top-2 text-base text-gray-400 transition-all duration-200 pointer-events-none peer-focus:text-[var(--primary-color)] peer-focus:bg-white peer-focus:px-1 peer-focus:text-xs peer-focus:-top-2 peer-focus:left-2 peer-focus:z-10 peer-[:not(:placeholder-shown)]:text-[var(--primary-color)] peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-1 peer-[:not(:placeholder-shown)]:text-xs peer-[:not(:placeholder-shown)]:-top-2 peer-[:not(:placeholder-shown)]:left-2 peer-[:not(:placeholder-shown)]:z-10">
+                          Last Name
+                        </label>
+                      </div>
+                      <div className="relative floating-input">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <Mail className="h-5 w-5 text-gray-400" />
+                        </div>
+                        <input
+                          type="email"
+                          defaultValue="frontdesk@pocketclinic.com"
+                          className="peer w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-[var(--primary-color)] transition-colors"
+                          placeholder=" "
+                        />
+                        <label className="absolute left-10 top-2 text-base text-gray-400 transition-all duration-200 pointer-events-none peer-focus:text-[var(--primary-color)] peer-focus:bg-white peer-focus:px-1 peer-focus:text-xs peer-focus:-top-2 peer-focus:left-2 peer-focus:z-10 peer-[:not(:placeholder-shown)]:text-[var(--primary-color)] peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-1 peer-[:not(:placeholder-shown)]:text-xs peer-[:not(:placeholder-shown)]:-top-2 peer-[:not(:placeholder-shown)]:left-2 peer-[:not(:placeholder-shown)]:z-10">
+                          Email
+                        </label>
+                      </div>
+                      <div className="relative floating-input">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <Phone className="h-5 w-5 text-gray-400" />
+                        </div>
+                        <input
+                          type="tel"
+                          defaultValue="+91 98765 43210"
+                          className="peer w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-[var(--primary-color)] transition-colors"
+                          placeholder=" "
+                        />
+                        <label className="absolute left-10 top-2 text-base text-gray-400 transition-all duration-200 pointer-events-none peer-focus:text-[var(--primary-color)] peer-focus:bg-white peer-focus:px-1 peer-focus:text-xs peer-focus:-top-2 peer-focus:left-2 peer-focus:z-10 peer-[:not(:placeholder-shown)]:text-[var(--primary-color)] peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-1 peer-[:not(:placeholder-shown)]:text-xs peer-[:not(:placeholder-shown)]:-top-2 peer-[:not(:placeholder-shown)]:left-2 peer-[:not(:placeholder-shown)]:z-10">
+                          Phone
+                        </label>
                       </div>
                     </div>
-                    <Button variant="outline" size="sm" className="border-gray-300">
-                      Test Print
-                    </Button>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* Roles Tab */}
+        <TabsContent tab="roles" value={activeTab}>
+          <div className="bg-white rounded-lg shadow p-6 space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-[var(--primary-color)]">
+                Role-based Access Control
+              </h2>
+              <Button
+                onClick={handleAddRole}
+                className="flex items-center gap-2 bg-[var(--primary-color)] text-white px-4 py-2 rounded-lg shadow-sm"
+              >
+                <Plus className="w-4 h-4" />
+                Add Role
+              </Button>
+            </div>
+            <div className="space-y-4">
+              {roles.map((role, index) => (
+                <div
+                  key={index}
+                  className="bg-gray-50 rounded-xl p-5 hover:shadow-md transition-shadow"
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-3">
+                        <h3 className="font-semibold text-lg text-gray-900">{role.role}</h3>
+                        <span className="px-3 py-1 bg-blue-100 text-[var(--primary-color)] text-xs font-medium rounded-full">
+                          {role.users} {role.users === 1 ? "user" : "users"}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {role.permissions.map((permission, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-[var(--primary-color)]"
+                          >
+                            {permission}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex space-x-2">
+                      <Button
+                        onClick={() => handleEditRole(role)}
+                        className="edit-btn rounded hover:bg-green-100 transition hover:animate-bounce"
+                        title="Edit role"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        onClick={() => handleDeleteRole(role)}
+                        className="delete-btn hover:bg-green-100 transition hover:animate-bounce"
+                        title="Delete role"
+                        disabled={role.users > 0}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </TabsContent>
 
         {/* Security Tab */}
-        <TabsContent tab="security" value="security">
+        <TabsContent tab="security" value={activeTab}>
           <div className="space-y-6">
             <Card>
               <CardHeader>
@@ -412,9 +521,7 @@ export default function Settings() {
                 <div className="flex flex-col items-start justify-between gap-3 md:flex-row md:items-center">
                   <div className="space-y-0.5">
                     <Label className="text-base">Auto Logout</Label>
-                    <p className="text-sm text-gray-500">
-                      Lock screen after inactivity.
-                    </p>
+                    <p className="text-sm text-gray-500">Lock screen after inactivity.</p>
                   </div>
                   <Select defaultValue="15">
                     <SelectTrigger className="w-[180px]">

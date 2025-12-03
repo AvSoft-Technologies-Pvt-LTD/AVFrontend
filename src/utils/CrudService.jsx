@@ -699,3 +699,10 @@ export const createIpdNursingRecord = (data) =>
 // POST: Get lab available tests
 export const getLabAvailableTests = (requestData) =>
   axiosInstance.post('/lab-available-tests', requestData);
+
+// Get upcoming availability schedules for a doctor
+export const getUpcomingAvailabilitySchedules = (doctorId, fromDate) =>
+  axiosInstance.get(`/availability-schedules/upcoming/doctor/${doctorId}`, {
+    params: { fromDate }
+  });
+

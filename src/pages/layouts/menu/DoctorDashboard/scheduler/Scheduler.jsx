@@ -10,6 +10,7 @@ import {
   endOfDay,
   compareAsc,
 } from "date-fns";
+import { useSelector } from 'react-redux';
 import { enUS } from "date-fns/locale";
 import {
   Calendar as CalendarIcon,
@@ -23,7 +24,7 @@ import { useNavigate } from "react-router-dom";
 import "react-toastify/dist/ReactToastify.css";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import ReusableModal from "../../../../../components/microcomponents/Modal";
-import { getAllAvailabilitySchedules } from "../../../../../utils/CrudService";
+import { getAllAvailabilitySchedules, getUpcomingAvailabilitySchedules } from "../../../../../utils/CrudService";
 import { apiDateToJSDate, jsDateToString } from "./dateUtils";
 import "./scheduler.css";
 
@@ -50,6 +51,7 @@ const PRESET_COLORS = [
 ];
 
 const Scheduler = () => {
+  const { doctorId } = useSelector((state) => state.auth);
   const navigate = useNavigate();
   const [events, setEvents] = useState([]);
   const [monthEvents, setMonthEvents] = useState([]);
@@ -62,15 +64,87 @@ const Scheduler = () => {
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [showYearPicker, setShowYearPicker] = useState(false);
 
+  const loadAppointments = useCallback(async () => {
+    if (!doctorId) return;
+    
+    setLoading(true);
+    try {
+      const [schedulesResponse, upcomingResponse] = await Promise.all([
+        getAllAvailabilitySchedules(),
+        getUpcomingAvailabilitySchedules(doctorId, new Date().toISOString().split('T')[0])
+      ]);
+
+      const schedules = schedulesResponse?.data || [];
+      const upcomingAppts = upcomingResponse?.data || [];
+
+      const calendarEvents = [];
+      schedules.forEach((schedule) => {
+        const fromDate = apiDateToJSDate(schedule.fromDate);
+        const toDate = apiDateToJSDate(schedule.toDate);
+
+        if (fromDate && toDate) {
+          calendarEvents.push({
+            id: schedule.id,
+            title: `Dr. ${schedule.doctorName} - Available`,
+            start: fromDate,
+            end: toDate,
+            resource: {
+              doctor: schedule.doctorName,
+              startTime: schedule.startTime,
+              endTime: schedule.endTime,
+              duration: schedule.appointmentDuration?.displayName,
+              color: PRESET_COLORS[schedule.id % PRESET_COLORS.length],
+              schedule: schedule,
+            },
+          });
+        }
+      });
+
+      setEvents(calendarEvents);
+      const groupedReal = groupEventsByDate(calendarEvents);
+      groupedReal.sort((a, b) => a.start - b.start);
+      setMonthEvents(groupedReal);
+
+      const upcomingEvents = upcomingAppts.map(appt => ({
+        id: `appt-${appt.appointmentId}`,
+        title: `Appointment with ${appt.patientName}`,
+        start: new Date(`${appt.appointmentDate}T${appt.appointmentTime}`),
+        end: new Date(new Date(`${appt.appointmentDate}T${appt.appointmentTime}`).getTime() + 30 * 60000),
+        resource: {
+          doctor: 'You',
+          startTime: appt.appointmentTime,
+          endTime: new Date(new Date(`2000-01-01T${appt.appointmentTime}`).getTime() + 30 * 60000).toTimeString().slice(0, 5),
+          duration: '30 mins',
+          color: '#10b981',
+          appointmentType: appt.appointmentType,
+          patientName: appt.patientName,
+          patientMobile: appt.patientMobile,
+          status: appt.status
+        }
+      }));
+
+      setUpcomingAppointments(upcomingEvents);
+    } catch (error) {
+      console.error("Error loading appointments:", error);
+      toast.error("Failed to load schedules");
+    } finally {
+      setLoading(false);
+    }
+  }, [doctorId]);
+
   useEffect(() => {
-    loadAppointments();
+    if (doctorId) {
+      loadAppointments();
+    }
+    
     const handler = () => {
       setShowMonthPicker(false);
       setShowYearPicker(false);
     };
+    
     window.addEventListener("click", handler);
     return () => window.removeEventListener("click", handler);
-  }, []);
+  }, [doctorId, loadAppointments]);
 
   const groupEventsByDate = (individualEvents) => {
     const map = {};
@@ -98,56 +172,6 @@ const Scheduler = () => {
       };
     });
     return grouped;
-  };
-
-  const loadAppointments = async () => {
-    setLoading(true);
-    try {
-      const response = await getAllAvailabilitySchedules();
-      const schedules = response.data || [];
-
-      // Convert schedules to calendar events
-      const calendarEvents = [];
-      schedules.forEach((schedule) => {
-        const fromDate = apiDateToJSDate(schedule.fromDate);
-        const toDate = apiDateToJSDate(schedule.toDate);
-
-        if (fromDate && toDate) {
-          // Create an event for the entire schedule period
-          calendarEvents.push({
-            id: schedule.id,
-            title: `Dr. ${schedule.doctorName} - Available`,
-            start: fromDate,
-            end: toDate,
-            resource: {
-              doctor: schedule.doctorName,
-              startTime: schedule.startTime,
-              endTime: schedule.endTime,
-              duration: schedule.appointmentDuration?.displayName,
-              color: PRESET_COLORS[schedule.id % PRESET_COLORS.length],
-              schedule: schedule,
-            },
-          });
-        }
-      });
-
-      setEvents(calendarEvents);
-      const groupedReal = groupEventsByDate(calendarEvents);
-      groupedReal.sort((a, b) => a.start - b.start);
-      setMonthEvents(groupedReal);
-
-      const now = new Date();
-      const upcoming = calendarEvents
-        .filter((event) => event.start >= now)
-        .sort((a, b) => a.start.getTime() - b.start.getTime())
-        .slice(0, 5);
-      setUpcomingAppointments(upcoming);
-    } catch (error) {
-      console.error("Error loading appointments:", error);
-      toast.error("Failed to load schedules");
-    } finally {
-      setLoading(false);
-    }
   };
 
   const handleSelectEvent = useCallback(
@@ -387,10 +411,13 @@ const Scheduler = () => {
   const modalData = selectedEvent
     ? {
         doctor: selectedEvent.resource?.doctor || "-",
-        schedule: selectedEvent.title || "-",
+        patientName: selectedEvent.resource?.patientName || "-",
+        patientMobile: selectedEvent.resource?.patientMobile || "-",
+        appointmentType: selectedEvent.resource?.appointmentType || "-",
         startTime: selectedEvent.resource?.startTime || "-",
         endTime: selectedEvent.resource?.endTime || "-",
         duration: selectedEvent.resource?.duration || "-",
+        status: selectedEvent.resource?.status || "-",
         date: format(selectedEvent.start, "EEEE, MMMM d, yyyy"),
       }
     : {};
@@ -399,10 +426,13 @@ const Scheduler = () => {
     { initialsKey: true, key: "doctor" },
     { titleKey: true, key: "doctor" },
     { subtitleKey: true, key: "date" },
-    { label: "Schedule", key: "schedule" },
+    { label: "Patient", key: "patientName" },
+    { label: "Contact", key: "patientMobile" },
+    { label: "Type", key: "appointmentType" },
     { label: "Start Time", key: "startTime" },
     { label: "End Time", key: "endTime" },
-    { label: "Appointment Duration", key: "duration" },
+    { label: "Duration", key: "duration" },
+    { label: "Status", key: "status" }
   ];
 
   if (loading) {

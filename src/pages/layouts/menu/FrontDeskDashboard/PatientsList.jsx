@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { UserPlus, Plus, Eye, FileText, Phone, Calendar } from 'lucide-react';
+import { UserPlus, Plus, Eye, FileText, Phone, Edit2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import DynamicTable from '../../../../components/microcomponents/DynamicTable';
 
@@ -66,7 +66,9 @@ export default function PatientsList() {
   ]);
 
   const handleRegisterNewPatient = () => {
-    navigate('/frontdeskdashboard/new-patient');
+    navigate('/frontdeskdashboard/new-patient', {
+      state: { isEditMode: false }
+    });
   };
 
   const handleViewProfile = (patientId) => {
@@ -75,6 +77,23 @@ export default function PatientsList() {
 
   const handleViewRecords = (patientId) => {
     navigate(`/frontdesk/patients/${patientId}/records`);
+  };
+
+  const handleEditPatient = (patient) => {
+    navigate('/frontdeskdashboard/new-patient', {
+      state: {
+        patientData: {
+          ...patient,
+          name: patient.name,
+          phone: patient.phone,
+          aadhar: patient.aadhar,
+          age: patient.age,
+          gender: patient.gender,
+          patientId: patient.patientId
+        },
+        isEditMode: true
+      }
+    });
   };
 
   const handleCreateMaster = () => {
@@ -150,28 +169,35 @@ export default function PatientsList() {
         </div>
       ),
     },
-    {
-      header: 'Actions',
-      accessor: 'id',
-      Cell: ({ row }) => (
-        <div className="flex gap-2">
-          <button
-            onClick={() => handleViewProfile(row.original.id)}
-            className="p-2 text-[var(--accent-color)] hover:bg-[var(--accent-color)]/10 rounded-lg transition-colors"
-            title="View Profile"
-          >
-            <Eye className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => handleViewRecords(row.original.id)}
-            className="p-2 text-[var(--primary-color)] hover:bg-[var(--primary-color)]/10 rounded-lg transition-colors"
-            title="View Records"
-          >
-            <FileText className="w-4 h-4" />
-          </button>
-        </div>
-      ),
-    },
+  {
+  header: 'Actions',
+  accessor: 'id',
+  Cell: ({ row }) => (
+    <div className="flex items-center gap-1">  {/* Reduced gap from gap-2 to gap-1 */}
+      <button
+        onClick={() => handleViewProfile(row.original.id)}
+        className="p-1.5 text-[var(--accent-color)] hover:bg-[var(--accent-color)]/10 rounded-lg transition-colors"
+        title="View Profile"
+      >
+        <Eye className="w-4 h-4" />
+      </button>
+      <button
+        onClick={() => handleViewRecords(row.original.id)}
+        className="p-1.5 text-[var(--primary-color)] hover:bg-[var(--primary-color)]/10 rounded-lg transition-colors"
+        title="View Records"
+      >
+        <FileText className="w-4 h-4" />
+      </button>
+      <button
+        onClick={() => handleEditPatient(row.original)}
+        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+        title="Edit Patient"
+      >
+        <Edit2 className="w-4 h-4" />
+      </button>
+    </div>
+  ),
+}
   ];
 
   return (
