@@ -95,17 +95,17 @@ const mapDoctorAppointment = (appointment) => {
     appointment?.consultationMode ||
     appointment?.appointmentType ||
     appointment?.type ||
-    "PHYSICAL"
-  ) // Default to PHYSICAL if not specified
+    "Physical"
+  ) // Default to Physical if not specified
     .toString()
     .trim()
     .toUpperCase();
 
   // Normalize to match backend enum values
-  if (consultationType === "VIDEO" || consultationType === "VIRTUAL") {
-    consultationType = "VIRTUAL";
+  if (consultationType === "VIDEO" || consultationType === "Virtual") {
+    consultationType = "Virtual";
   } else {
-    consultationType = "PHYSICAL"; // Default to PHYSICAL for any other value
+    consultationType = "Physical"; // Default to Physical for any other value
   }
 
   const rawStatus =
@@ -154,7 +154,7 @@ const mapDoctorAppointment = (appointment) => {
     consultationType: consultationType, // Use the normalized consultation type
     status: normalizedStatus,
     location:
-      consultationType.toLowerCase() === "virtual" ? "Online" : location || "-", // Show 'Online' for virtual appointments
+      consultationType.toLowerCase() === "Virtual" ? "Online" : location || "-", // Show 'Online' for Virtual appointments
     fees: fees ?? "-",
     symptoms: symptoms || "-",
     rejectReason: rejectReason || undefined,

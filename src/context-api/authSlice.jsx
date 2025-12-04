@@ -22,55 +22,48 @@ const storedToken = localStorage.getItem('token') || null;
 // Register User
 export const registerUser = createAsyncThunk(
   'auth/registerUser',
-  async (formData, { rejectWithValue }) => {
+  async (formDataString, { rejectWithValue }) => {
     try {
-      const userType = formData.get('userType');
-      if (!userType) {
+      const formData = typeof formDataString === 'string' ? JSON.parse(formDataString) : formDataString;
+      
+      if (!formData.userType) {
         return rejectWithValue('User type is required');
       }
-      const endpoint = `${BASE_URL}/${userType}/register`;
+      
+      const endpoint = `${BASE_URL}/${formData.userType}/register`;
       const response = await axiosInstance.post(endpoint, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+        headers: { 
+          'Content-Type': 'application/json',
+        },
       });
-      const getValue = (key) => {
-        const value = formData.get(key);
-        if (value !== undefined && value !== null && value !== '') {
-          return value;
-        }
-        return response.data?.[key] ?? null;
-      };
+
+      // Return the response data with additional fields
       return {
         ...response.data,
-        userType,
-        firstName,
-        middleName,
-        lastName,
-        name: fullName,
-        fullName,
-        phone,
-        number,
-        email,
-        aadhaar,
-        gender,
-        genderId,
-        dob,
-        pinCode,
-        city,
-        district,
-        stateName,
-        occupation,
-        agreeDeclaration,
-        address: addressFromResponse || derivedAddress,
-        registrationNumber,
-        practiceTypeId,
-        practiceType,
-        specializationId,
-        specialization,
-        qualification,
-        isAssociatedWithClinicHospital,
-        associatedClinic,
-        associatedHospital,
-        doctorDetails,
+        userType: formData.userType,
+        firstName: formData.firstName,
+        middleName: formData.middleName,
+        lastName: formData.lastName,
+        name: `${formData.firstName} ${formData.lastName}`.trim(),
+        fullName: `${formData.firstName} ${formData.middleName || ''} ${formData.lastName}`.trim(),
+        phone: formData.phone,
+        email: formData.email,
+        aadhaar: formData.aadhaar,
+        gender: formData.gender,
+        genderId: formData.genderId,
+        dob: formData.dob,
+        pinCode: formData.pincode,
+        city: formData.city,
+        district: formData.district,
+        stateName: formData.state,
+        agreeDeclaration: formData.agreeDeclaration,
+        registrationNumber: formData.registrationNumber,
+        practiceTypeId: formData.practiceTypeId,
+        specializationId: formData.specializationId,
+        qualification: formData.qualification,
+        clinicName: formData.clinicName,
+        associatedHospital: formData.associatedHospital,
+        hospitalId: formData.hospitalId,
         patientId: response.data?.patientId ?? null,
         doctorId: response.data?.doctorId ?? null,
         userId: response.data?.userId ?? null,
@@ -128,7 +121,7 @@ export const updateDoctor = createAsyncThunk(
         formData,
         {
           headers: {
-            'Content-Type': 'multipart/form-data',
+            'Content-Type': 'application/json',
           },
         }
       );

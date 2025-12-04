@@ -437,29 +437,50 @@ const RegisterForm = () => {
     }
   };
 
-  const handleFileChange = (e) => {
+  const fileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = error => reject(error);
+    });
+  };
+
+  const handleFileChange = async (e) => {
     const { name, files } = e.target;
     if (!files || files.length === 0) return;
-    if (name === "photo") {
-      const file = files[0];
-      if (!file.type.startsWith("image/")) {
-        alert("Please upload a valid image file for the photo.");
-        e.target.value = "";
-        return;
+    
+    try {
+      if (name === "photo") {
+        const file = files[0];
+        if (!file.type.startsWith("image/")) {
+          alert("Please upload a valid image file for the photo.");
+          e.target.value = "";
+          return;
+        }
+        setPhotoPreview(URL.createObjectURL(file));
+        const base64 = await fileToBase64(file);
+        setFormData(prev => ({ ...prev, photo: base64 }));
+      } else if (name === "nabhCertificate") {
+        const file = files[0];
+        const base64 = await fileToBase64(file);
+        setFormData(prev => ({ ...prev, nabhCertificate: [base64] }));
+      } else if (name === "certificates" || name === "documents") {
+        const validFiles = Array.from(files).filter(file => file.type === "application/pdf" || file.type.startsWith("image/"));
+        if (validFiles.length === 0) {
+          alert("Only PDF or image files are allowed.");
+          e.target.value = "";
+          return;
+        }
+        const base64Files = await Promise.all(validFiles.map(file => fileToBase64(file)));
+        setFormData(prev => ({
+          ...prev,
+          [name]: [...(prev[name] || []), ...base64Files]
+        }));
       }
-      setPhotoPreview(URL.createObjectURL(file));
-      setFormData(prev => ({ ...prev, photo: file }));
-    } else if (name === "nabhCertificate") {
-      const file = files[0];
-      setFormData(prev => ({ ...prev, nabhCertificate: [file] }));
-    } else if (name === "certificates" || name === "documents") {
-      const validFiles = Array.from(files).filter(file => file.type === "application/pdf" || file.type.startsWith("image/"));
-      if (validFiles.length === 0) {
-        alert("Only PDF or image files are allowed.");
-        e.target.value = "";
-        return;
-      }
-      setFormData(prev => ({ ...prev, [name]: [...(prev[name] || []), ...validFiles] }));
+    } catch (error) {
+      console.error("Error processing file:", error);
+      alert("Error processing file. Please try again.");
     }
   };
 
@@ -562,76 +583,79 @@ const RegisterForm = () => {
     if (!validateForm()) return;
     setIsSubmitting(true);
     try {
-      const formDataToSubmit = new FormData();
-      formDataToSubmit.append('userType', userType);
-      formDataToSubmit.append('firstName', formData.firstName);
-      formDataToSubmit.append('middleName', formData.middleName);
-      formDataToSubmit.append('lastName', formData.lastName);
-      formDataToSubmit.append('phone', formData.phone);
-      formDataToSubmit.append('email', formData.email);
-      formDataToSubmit.append('password', (formData.password || '').trim());
-      formDataToSubmit.append('confirmPassword', (formData.confirmPassword || '').trim());
-      formDataToSubmit.append('dob', formData.dob);
-      formDataToSubmit.append('pincode', formData.pinCode);
-      formDataToSubmit.append('city', formData.city);
-      formDataToSubmit.append('district', formData.district);
-      formDataToSubmit.append('state', formData.state);
-      if (formData.photo) formDataToSubmit.append('photo', formData.photo);
+      // Create a base object for the form data
+      const formDataToSubmit = {
+        userType,
+        firstName: formData.firstName,
+        middleName: formData.middleName,
+        lastName: formData.lastName,
+        phone: formData.phone,
+        email: formData.email,
+        password: (formData.password || '').trim(),
+        confirmPassword: (formData.confirmPassword || '').trim(),
+        dob: formData.dob,
+        pincode: formData.pinCode,
+        city: formData.city,
+        district: formData.district,
+        state: formData.state,
+        photo: formData.photo // This is now a base64 string
+      };
 
       if (userType === "hospital") {
-        formDataToSubmit.append('hospitalName', formData.hospitalName);
-        formDataToSubmit.append('headCeoName', formData.headCeoName);
-        formDataToSubmit.append('registrationNumber', formData.registrationNumber);
-        formDataToSubmit.append('gstNumber', formData.gstNumber);
-        formDataToSubmit.append('inHouseLab', formData.inHouseLab);
-        formDataToSubmit.append('inHousePharmacy', formData.inHousePharmacy);
-        formDataToSubmit.append('labLicenseNo', formData.labLicenseNo);
-        formDataToSubmit.append('pharmacyLicenseNo', formData.pharmacyLicenseNo);
-        formDataToSubmit.append('agreeDeclaration', formData.agreeDeclaration);
-        formData.hospitalType.forEach(type => formDataToSubmit.append('hospitalType[]', type));
+        formDataToSubmit.hospitalName = formData.hospitalName;
+        formDataToSubmit.headCeoName = formData.headCeoName;
+        formDataToSubmit.registrationNumber = formData.registrationNumber;
+        formDataToSubmit.gstNumber = formData.gstNumber;
+        formDataToSubmit.inHouseLab = formData.inHouseLab;
+        formDataToSubmit.inHousePharmacy = formData.inHousePharmacy;
+        formDataToSubmit.labLicenseNo = formData.labLicenseNo;
+        formDataToSubmit.pharmacyLicenseNo = formData.pharmacyLicenseNo;
+        formDataToSubmit.agreeDeclaration = formData.agreeDeclaration;
+        formDataToSubmit.hospitalType = formData.hospitalType || [];
         if (formData.nabhCertificate && formData.nabhCertificate.length > 0) {
-          formDataToSubmit.append('nabhCertificate', formData.nabhCertificate[0]);
+          formDataToSubmit.nabhCertificate = formData.nabhCertificate[0];
         }
       }
 
       if (userType === "lab") {
-        formDataToSubmit.append('centerType', formData.centerType);
-        formDataToSubmit.append('centerName', formData.centerName);
-        formDataToSubmit.append('ownerFullName', formData.ownerFullName);
-        formDataToSubmit.append('registrationNumber', formData.registrationNumber);
-        formDataToSubmit.append('gstNumber', formData.gstNumber);
-        formDataToSubmit.append('licenseNumber', formData.licenseNumber);
-        formDataToSubmit.append('agreeDeclaration', formData.agreeDeclaration);
-        formData.availableTests.forEach(test => formDataToSubmit.append('availableTests[]', test));
-        formData.scanServices.forEach(service => formDataToSubmit.append('scanServices[]', service));
-        formData.specialServices.forEach(service => formDataToSubmit.append('specialServices[]', service));
-        formData.certificates.forEach(cert => formDataToSubmit.append('certificates[]', cert));
+        formDataToSubmit.centerType = formData.centerType;
+        formDataToSubmit.centerName = formData.centerName;
+        formDataToSubmit.ownerFullName = formData.ownerFullName;
+        formDataToSubmit.registrationNumber = formData.registrationNumber;
+        formDataToSubmit.gstNumber = formData.gstNumber;
+        formDataToSubmit.licenseNumber = formData.licenseNumber;
+        formDataToSubmit.agreeDeclaration = formData.agreeDeclaration;
+        formDataToSubmit.availableTests = formData.availableTests || [];
+        formDataToSubmit.scanServices = formData.scanServices || [];
+        formDataToSubmit.specialServices = formData.specialServices || [];
+        formDataToSubmit.certificates = formData.certificates || [];
       }
 
       if (userType === "doctor") {
-        const associationType = formData.isAssociatedWithClinicHospital === 'clinic' ? 'CLINIC' : formData.isAssociatedWithClinicHospital === 'hospital' ? 'HOSPITAL' : '';
-        formDataToSubmit.append('aadhaar', formData.aadhaar);
-        formDataToSubmit.append('genderId', formData.gender_id);
-        formDataToSubmit.append('registrationNumber', formData.roleSpecificData.registrationNumber);
-        formDataToSubmit.append('practiceTypeId', formData.roleSpecificData.practiceTypeId);
-        formDataToSubmit.append('specializationId', formData.roleSpecificData.specializationId);
-        formDataToSubmit.append('qualification', formData.roleSpecificData.qualification);
-        formDataToSubmit.append('agreeDeclaration', formData.agreeDeclaration);
-        formDataToSubmit.append('associationType', associationType);
+        formDataToSubmit.associationType = formData.isAssociatedWithClinicHospital === 'clinic' ? 'CLINIC' : 
+                                         formData.isAssociatedWithClinicHospital === 'hospital' ? 'HOSPITAL' : '';
+        formDataToSubmit.aadhaar = formData.aadhaar;
+        formDataToSubmit.genderId = formData.gender_id;
+        formDataToSubmit.registrationNumber = formData.roleSpecificData.registrationNumber;
+        formDataToSubmit.practiceTypeId = formData.roleSpecificData.practiceTypeId;
+        formDataToSubmit.specializationId = formData.roleSpecificData.specializationId;
+        formDataToSubmit.qualification = formData.roleSpecificData.qualification;
+        formDataToSubmit.agreeDeclaration = formData.agreeDeclaration;
+        
         if (formData.isAssociatedWithClinicHospital === 'clinic') {
-          formDataToSubmit.append('clinicName', formData.clinicName);
+          formDataToSubmit.clinicName = formData.clinicName;
         }
         if (formData.isAssociatedWithClinicHospital === 'hospital') {
-          formDataToSubmit.append('associatedHospital', formData.associatedHospital);
+          formDataToSubmit.associatedHospital = formData.associatedHospital;
           if (formData.associatedHospitalId) {
-            formDataToSubmit.append('hospitalId', formData.associatedHospitalId);
+            formDataToSubmit.hospitalId = formData.associatedHospitalId;
           }
         }
       }
 
-      console.log(formData, "majiboku")
-      // Submit the form
-      const resultAction = await dispatch(registerUser(formDataToSubmit));
+      console.log("Submitting form data:", formDataToSubmit);
+      // Submit the form as JSON with base64 encoded files
+      const resultAction = await dispatch(registerUser(JSON.stringify(formDataToSubmit)));
       
       if (registerUser.fulfilled.match(resultAction)) {
         const userData = resultAction.payload;

@@ -5,7 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useSelector } from 'react-redux';
 import DoctorAppointments from "./Appointments";
 import { motion } from "framer-motion";
-import { getDoctorById, getDoctorPhoto } from '../../../../utils/masterService';
+import { getDoctorById } from '../../../../utils/masterService';
 
 const Overview = () => {
   const user = useSelector((state) => state.auth.user);
@@ -35,11 +35,14 @@ const Overview = () => {
         const doctorData = doctorRes.data;
         if (!doctorData) throw new Error('Doctor not found');
 
-        // Fetch doctor photo
-        let photoUrl = '';
+        // Handle the photo data from the API response
+        // The API returns photo as a base64 string that needs to be converted to a data URL
+        let photoUrl = '/default-avatar.png';
         if (doctorData.photo) {
-          const photoRes = await getDoctorPhoto(doctorData.photo);
-          photoUrl = URL.createObjectURL(photoRes.data);
+          // Check if the photo already has a data URL prefix
+          photoUrl = doctorData.photo.startsWith('data:image/')
+            ? doctorData.photo
+            : `data:image/jpeg;base64,${doctorData.photo}`;
         }
 
         // Fetch patients and calculate stats

@@ -161,12 +161,11 @@ function Dashboard() {
       if (currentPatient) {
         setPatientData(currentPatient);
         const dob = currentPatient.dob ? new Date(currentPatient.dob[0], currentPatient.dob[1] - 1, currentPatient.dob[2]) : null;
-
         setProfileData({
           name: `${currentPatient.firstName || 'Guest'} ${currentPatient.lastName || ''}`.trim(),
           firstName: currentPatient.firstName || '',
           lastName: currentPatient.lastName || '',
-          dob: dob ? dob.toISOString().split('T')[0] : null,
+          dob: currentPatient.dob||'',
           gender: currentPatient.gender || '',
           phone: currentPatient.phone || '',
           email: currentPatient.email || '',

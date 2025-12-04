@@ -85,7 +85,9 @@ const DoctorManagement = () => {
     const newDoctor = {
       ...formData,
       id: selectedDoctor ? selectedDoctor.id : Date.now(),
-      specialization: formData.doctorType === 'Allopathy' ? formData.specializationType : formData.ayushSpecializations,
+      specialization: formData.doctorType === 'Allopathy' 
+        ? formData.specializationType 
+        : formData.ayushSpecializations.join(', '),
       ayushSpecialization: formData.ayushSpecializations,
       documents: formData.file ? [{ name: formData.file.name, url: URL.createObjectURL(formData.file) }] : [],
       status: 'pending'

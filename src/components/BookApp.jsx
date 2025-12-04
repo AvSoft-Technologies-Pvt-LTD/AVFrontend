@@ -363,9 +363,9 @@ const MultiStepForm = () => {
       appointmentTime = `${hours.toString().padStart(2, '0')}:${minutes}`;
     }
 
-    // Ensure consultationType is exactly 'Physical' or 'Virtual'
-    const consultationType = String(state.consultationType).trim() === 'Virtual' ? 'Virtual' : 'Physical';
-    const isVirtual = consultationType === 'Virtual';
+    // Ensure consultationType is exactly 'PHYSICAL' or 'VIRTUAL' as required by backend
+    const consultationType = String(state.consultationType).trim().toUpperCase() === 'VIRTUAL' ? 'VIRTUAL' : 'PHYSICAL';
+    const isVirtual = consultationType === 'VIRTUAL';
     
     const basePayload = {
       patientId: patientId,
@@ -406,7 +406,7 @@ const MultiStepForm = () => {
           specialtyId: "",
           specialties: [],
           selectedDoctor: null,
-          consultationType: isVirtual ? "Virtual" : "Physical",
+          consultationType: isVirtual ? "VIRTUAL" : "PHYSICAL",
           cities: [],
           pincodeError: "",
           isCurrentLocation: false,
