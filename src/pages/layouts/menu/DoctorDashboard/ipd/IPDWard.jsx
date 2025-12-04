@@ -9,7 +9,6 @@ import {
   Stethoscope,
   Activity,
 } from "lucide-react";
-import { getSpecializationsWardsSummaryForIpdAdmission } from "../../../../../utils/CrudService";
 
 const WARD_ICONS = {
   "General Ward": Users,
@@ -29,56 +28,11 @@ const getWardIcon = (wardType) => {
   return <IconComponent className="w-4 h-4 sm:w-5 sm:h-5" />;
 };
 
-const IPDWard = ({ selectedWard, onSelectWard }) => {
-  const [wardData, setWardData] = useState([]);
-  const [loading, setLoading] = useState(true);
+const IPDWard = ({ wardData, selectedWardName, onSelectWard }) => {
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    console.log("[IPDWard] mount: starting ward summary fetch");
-    const fetchWards = async () => {
-      try {
-        console.log("[IPDWard] calling getSpecializationsWardsSummaryForIpdAdmission");
-        const response = await getSpecializationsWardsSummaryForIpdAdmission();
-        console.log("[IPDWard] response from getSpecializationsWardsSummaryForIpdAdmission", response);
-        if (response?.data) {
-          const formatted = response.data.map((item, index) => {
-            const availableGroup = item.bedGroups?.find(
-              (g) => (g.statusName || "").toLowerCase() === "available"
-            );
-            const occupiedGroup = item.bedGroups?.find(
-              (g) => (g.statusName || "").toLowerCase() === "occupied"
-            );
-
-            const availableBeds = availableGroup ? Number(availableGroup.count || 0) : 0;
-            const occupiedBeds = occupiedGroup
-              ? Number(occupiedGroup.count || 0)
-              : Math.max(0, Number(item.totalBeds || 0) - availableBeds);
-            return {
-              id: item.wardId || index,
-              wardTypeId: item.wardTypeId || item.wardType?.id || null,
-              type: item.wardName,
-              number: item.wardNumber || item.wardId || index,
-              department: item.specializationName,
-              specializationId: item.specializationId || item.specialization?.id || null,
-              totalBeds: item.totalBeds,
-              availableBeds,
-              occupiedBeds,
-              rooms: item.rooms || [], // <-- Include the actual rooms array
-              roomNumbers: item.roomNumbers,
-              beds: item.rooms?.flatMap((r) => r.beds || []),
-            };
-          });
-
-          setWardData(formatted);
-        }
-      } catch (error) {
-        console.error("Error fetching ward data:", error);
-      } finally {
-        console.log("[IPDWard] finished ward summary fetch");
-        setLoading(false);
-      }
-    };
-    fetchWards();
+    // Remove local fetching of wardData since it's passed as a prop
   }, []);
 
   return (
@@ -90,7 +44,7 @@ const IPDWard = ({ selectedWard, onSelectWard }) => {
         <div className="text-center py-10 text-gray-500 text-sm">
           Loading wards...
         </div>
-      ) : wardData.length === 0 ? (
+      ) : !wardData || wardData.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-lg">
           <Bed className="mx-auto mb-4 text-gray-400" size={48} />
           <h3 className="text-lg font-semibold text-gray-600 mb-2">
@@ -107,7 +61,7 @@ const IPDWard = ({ selectedWard, onSelectWard }) => {
               <div
                 key={ward.id}
                 className={`p-3 sm:p-4 rounded-lg border-2 cursor-pointer transition-all duration-300 ${
-                  selectedWard?.id === ward.id
+                  selectedWardName === ward.wardName
                     ? "border-[#01B07A] bg-[#E6FBF5] shadow-lg"
                     : "border-gray-200 hover:border-gray-300"
                 } ${
@@ -167,7 +121,9 @@ const IPDWard = ({ selectedWard, onSelectWard }) => {
                     className="bg-red-500 h-2 rounded-full transition-all duration-300"
                     style={{
                       width: `${
-                        (ward.occupiedBeds / ward.totalBeds) * 100
+                        ward.occupiedBeds > 0
+                          ? (ward.occupiedBeds / ward.totalBeds) * 100
+                          : 0
                       }%`,
                     }}
                   ></div>
@@ -175,10 +131,10 @@ const IPDWard = ({ selectedWard, onSelectWard }) => {
               </div>
             ))}
           </div>
-          {selectedWard && (
+          {selectedWardName && (
             <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-[#E6FBF5] rounded-lg border border-[#01B07A]">
               <p className="text-xs sm:text-sm text-[#01B07A] font-medium">
-                Selected: {selectedWard.type} - {selectedWard.department}
+                Selected: {selectedWardName}
               </p>
             </div>
           )}

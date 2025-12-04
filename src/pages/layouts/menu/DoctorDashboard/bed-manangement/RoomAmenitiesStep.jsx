@@ -249,81 +249,117 @@ const getIconComponent = (amenityName) => {
                   <Trash2 size={14} />
                 </button>
               </div>
-              <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Room No:</label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="text"
-                    value={inputRoomNo}
-                    onChange={(e) => {
-                      const rawRoomNo = e.target.value;
-                      setRoomAddErrors((prev) => {
-                        const next = { ...prev };
-                        delete next[ward.id];
-                        return next;
-                      });
-                      setBedMasterData((prev) => ({ ...prev, selectedWard: resolvedWardForState(), activeWardId: ward.id }));
-                      setNewRoomNameByWard((prev) => ({ ...prev, [ward.id]: `${prefix}${rawRoomNo}` }));
-                    }}
-                    placeholder="e.g. 101"
-                    className={`w-full px-3 sm:px-4 py-2 border rounded-lg focus:outline-none text-sm ${roomAddErrors[ward.id] ? "border-red-400 focus:ring-red-300" : "border-gray-300 focus:ring-[var(--accent-color)]"}`}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleAddRoom(ward, department, wardAmenities);
-                      }
-                    }}
-                  />
+              {/* 2-COLUMN LAYOUT: Amenities (with Room input) + Add Price */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                {/* LEFT COLUMN: Amenities Card with Room Input */}
+                <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                  <div className="text-sm font-semibold mb-3 text-gray-700 flex items-center gap-2">
+                    <Settings size={14} /> Amenities
+                  </div>
+                  
+                  {/* Room No Input Section */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Room No:</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={inputRoomNo}
+                        onChange={(e) => {
+                          const rawRoomNo = e.target.value;
+                          setRoomAddErrors((prev) => {
+                            const next = { ...prev };
+                            delete next[ward.id];
+                            return next;
+                          });
+                          setBedMasterData((prev) => ({ ...prev, selectedWard: resolvedWardForState(), activeWardId: ward.id }));
+                          setNewRoomNameByWard((prev) => ({ ...prev, [ward.id]: `${prefix}${rawRoomNo}` }));
+                        }}
+                        placeholder="e.g. 101"
+                        className={`flex-1 px-3 py-2 border rounded-lg focus:outline-none text-sm ${roomAddErrors[ward.id] ? "border-red-400 focus:ring-red-300" : "border-gray-300 focus:ring-[var(--accent-color)]"}`}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddRoom(ward, department, wardAmenities);
+                          }
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAddRoom(ward, department, wardAmenities);
+                        }}
+                        disabled={!!addingRoomByWard[ward.id]}
+                        className={`btn view-btn flex-shrink-0 text-sm px-3 py-2 ${addingRoomByWard[ward.id] ? "opacity-60 cursor-not-allowed" : ""}`}
+                      >
+                        <Plus size={14} className="mr-1" /> {addingRoomByWard[ward.id] ? "Adding..." : "Add"}
+                      </button>
+                    </div>
+                    {roomAddErrors[ward.id] && <div className="mt-2 text-xs text-red-600">{roomAddErrors[ward.id]}</div>}
+                  </div>
+
+                  {/* Amenities Selection */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Select Amenities:</label>
+                    <div className="flex flex-wrap gap-2">
+                      {roomAmenities.length === 0 ? (
+                        <div className="text-sm text-gray-500">No amenities available</div>
+                      ) : (
+                        roomAmenities.map((amenity) => {
+                          const IconComponent = amenity.icon;
+                          const isSelected = (wardAmenities || []).map(String).includes(String(amenity.id));
+                          return (
+                            <button
+                              key={amenity.id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setBedMasterData((prev) => {
+                                  const prevWardAmenities = prev.roomAmenitiesByWard?.[ward.id] || [];
+                                  const nextWardAmenities = prevWardAmenities.includes(amenity.id)
+                                    ? prevWardAmenities.filter((id) => id !== amenity.id)
+                                    : [...prevWardAmenities, amenity.id];
+                                  return {
+                                    ...prev,
+                                    selectedWard: resolvedWardForState(),
+                                    activeWardId: ward.id,
+                                    roomAmenitiesByWard: { ...(prev.roomAmenitiesByWard || {}), [ward.id]: nextWardAmenities },
+                                  };
+                                });
+                              }}
+                              className={`flex items-center justify-center px-3 py-2 rounded-lg border transition-all duration-200 text-sm space-x-2 ${isSelected ? "border-[var(--accent-color)] bg-[var(--accent-color)] text-white shadow-sm" : "border-gray-200 bg-white hover:bg-gray-50 hover:border-[var(--accent-color)]"}`}
+                            >
+                              <IconComponent className={isSelected ? "text-white" : amenity.color} size={14} />
+                              <span className="text-xs font-medium ml-1">{amenity.name}</span>
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* RIGHT COLUMN: Add Price Card */}
+                <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                  <div className="text-sm font-semibold mb-3 text-gray-700">Add Room Price</div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Price (₹)</label>
+                    <input
+                      type="number"
+                      placeholder="Enter price"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] focus:border-transparent text-sm"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleAddRoom(ward, department, wardAmenities);
+                      // Add your save price logic here
+                      toast.success("Price saved successfully");
                     }}
-                    disabled={!!addingRoomByWard[ward.id]}
-                    className={`btn view-btn flex-shrink-0 text-sm ${addingRoomByWard[ward.id] ? "opacity-60 cursor-not-allowed" : ""}`}
+                    className="bg-green-600 text-white px-4 py-2 rounded-lg w-full hover:bg-green-700 transition-colors text-sm font-medium"
                   >
-                    <Plus size={14} /> {addingRoomByWard[ward.id] ? "Adding..." : "Add Room"}
+                    Save Price
                   </button>
-                </div>
-                {roomAddErrors[ward.id] && <div className="mt-2 text-xs text-red-600">{roomAddErrors[ward.id]}</div>}
-                <div className="mt-3">
-                  <div className="text-sm font-semibold mb-2 text-gray-700 flex items-center gap-2">
-                    <Settings size={14} /> Amenities
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {roomAmenities.length === 0 ? (
-                      <div className="text-sm text-gray-500">No amenities available</div>
-                    ) : (
-                      roomAmenities.map((amenity) => {
-                        const IconComponent = amenity.icon;
-                        const isSelected = (wardAmenities || []).map(String).includes(String(amenity.id));
-                        return (
-                          <button
-                            key={amenity.id}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setBedMasterData((prev) => {
-                                const prevWardAmenities = prev.roomAmenitiesByWard?.[ward.id] || [];
-                                const nextWardAmenities = prevWardAmenities.includes(amenity.id)
-                                  ? prevWardAmenities.filter((id) => id !== amenity.id)
-                                  : [...prevWardAmenities, amenity.id];
-                                return {
-                                  ...prev,
-                                  selectedWard: resolvedWardForState(),
-                                  activeWardId: ward.id,
-                                  roomAmenitiesByWard: { ...(prev.roomAmenitiesByWard || {}), [ward.id]: nextWardAmenities },
-                                };
-                              });
-                            }}
-                            className={`flex items-center justify-center px-3 py-2 rounded-lg border transition-all duration-200 text-sm space-x-2 ${isSelected ? "border-[var(--accent-color)] bg-[var(--accent-color)] text-white shadow-sm" : "border-gray-200 bg-white hover:bg-gray-50 hover:border-[var(--accent-color)]"}`}
-                          >
-                            <IconComponent className={isSelected ? "text-white" : amenity.color} size={14} />
-                            <span className="text-xs font-medium ml-1">{amenity.name}</span>
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">

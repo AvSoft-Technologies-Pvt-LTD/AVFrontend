@@ -335,64 +335,76 @@ const AvailabilityPage = () => {
   const goBack = () => {
     setCurrentStep(1);
   };
+const renderCalendar = () => {
+  const daysInMonth = getDaysInMonth(selectedMonth, selectedYear);
+  const firstDay = getFirstDayOfMonth(selectedMonth, selectedYear);
+  const adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1;
+  const blanks = Array(adjustedFirstDay).fill(null);
+  const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  const allCells = [...blanks, ...daysArray];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-  const renderCalendar = () => {
-    const daysInMonth = getDaysInMonth(selectedMonth, selectedYear);
-    const firstDay = getFirstDayOfMonth(selectedMonth, selectedYear);
-    const adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1;
-    const blanks = Array(adjustedFirstDay).fill(null);
-    const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-    const allCells = [...blanks, ...daysArray];
-    return (
-      <div className="calendar-grid">
-        <div className="calendar-weekdays">
-          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
-            <div key={day} className="calendar-weekday">
-              {day}
-            </div>
-          ))}
-        </div>
-        <div className="calendar-dates">
-          {allCells.map((date, index) => {
-            if (date === null) {
-              return (
-                <div key={`blank-${index}`} className="calendar-date blank"></div>
-              );
-            }
-            const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(
-              2,
-              "0"
-            )}-${String(date).padStart(2, "0")}`;
-            const isSelected = selectedDates.includes(dateStr);
-            const isDeselected = deselectedDates.includes(dateStr);
-            const isStartDate = startDate === dateStr;
-            const isEndDate = endDate === dateStr;
-            const isInRange =
-              startDate &&
-              endDate &&
-              new Date(dateStr) >= new Date(startDate) &&
-              new Date(dateStr) <= new Date(endDate);
-            return (
-              <button
-                key={date}
-                onClick={() => toggleDate(date)}
-                className={`
-                  calendar-date
-                  ${isSelected && !isDeselected ? "selected" : ""}
-                  ${isDeselected ? "deselected" : ""}
-                  ${isStartDate && !isDeselected ? "start-date" : ""}
-                  ${isEndDate && !isDeselected ? "end-date" : ""}
-                  ${isInRange && !isDeselected ? "in-range" : ""}
-                `}
-              >
-                {date}
-              </button>
-            );
-          })}
-        </div>
+  return (
+    <div className="calendar-grid">
+      <div className="calendar-weekdays">
+        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
+          <div key={day} className="calendar-weekday">
+            {day}
+          </div>
+        ))}
       </div>
-    );
-  };
+      <div className="calendar-dates">
+        {allCells.map((date, index) => {
+          if (date === null) {
+            return (
+              <div key={`blank-${index}`} className="calendar-date blank"></div>
+            );
+          }
+          const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(
+            2,
+            "0"
+          )}-${String(date).padStart(2, "0")}`;
+          const dateObj = new Date(dateStr);
+          const isPastDate =
+            dateObj < today &&
+            !(dateObj.getMonth() === today.getMonth() &&
+              dateObj.getFullYear() === today.getFullYear() &&
+              dateObj.getDate() >= today.getDate());
+          const isSelected = selectedDates.includes(dateStr);
+          const isDeselected = deselectedDates.includes(dateStr);
+          const isStartDate = startDate === dateStr;
+          const isEndDate = endDate === dateStr;
+          const isInRange =
+            startDate &&
+            endDate &&
+            new Date(dateStr) >= new Date(startDate) &&
+            new Date(dateStr) <= new Date(endDate);
+
+          return (
+            <button
+              key={date}
+              onClick={() => !isPastDate && toggleDate(date)}
+              className={`
+                calendar-date
+                ${isPastDate ? "past-date" : ""}
+                ${isSelected && !isDeselected ? "selected" : ""}
+                ${isDeselected ? "deselected" : ""}
+                ${isStartDate && !isDeselected ? "start-date" : ""}
+                ${isEndDate && !isDeselected ? "end-date" : ""}
+                ${isInRange && !isDeselected ? "in-range" : ""}
+              `}
+              disabled={isPastDate}
+            >
+              {date}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 
   const activeDatesCount = selectedDates.filter((d) => !deselectedDates.includes(d)).length;
 
@@ -471,27 +483,38 @@ const AvailabilityPage = () => {
                   </label>
                   <div className="bg-white p-3 sm:p-4 rounded-lg border border-slate-200">
                     {/* Month/Year Navigation */}
-                    <div className="flex items-center justify-between mb-3 bg-slate-50 p-2 sm:p-3 rounded-lg">
-                      <button
-                        onClick={() =>
-                          setSelectedMonth((prev) => (prev === 0 ? 11 : prev - 1))
-                        }
-                        className="p-1.5 sm:p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                      >
-                        <ChevronLeft size={16} className="sm:w-[18px] sm:h-[18px]" />
-                      </button>
-                      <div className="font-bold text-sm sm:text-base text-slate-800">
-                        {MONTHS[selectedMonth]} {selectedYear}
-                      </div>
-                      <button
-                        onClick={() =>
-                          setSelectedMonth((prev) => (prev === 11 ? 0 : prev + 1))
-                        }
-                        className="p-1.5 sm:p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                      >
-                        <ChevronRight size={16} className="sm:w-[18px] sm:h-[18px]" />
-                      </button>
-                    </div>
+                 <div className="flex items-center justify-between mb-3 bg-slate-50 p-2 sm:p-3 rounded-lg">
+  <button
+    onClick={() => {
+      if (selectedMonth === 0) {
+        setSelectedMonth(11);
+        setSelectedYear((prev) => prev - 1);
+      } else {
+        setSelectedMonth((prev) => prev - 1);
+      }
+    }}
+    className="p-1.5 sm:p-2 hover:bg-slate-100 rounded-lg transition-colors"
+  >
+    <ChevronLeft size={16} className="sm:w-[18px] sm:h-[18px]" />
+  </button>
+  <div className="font-bold text-sm sm:text-base text-slate-800">
+    {MONTHS[selectedMonth]} {selectedYear}
+  </div>
+  <button
+    onClick={() => {
+      if (selectedMonth === 11) {
+        setSelectedMonth(0);
+        setSelectedYear((prev) => prev + 1);
+      } else {
+        setSelectedMonth((prev) => prev + 1);
+      }
+    }}
+    className="p-1.5 sm:p-2 hover:bg-slate-100 rounded-lg transition-colors"
+  >
+    <ChevronRight size={16} className="sm:w-[18px] sm:h-[18px]" />
+  </button>
+</div>
+
                     {renderCalendar()}
                     {activeDatesCount > 0 && (
                       <div className="mt-3 p-2 bg-emerald-50 border border-emerald-200 rounded-lg text-center text-xs">

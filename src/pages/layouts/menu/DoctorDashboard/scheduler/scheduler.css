@@ -1503,3 +1503,8 @@
   min-height: 76px;       /* feel free to tweak 70–90 */
   padding-bottom: 6px;    /* small breathing room */
 }
+.calendar-date.past-date {
+  color: #ccc;
+  cursor: not-allowed;
+  background-color: #f9f9f9;
+}

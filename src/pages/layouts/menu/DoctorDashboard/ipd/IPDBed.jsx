@@ -7,11 +7,8 @@ import {
   CheckCircle,
   Wrench,
 } from "lucide-react";
-import { getSpecializationsWardsSummaryForIpdAdmission } from "../../../../../utils/CrudService";
 
 // Map backend bedStatusId -> UI status
-// NOTE: Align these IDs with the same meaning you configured in BedAmenitiesStep.
-// If ID 1 is "Available" in your master data, it MUST map to "available" here.
 const STATUS_MAP = {
   1: "available",  // 1 = Available
   2: "occupied",   // 2 = Occupied
@@ -20,62 +17,54 @@ const STATUS_MAP = {
 };
 
 const IPDBed = ({
-  selectedWard,       // expects { type: wardName, department: specializationName, ... }
-  selectedRoom,       // roomNumber (string/number)
-  selectedBed,        // current selected bedNumber (string/number)
-  onSelectBed,        // (bedNumber) => void
-  ipdPatients = [],   // admitted patients list
+  wardData,
+  selectedWardName,
+  selectedRoomNumber,
+  selectedBedNumber,
+  onSelectBed,
+  ipdPatients = [],
   bedScrollIndex = 0,
-  onScrollBeds,       // ("left" | "right") => void
+  onScrollBeds,
 }) => {
   const [loading, setLoading] = React.useState(false);
   const [roomBeds, setRoomBeds] = React.useState([]);
   const [wardHeader, setWardHeader] = React.useState({ wardName: "", specializationName: "" });
 
-  // fetch beds for the selected ward + room from API
+  // Find the selected ward and room from wardData
   React.useEffect(() => {
-    let alive = true;
-    const fetchBeds = async () => {
-      if (!selectedWard || !selectedRoom) return;
-      setLoading(true);
-      try {
-        const res = await getSpecializationsWardsSummaryForIpdAdmission();
-        const data = Array.isArray(res?.data) ? res.data : [];
+    if (!selectedWardName || !selectedRoomNumber || !wardData.length) return;
 
-        // Prefer matching by wardId (selectedWard.id comes from item.wardId in IPDWard)
-        const ward =
-          data.find((w) => String(w.wardId ?? w.id) === String(selectedWard.id)) ||
-          data.find(
-            (w) =>
-              (w.wardName || "").toString() === (selectedWard.type || "").toString() &&
-              (w.specializationName || "").toString() === (selectedWard.department || "").toString()
-          );
+    setLoading(true);
 
-        const roomObj = ward?.rooms?.find(
-          (r) => (r.roomNumber || "").toString() === (selectedRoom || "").toString()
-        );
+    try {
+      // Find the selected ward
+      const selectedWard = wardData.find(ward => ward.wardName === selectedWardName);
 
-        if (alive) {
+      if (selectedWard) {
+        // Find the selected room
+        const selectedRoom = selectedWard.rooms.find(room => room.roomNumber === selectedRoomNumber);
+
+        if (selectedRoom) {
           setWardHeader({
-            wardName: ward?.wardName || selectedWard.type || "",
-            specializationName: ward?.specializationName || selectedWard.department || "",
+            wardName: selectedWard.wardName,
+            specializationName: selectedWard.specializationName || selectedWard.department || "",
           });
-          setRoomBeds(roomObj?.beds || []);
-        }
-      } catch (e) {
-        if (alive) {
+          setRoomBeds(selectedRoom.beds || []);
+        } else {
+          console.error("Selected room not found in ward data");
           setRoomBeds([]);
         }
-        console.error("[IPDBed] fetch error:", e);
-      } finally {
-        if (alive) setLoading(false);
+      } else {
+        console.error("Selected ward not found in ward data");
+        setRoomBeds([]);
       }
-    };
-    fetchBeds();
-    return () => {
-      alive = false;
-    };
-  }, [selectedWard, selectedRoom]);
+    } catch (e) {
+      console.error("[IPDBed] error:", e);
+      setRoomBeds([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedWardName, selectedRoomNumber, wardData]);
 
   // Build admitted ward keys for quick lookup
   const occupiedWardKeys = React.useMemo(() => {
@@ -90,28 +79,26 @@ const IPDBed = ({
 
   // Try to split a combined ward name like "ICU 1" -> {base:"ICU", num:"1"}
   const splitWardTypeAndNumber = React.useMemo(() => {
-    const raw = (selectedWard?.type || "").toString();
+    const raw = selectedWardName || "";
     const m = raw.match(/^(.+?)\s+(\d+)\s*$/);
     return {
-      baseType: m ? m[1] : selectedWard?.type || "",
-      wardNumber: m ? m[2] : (selectedWard?.number ?? selectedWard?.wardNumber ?? ""),
+      baseType: m ? m[1] : selectedWardName || "",
+      wardNumber: m ? m[2] : "",
     };
-  }, [selectedWard]);
+  }, [selectedWardName]);
 
   const makeWardKeyCandidates = (bedNumber) => {
-    const roomPart = selectedRoom?.toString() ?? "";
+    const roomPart = selectedRoomNumber?.toString() ?? "";
     const bedPart = bedNumber?.toString() ?? "";
     const baseType = splitWardTypeAndNumber.baseType?.toString() ?? "";
     const wardNum = splitWardTypeAndNumber.wardNumber?.toString() ?? "";
 
     // Preferred: wardType-wardNumber-room-bed (what your save code uses)
     const k1 = `${baseType}-${wardNum}-${roomPart}-${bedPart}`;
-
     // Fallbacks for legacy/edge data
-    const k2 = `${selectedWard?.type}-${selectedWard?.number ?? ""}-${roomPart}-${bedPart}`;
-    const k3 = `${selectedWard?.type}-${roomPart}-${bedPart}`; // if ward number wasn’t stored
+    const k2 = `${selectedWardName}-${roomPart}-${bedPart}`; // if ward number wasn't stored
 
-    return [k1, k2, k3].filter(Boolean);
+    return [k1, k2].filter(Boolean);
   };
 
   const isBedOccupied = (bedNumber) => {
@@ -128,10 +115,9 @@ const IPDBed = ({
   };
 
   const getBedColors = (status, isSelected) => {
-    // Selected bed: always strong green highlight
+    // Selected bed: greyed with blue highlight
     if (isSelected)
-      return "border-green-500 bg-green-50 text-green-700 shadow-lg shadow-green-200";
-
+      return "border-gray-500 bg-gray-100 text-gray-700 shadow-md shadow-blue-200 ring-2 ring-blue-400";
     // Color by status
     if (status === "occupied")
       return "border-red-500 bg-red-50 text-red-700"; // occupied -> red
@@ -139,13 +125,12 @@ const IPDBed = ({
       return "border-yellow-500 bg-yellow-50 text-yellow-700"; // maintenance -> yellow
     if (status === "blocked")
       return "border-gray-400 bg-gray-100 text-gray-600"; // blocked -> gray
-
     // available / default -> green-ish primary
     return "border-green-500 bg-green-50 text-green-700 hover:shadow-lg hover:shadow-green-200";
   };
 
   const getBedIconClass = (status, isSelected) => {
-    if (isSelected) return "text-green-600";
+    if (isSelected) return "text-gray-600";
     if (status === "occupied") return "text-red-500";
     if (status === "maintenance") return "text-yellow-500";
     if (status === "blocked") return "text-gray-400";
@@ -167,14 +152,13 @@ const IPDBed = ({
   const startIndex = Math.min(bedScrollIndex, maxStartIndex);
   const visibleBeds = roomBeds.slice(startIndex, startIndex + bedsPerPage);
 
-  if (!selectedWard || !selectedRoom) return null;
+  if (!selectedWardName || !selectedRoomNumber) return null;
 
   return (
     <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
       <h4 className="font-semibold mb-3 sm:mb-4 text-base sm:text-lg">
-        Select Bed in {wardHeader.wardName} — Room {selectedRoom}
+        Select Bed in {wardHeader.wardName} — Room {selectedRoomNumber}
       </h4>
-
       <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
         <p className="text-sm text-blue-800">
           <strong>Department:</strong> {wardHeader.specializationName}
@@ -183,7 +167,6 @@ const IPDBed = ({
           <strong>Room Beds:</strong> {loading ? "…" : roomBeds.length}
         </p>
       </div>
-
       <div className="flex items-center gap-2 mb-4">
         {bedScrollIndex > 0 && (
           <button
@@ -193,7 +176,6 @@ const IPDBed = ({
             <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600" />
           </button>
         )}
-
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-1.5 sm:gap-2 flex-1">
           {loading ? (
             <div className="col-span-full text-center text-sm text-gray-600">Loading beds…</div>
@@ -202,13 +184,13 @@ const IPDBed = ({
           ) : (
             visibleBeds.map((bed) => {
               const status = getBedStatus(bed);
-              const isSelected = selectedBed?.toString() === bed.bedNumber?.toString();
+              const isSelected = selectedBedNumber?.toString() === bed.bedNumber?.toString();
               const isDisabled = status === "occupied" || status === "maintenance";
 
               return (
                 <div
                   key={bed.bedId}
-                  onClick={() => !isDisabled && onSelectBed?.(bed)}
+                  onClick={() => !isDisabled && onSelectBed?.(bed.bedNumber)}
                   className={`relative p-1.5 sm:p-2 rounded-lg border-2 transition-all duration-300 ${
                     getBedColors(status, isSelected)
                   } ${isDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
@@ -225,7 +207,6 @@ const IPDBed = ({
                         <Bed className="w-3 h-3 sm:w-4 sm:h-4" />
                       )}
                     </div>
-
                     <div className="text-center">
                       <div className="font-bold text-xs">Bed {bed.bedNumber}</div>
                       <div className="text-[8px] sm:text-[10px] opacity-75 capitalize">
@@ -236,7 +217,6 @@ const IPDBed = ({
                           : "Available"}
                       </div>
                     </div>
-
                     {/* Amenities: API gives numeric IDs. Render a hint if present. */}
                     {(Array.isArray(bed.amenities) && bed.amenities.length > 0) ? (
                       <div className="text-[8px] sm:text-[10px] opacity-60 hidden sm:block">
@@ -253,7 +233,6 @@ const IPDBed = ({
             })
           )}
         </div>
-
         {bedScrollIndex + bedsPerPage < roomBeds.length && (
           <button
             onClick={() => onScrollBeds?.("right")}

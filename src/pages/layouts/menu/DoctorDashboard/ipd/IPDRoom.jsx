@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { Bed, CheckCircle, XCircle, DoorOpen } from "lucide-react";
-
 import {
   Users,
   Heart,
@@ -10,7 +9,6 @@ import {
   Stethoscope,
   Activity,
 } from "lucide-react";
-import { getSpecializationsWardsSummaryForIpdAdmission } from "../../../../../utils/CrudService";
 
 const WARD_ICONS = {
   "General Ward": Users,
@@ -38,60 +36,47 @@ const BED_STATUS = {
   MAINTENANCE: 3,
 };
 
-const IPDRoom = ({ wardData, selectedWard, selectedRoom, onSelectRoom }) => {
-  if (!selectedWard) return null;
-
+const IPDRoom = ({ wardData, selectedWardName, selectedRoomNumber, onSelectRoom }) => {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  // Find the selected ward from wardData
+  const selectedWard = wardData.find((ward) => ward.wardName === selectedWardName);
+
   useEffect(() => {
-    if (!selectedWard) return;
+    if (!selectedWardName || !wardData.length) return;
 
-    let alive = true;
-    const fetchRooms = async () => {
-      try {
-        setLoading(true);
+    setLoading(true);
 
-        const res = await getSpecializationsWardsSummaryForIpdAdmission();
-        const data = Array.isArray(res?.data) ? res.data : [];
+    if (selectedWard) {
+      // Extract rooms from the selected ward
+      const roomsList = Array.isArray(selectedWard.rooms) ? selectedWard.rooms : [];
+      setRooms(roomsList);
+    } else {
+      console.error("Selected ward not found in wardData");
+      setRooms([]);
+    }
 
-        // Prefer matching by wardId if available
-        const wardFromApi =
-          data.find((w) => String(w.wardId ?? w.id) === String(selectedWard.id)) ||
-          data.find(
-            (w) =>
-              (w.wardName || "").toString() === (selectedWard.type || "").toString() &&
-              (w.specializationName || "").toString() === (selectedWard.department || "").toString()
-          );
+    setLoading(false);
+  }, [selectedWardName, wardData]);
 
-        if (!alive) return;
-        setRooms(Array.isArray(wardFromApi?.rooms) ? wardFromApi.rooms : []);
-      } catch (e) {
-        if (!alive) return;
-        console.error("[IPDRoom] failed to fetch rooms:", e);
-        setRooms([]);
-      } finally {
-        if (!alive) return;
-        setLoading(false);
-      }
-    };
-
-    fetchRooms();
-
-    return () => {
-      alive = false;
-    };
-  }, [selectedWard]);
+  if (!selectedWardName) {
+    return (
+      <div className="text-center py-8 text-gray-500 text-sm">
+        Please select a ward first.
+      </div>
+    );
+  }
 
   return (
     <>
       <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
         <h4 className="font-semibold mb-3 sm:mb-4 text-base sm:text-lg">
-          Select Room in {selectedWard.type} Ward {selectedWard.number}
+          Select Room in {selectedWard?.type} Ward {selectedWard?.number}
         </h4>
         <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
           <p className="text-sm text-blue-800">
-            <strong>Department:</strong> {selectedWard.department}
+            <strong>Department:</strong> {selectedWard?.department}
           </p>
           <p className="text-sm text-blue-800">
             <strong>Total Rooms:</strong> {rooms.length}
@@ -116,15 +101,21 @@ const IPDRoom = ({ wardData, selectedWard, selectedRoom, onSelectRoom }) => {
               ).length;
 
               return (
-                <div
-                  key={room.roomId}
-                  className={`p-3 sm:p-4 rounded-lg border-2 cursor-pointer transition-all duration-300 ${
-                    selectedRoom === room.roomNumber
-                      ? "border-[#01B07A] bg-[#E6FBF5] shadow-lg"
-                      : "border-gray-200 hover:border-gray-300"
-                  }`}
-                  onClick={() => onSelectRoom(room)}
-                >
+              <div
+  key={room.roomId}
+  className={`p-3 sm:p-4 rounded-lg border-2 cursor-pointer transition-all duration-300 ${
+    selectedRoomNumber === room.roomNumber
+      ? "border-[#01B07A] bg-[#E6FBF5] shadow-lg"
+      : "border-gray-200 hover:border-gray-300"
+  } ${
+    availableCount === 0
+      ? "opacity-50 cursor-not-allowed"
+      : ""
+  }`}
+  onClick={() =>
+    availableCount > 0 && onSelectRoom(room.roomNumber)
+  }
+>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <DoorOpen className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -169,7 +160,11 @@ const IPDRoom = ({ wardData, selectedWard, selectedRoom, onSelectRoom }) => {
                     <div
                       className="bg-red-500 h-2 rounded-full transition-all duration-300"
                       style={{
-                        width: `${(occupiedCount / room.beds.length) * 100}%`,
+                        width: `${
+                          room.beds.length > 0
+                            ? (occupiedCount / room.beds.length) * 100
+                            : 0
+                        }%`,
                       }}
                     ></div>
                   </div>
@@ -178,10 +173,10 @@ const IPDRoom = ({ wardData, selectedWard, selectedRoom, onSelectRoom }) => {
             })}
           </div>
         )}
-        {selectedRoom && (
+        {selectedRoomNumber && (
           <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-[#E6FBF5] rounded-lg border border-[#01B07A]">
             <p className="text-xs sm:text-sm text-[#01B07A] font-medium">
-              Selected: {selectedWard.type} Ward {selectedWard.number} - Room {selectedRoom}
+              Selected: {selectedWard?.type} Ward {selectedWard?.number} - Room {selectedRoomNumber}
             </p>
           </div>
         )}

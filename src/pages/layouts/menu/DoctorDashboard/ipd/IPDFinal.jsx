@@ -116,7 +116,7 @@ export const generateAdmissionFields = (masterData, staticData) => {
   ];
 };
 
-const IPDFinal = ({ data, selectedWard, selectedRoom, selectedBed, fields, onChange }) => {
+const IPDFinal = ({ data, wardData, selectedWardName, selectedRoomNumber, selectedBedNumber, fields, onChange }) => {
   const [symptomsList, setSymptomsList] = useState([]);
   const [loadingSymptoms, setLoadingSymptoms] = useState(false);
   const [insuranceList, setInsuranceList] = useState([]);
@@ -125,12 +125,17 @@ const IPDFinal = ({ data, selectedWard, selectedRoom, selectedBed, fields, onCha
   const [symptomsOpen, setSymptomsOpen] = useState(false);
   const [symptomsSearch, setSymptomsSearch] = useState("");
 
+
+   // Find the selected ward, room, and bed from wardData
+  const selectedWard = wardData.find(ward => ward.wardName === selectedWardName);
+  const selectedRoom = selectedWard?.rooms?.find(room => room.roomNumber === selectedRoomNumber);
+  const selectedBed = selectedRoom?.beds?.find(bed => bed.bedNumber === selectedBedNumber);
   // Get the display values from the selected objects
   const wardType = selectedWard?.type || data.wardType || "N/A";
 const wardNumber = 
-  selectedWard?.wardNumber || 
-  (typeof selectedWard === 'object' ? selectedWard?.number : selectedWard) || 
-  data.wardNumber || 
+  selectedWard?.wardId?.toString() || 
+  selectedWard?.id?.toString() || 
+  data.wardId?.toString() || 
   "N/A";
   
 const roomNumber = 
@@ -143,26 +148,55 @@ const bedNumber =
   "N/A";  const department = selectedWard?.department || data.department || "N/A";
 
   // Update the data object with the selected values
-useEffect(() => {
-  if (selectedWard) {
-    onChange('wardType', selectedWard.type);
-    onChange('wardNumber', 
-      selectedWard.wardNumber || 
-      (typeof selectedWard === 'object' ? selectedWard.number : selectedWard)
-    );
-    onChange('department', selectedWard.department);
-  }
-  if (selectedRoom) {
-    onChange('roomNumber', 
-      typeof selectedRoom === 'object' ? selectedRoom.roomNumber : selectedRoom
-    );
-  }
-  if (selectedBed) {
-    onChange('bedNumber', 
-      typeof selectedBed === 'object' ? selectedBed.bedNumber : selectedBed
-    );
-  }
-}, [selectedWard, selectedRoom, selectedBed, onChange]);
+  useEffect(() => {
+    console.log('IPDFinal - Selected Ward:', selectedWard);
+    console.log('IPDFinal - Selected Room:', selectedRoom);
+    console.log('IPDFinal - Selected Bed:', selectedBed);
+
+    if (selectedWard) {
+      console.log('Setting ward data:', {
+        wardType: selectedWard.type,
+        wardId: selectedWard.id,
+        wardNumber: selectedWard.wardId || selectedWard.id,
+        department: selectedWard.department
+      });
+      
+      onChange('wardType', selectedWard.type);
+      onChange('wardNumber', selectedWard.wardId?.toString() || selectedWard.id?.toString() || "N/A");
+      onChange('wardId', selectedWard.id || 0);
+      onChange('wardTypeId', selectedWard.wardTypeId || 0);
+      onChange('department', selectedWard.department);
+      
+      // Also update the selectedWardName in parent if needed
+      if (selectedWard.wardName) {
+        onChange('wardName', selectedWard.wardName);
+      }
+    }
+
+    if (selectedRoom) {
+      // Use roomId instead of id for the room
+      const roomId = selectedRoom.roomId || selectedRoom.id;
+      console.log('Setting room data:', {
+        roomNumber: selectedRoom.roomNumber,
+        roomId: roomId
+      });
+      
+      onChange('roomNumber', selectedRoom.roomNumber || "N/A");
+      onChange('roomId', roomId || 0);
+    }
+
+    if (selectedBed) {
+      // Use bedId instead of id for the bed
+      const bedId = selectedBed.bedId || selectedBed.id;
+      console.log('Setting bed data:', {
+        bedNumber: selectedBed.bedNumber,
+        bedId: bedId
+      });
+      
+      onChange('bedNumber', selectedBed.bedNumber || "N/A");
+      onChange('bedId', bedId || 0);
+    }
+  }, [selectedWard, selectedRoom, selectedBed, onChange]);
 
   // Fetch symptoms from API
   useEffect(() => {
@@ -221,16 +255,16 @@ useEffect(() => {
   }, []);
 
   // Keep selectedSymptoms in sync with data.symptoms (supports single value or array)
-  useEffect(() => {
-    const value = data?.symptoms;
-    if (Array.isArray(value)) {
-      setSelectedSymptoms(value);
-    } else if (value != null && value !== "") {
-      setSelectedSymptoms([value]);
-    } else {
-      setSelectedSymptoms([]);
-    }
-  }, [data?.symptoms]);
+useEffect(() => {
+  const value = data?.symptoms;
+  if (Array.isArray(value)) {
+    setSelectedSymptoms(value);
+  } else if (value != null && value !== "") {
+    setSelectedSymptoms([value]);
+  } else {
+    setSelectedSymptoms([]);
+  }
+}, [data?.symptoms]);
 
   // Build a derived field array with API-driven options
   const computedFields = useMemo(
