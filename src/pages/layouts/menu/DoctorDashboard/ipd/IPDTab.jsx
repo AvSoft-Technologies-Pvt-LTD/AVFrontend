@@ -378,7 +378,16 @@ const loadWardData = useCallback(async () => {
         console.error("[OPD] Error saving patient:", error);
       }
     };
-
+const handleLink = (r) => {
+      try {
+        localStorage.setItem("selectedThisPatient", JSON.stringify(r));
+        setPatient(r);
+        setQuickLinksPatient(r);
+        setQuickLinksOpen(true);
+      } catch (error) {
+        console.error("[OPD] Error saving patient:", error);
+      }
+    };
     // Modal Management
     const openModal = useCallback((modalName) => {
       setModals((prev) => ({ ...prev, [modalName]: true }));
@@ -1090,17 +1099,14 @@ const columns = useMemo(
               <FaVideo />
             </button>
           )}
-          <button
-            title="Quick Links"
-            className="p-0.5 text-base text-[var(--primary-color)]"
-            style={{ display: "flex", alignItems: "center" }}
-            onClick={() => {
-              setQuickLinksPatient(row);
-              setQuickLinksOpen(true);
-            }}
-          >
-            <FiLink />
-          </button>
+         <button
+                title="Quick Links"
+                className="p-0.5 text-base text-[var(--primary-color)]"
+                style={{ display: "flex", alignItems: "center" }}
+                onClick={() => handleLink(row)}
+              >
+                <FiLink />
+              </button>
           <button
             title="View Medical Record"
             onClick={() => handleSelected(row)}

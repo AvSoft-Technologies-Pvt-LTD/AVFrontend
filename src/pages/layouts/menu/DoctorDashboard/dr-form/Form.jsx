@@ -356,10 +356,41 @@ const getPatientAge = () => {
     }
   };
 
-  const handlePrintForm = (formType, overrideData) => {
+  const handlePrintForm = async (formType, overrideData) => {
     const data = overrideData || formsData[formType];
     if (!data) return;
-    const doctor = {
+    
+    let currentSignature = doctorSignature;
+    
+    // If there's a signature pad with a signature, save it first
+    if (signaturePadRef.current && !signaturePadRef.current.isEmpty()) {
+      const signatureData = signaturePadRef.current.toDataURL();
+      setDoctorSignature(signatureData);
+      currentSignature = signatureData;
+    } else {
+      // Get the most up-to-date signature from the server if no new signature was just added
+      try {
+        const response = await getSignatureActionsByContextId(
+          patient?.patientId,
+          user?.doctorId,
+          activeTab.toUpperCase(),
+          patient?.id 
+        );
+        
+        // Process the signature response
+        const rawSig = response?.data?.digitalSignature || 
+                      (Array.isArray(response?.data) && response.data[0]?.digitalSignature);
+        
+        if (rawSig) {
+          currentSignature = rawSig.startsWith("data:") ? rawSig : `data:image/png;base64,${rawSig}`;
+          setDoctorSignature(currentSignature);
+        }
+      } catch (error) {
+        console.error("Error fetching signature:", error);
+      }
+    }
+      
+      const doctor = {
       name: doctorInfo ? `Dr. ${doctorInfo.firstName} ${doctorInfo.lastName}` : 'Doctor',
       specialization: doctorInfo?.specialization || '',
       regNo: doctorInfo?.registrationNumber || '',
@@ -370,6 +401,7 @@ const getPatientAge = () => {
       state: doctorInfo?.state || '',
       pincode: doctorInfo?.pincode || ''
     };
+    
     let formContent = "";
     switch (formType) {
       case "vitals":
@@ -393,50 +425,110 @@ const getPatientAge = () => {
       default:
         formContent = "<p>No content available for this form.</p>";
     }
+    
     const logoUrl = doctorInfo?.photo ? makeAbsoluteUrl(doctorInfo.photo) : null;
-    const html = getStyledPrescriptionHTML(doctor, patient, doctorSignature, logoUrl, formContent);
+    
+    // Create a new image element to ensure the signature is loaded
+    const loadSignature = (signature) => {
+      return new Promise((resolve) => {
+        if (!signature) return resolve('');
+        
+        const img = new Image();
+        img.onload = () => resolve(signature);
+        img.onerror = () => {
+          console.error("Error loading signature image");
+          resolve('');
+        };
+        img.src = signature;
+      });
+    };
+    
+    try {
+      // Wait for the signature to be loaded
+      const signatureToUse = await loadSignature(currentSignature);
+      
+      // Generate the HTML with the signature
+      const html = getStyledPrescriptionHTML(doctor, patient, signatureToUse, logoUrl, formContent);
+      
+      if (printWindowRef.current && !printWindowRef.current.closed) printWindowRef.current.close();
+      printWindowRef.current = window.open("", "_blank", "width=900,height=700,scrollbars=yes");
+      if (!printWindowRef.current) return;
+      
+      printWindowRef.current.document.open();
+      printWindowRef.current.document.write(html);
+      printWindowRef.current.document.close();
+      printWindowRef.current.focus();
+      
+      // Add a small delay to ensure the content is fully loaded before printing
+      setTimeout(() => {
+        try {
+          printWindowRef.current.print();
+        } catch (e) {
+          console.error("Print error:", e);
+          toast.error("Error while printing. Please try again.");
+        }
+      }, 1000);
+    } catch (e) {
+      console.error("Error preparing print content:", e);
+      toast.error("Error preparing document for printing");
+    }
+  };
+
+  const printForm = async (formContent) => {
+    const logoUrl = doctorInfo?.photo ? makeAbsoluteUrl(doctorInfo.photo) : null;
+    let currentSignature = doctorSignature;
+    
+    // If we don't have a signature in state, try to get it from the server
+    if (!currentSignature) {
+      try {
+        const response = await getSignatureActionsByContextId(
+          patient?.patientId,
+          user?.doctorId,
+          activeTab.toUpperCase(),
+          patient?.id
+        );
+        
+        const rawSig = response?.data?.digitalSignature || 
+                      (Array.isArray(response?.data) && response.data[0]?.digitalSignature);
+        
+        if (rawSig) {
+          currentSignature = rawSig.startsWith("data:") ? rawSig : `data:image/png;base64,${rawSig}`;
+          setDoctorSignature(currentSignature);
+        }
+      } catch (error) {
+        console.error("Error fetching signature:", error);
+      }
+    }
+    
+    const html = getStyledPrescriptionHTML(doctorInfo, patient, currentSignature, logoUrl, formContent);
+    
     if (printWindowRef.current && !printWindowRef.current.closed) printWindowRef.current.close();
     printWindowRef.current = window.open("", "_blank", "width=900,height=700,scrollbars=yes");
     if (!printWindowRef.current) return;
+    
     try {
       printWindowRef.current.document.open();
       printWindowRef.current.document.write(html);
       printWindowRef.current.document.close();
       printWindowRef.current.focus();
+      
+      // Add a small delay to ensure the content is fully loaded before printing
       setTimeout(() => {
         try {
           printWindowRef.current.print();
         } catch (e) {
           console.error("Print error:", e);
         }
-      }, 500);
-    } catch (e) {
-      console.error("Print popup write error", e);
-    }
-  };
-
-  const printForm = (formContent) => {
-    const logoUrl = doctorInfo?.photo ? makeAbsoluteUrl(doctorInfo.photo) : null;
-    const html = getStyledPrescriptionHTML(doctorInfo, patient, doctorSignature, logoUrl, formContent);
-    if (printWindowRef.current && !printWindowRef.current.closed) printWindowRef.current.close();
-    printWindowRef.current = window.open("", "_blank", "width=900,height=700,scrollbars=yes");
-    if (!printWindowRef.current) return;
-    try {
-      printWindowRef.current.document.open();
-      printWindowRef.current.document.write(html);
-      printWindowRef.current.document.close();
-      printWindowRef.current.focus();
-      setTimeout(() => {
-        try {
-          printWindowRef.current.print();
-        } catch {}
-      }, 500);
+      }, 1000); // Increased timeout to ensure content is loaded
     } catch (e) {
       console.error("Print popup write error", e);
     }
   };
 
   const printAllForms = () => {
+    // Get the most up-to-date signature from state
+    const currentSignature = doctorSignature;
+    
     const doctor = {
       name: doctorInfo ? `Dr. ${doctorInfo.firstName} ${doctorInfo.lastName}` : 'Doctor',
       specialization: doctorInfo?.specialization || '',
@@ -448,6 +540,7 @@ const getPatientAge = () => {
       state: doctorInfo?.state || '',
       pincode: doctorInfo?.pincode || ''
     };
+    
     const formsHtml = Object.keys(formsData || {})
       .filter((formType) => formsData[formType] && Object.keys(formsData[formType]).length > 0)
       .map((formType) => {
@@ -470,22 +563,32 @@ const getPatientAge = () => {
         }
       })
       .join("<div style='page-break-after: always;'></div>");
+      
     if (!formsHtml) return;
+    
     const logoUrl = doctorInfo?.photo ? makeAbsoluteUrl(doctorInfo.photo) : null;
-    const html = getStyledPrescriptionHTML(doctor, patient, doctorSignature, logoUrl, formsHtml);
+    
+    // Use currentSignature instead of doctorSignature
+    const html = getStyledPrescriptionHTML(doctor, patient, currentSignature, logoUrl, formsHtml);
+    
     if (printWindowRef.current && !printWindowRef.current.closed) printWindowRef.current.close();
     printWindowRef.current = window.open("", "_blank", "width=1000,height=800,scrollbars=yes");
     if (!printWindowRef.current) return;
+    
     try {
       printWindowRef.current.document.open();
       printWindowRef.current.document.write(html);
       printWindowRef.current.document.close();
       printWindowRef.current.focus();
+      
+      // Add a small delay to ensure the content is fully loaded before printing
       setTimeout(() => {
         try {
           printWindowRef.current.print();
-        } catch {}
-      }, 600);
+        } catch (e) {
+          console.error("Print error:", e);
+        }
+      }, 1000); // Increased timeout to ensure content is loaded
     } catch (e) {
       console.error("Print all popup error", e);
     }

@@ -9,6 +9,8 @@ import { useDispatch, useSelector } from "react-redux";
 import { updatePatient, getGenders, getAllSymptoms, getVisitReasons, getDoctorAvailabilityByDate, createOpdAppointment, getOpdAppointmentsByDoctor, updateOpdAppointmentById } from "../../../../utils/masterService";
 import AadharVerificationFlow from "../../../../components/AadharVerification/Profile";
 import { usePatientContext } from "../../../../context-api/PatientContext";
+import { FaRupeeSign } from "react-icons/fa";
+import { MdCurrencyRupee } from "react-icons/md";
 
 const getCurrentDate = () => new Date().toISOString().slice(0, 10);
 const getCurrentTime = () => new Date().toTimeString().slice(0, 5);
@@ -113,6 +115,16 @@ const OpdTab = forwardRef(
         navigate("/doctordashboard/medical-record", { state: { patient: r } });
       } catch (error) {
         console.error("[OPD] Error saving patient:", error);
+      }
+    };
+
+    const handleBilling = (r) => {
+      try {
+        localStorage.setItem("selectedThisPatient", JSON.stringify(r));
+        setPatient(r);
+        navigate("/doctordashboard/main-billing", { state: { patient: r } });
+      } catch (error) {
+        console.error("[OPD] Error saving patient for billing:", error);
       }
     };
 
@@ -603,22 +615,29 @@ const OpdTab = forwardRef(
       },
       { header: "Date", accessor: "appointmentDate" },
       { header: "Time", accessor: "appointmentTime" },
-      { header: "Symptoms", accessor: "diagnosis" },
-      {
-        header: "Actions",
-        cell: (row) => (
-          <div className="flex items-center gap-2">
-            <button
-              title="View Medical Record"
-              onClick={() => handleSelected(row)}
-              className="p-1 text-base text-[var(--primary-color)]"
-              style={{ display: "flex", alignItems: "center" }}
-            >
-              <FiExternalLink />
-            </button>
-          </div>
-        ),
-      },
+       {
+    header: "Actions",
+    cell: (row) => (
+      <div className="flex items-center gap-2">
+        <button
+          title="View Medical Record"
+          onClick={() => handleSelected(row)}
+          className="p-1 text-base text-[var(--primary-color)]"
+          style={{ display: "flex", alignItems: "center" }}
+        >
+          <FiExternalLink />
+        </button>
+        <button
+          title="Billing/Payment"
+          onClick={() => handleBilling(row)}
+          className="p-1 text-base text-[var(--primary-color)]"
+          style={{ display: "flex", alignItems: "center" }}
+        >
+      <MdCurrencyRupee size={18}/>
+        </button>
+      </div>
+    ),
+  },
     ];
 
     const childTabActions = [];

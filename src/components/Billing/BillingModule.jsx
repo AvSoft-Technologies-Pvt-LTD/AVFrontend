@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { usePatientContext } from "../../context-api/PatientContext";
 import PatientSearch from "./PatientSearch";
 import ProfileCard from "../../components/microcomponents/ProfileCard";
 import PrintBill from "./PrintBill";
@@ -9,31 +10,8 @@ import IPDSelectionModal from "./IPDSelectionModal";
 import OPDSelectionModal from "./OPDSelectionModal";
 import PharmacyModal from "./PharmacyModal";
 
-// Dummy patient data
-const dummyPatients = {
-  "PT001": {
-    patientId: "PT001",
-    patientName: "John Doe",
-    patientType: "IPD",
-    patientEmail: "john.doe@example.com",
-    patientPhone: "9876543210",
-    patientAddress: "123 Main St, City",
-    doctorName: "Dr. Smith",
-    wardType: "General",
-    daysAdmitted: 3
-  },
-  "PT002": {
-    patientId: "PT002",
-    patientName: "Jane Smith",
-    patientType: "OPD",
-    patientEmail: "jane.smith@example.com",
-    patientPhone: "9876543211",
-    patientAddress: "456 Oak St, Town",
-    doctorName: "Dr. Johnson"
-  }
-};
-
 export default function BillingModule() {
+  const { patient: contextPatient } = usePatientContext();
   const [patient, setPatient] = useState(null);
   const [billingItems, setBillingItems] = useState([]);
   const [showPrintBill, setShowPrintBill] = useState(false);
@@ -42,6 +20,26 @@ export default function BillingModule() {
   const [showIPDModal, setShowIPDModal] = useState(false);
   const [showOPDModal, setShowOPDModal] = useState(false);
   const [showPharmacyModal, setShowPharmacyModal] = useState(false);
+
+  // Update local patient state when contextPatient changes
+  useEffect(() => {
+    if (contextPatient) {
+      // Format the patient data based on whether it's IPD or OPD
+      const formattedPatient = {
+        patientId: contextPatient.id || contextPatient.patientId,
+        patientName: contextPatient.name || contextPatient.patientName,
+        patientType: contextPatient.sequentialId?.startsWith('IPD') ? 'IPD' : 'OPD',
+        patientEmail: contextPatient.email || contextPatient.patientEmailId,
+        patientPhone: contextPatient.phoneNumber || contextPatient.patientPhoneNumber,
+        doctorName: contextPatient.doctorName,
+        ...(contextPatient.ward && { wardType: contextPatient.ward }),
+        ...(contextPatient.admissionDate && { 
+          daysAdmitted: Math.ceil((new Date() - new Date(contextPatient.admissionDate)) / (1000 * 60 * 60 * 24))
+        })
+      };
+      setPatient(formattedPatient);
+    }
+  }, [contextPatient]);
 
   const fetchPatient = (patientId) => {
     setIsLoading(true);
@@ -146,7 +144,6 @@ export default function BillingModule() {
       <div className="max-w-7xl mx-auto">
       
 
-        <PatientSearch onSearch={fetchPatient} isLoading={isLoading} />
 
         {/* Rest of your JSX remains exactly the same */}
         <AnimatePresence>

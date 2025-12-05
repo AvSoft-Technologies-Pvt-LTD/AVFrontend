@@ -23,21 +23,20 @@ const SignatureArea = ({ signaturePadRef, doctorSignature, setDoctorSignature, d
   const handleSaveSignature = () => {
     if (signaturePadRef.current && !signaturePadRef.current.isEmpty()) {
       const dataURL = signaturePadRef.current.toDataURL();
-      fetch(dataURL)
+      return fetch(dataURL)
         .then((res) => res.blob())
         .then((blob) => {
           const file = new File([blob], "signature.png", { type: "image/png" });
           setDoctorSignature(file);
           localStorage.setItem("doctorSignature", dataURL);
-          uploadNow(file);
+          return uploadNow(file); // Return the promise
         });
-      return;
     }
     if (doctorSignature) {
-      uploadNow(doctorSignature);
-      return;
+      return uploadNow(doctorSignature); // Return the promise
     }
     toast.warning("⚠ No signature found!");
+    return Promise.reject("No signature found");
   };
 
   const uploadNow = async (file) => {
@@ -52,15 +51,17 @@ const SignatureArea = ({ signaturePadRef, doctorSignature, setDoctorSignature, d
         contextId:patient?.id,
         patientId: patient?.patientId || 0,
         doctorId: doctorId,
-        context: activeTab?.toUpperCase() || "IPD", // Use 'context' as per backend
+        context: activeTab?.toUpperCase() || "IPD",
         digitalSignature: base64Signature,
       };
       const res = await uploadDoctorSignature(payload);
       console.log("✅ Uploaded successfully:", res.data);
       toast.success("✅ Signature uploaded successfully!");
+      return res.data; // Return the response data
     } catch (error) {
       console.error("❌ Upload failed:", error);
       toast.error("❌ Upload Failed");
+      throw error; // Re-throw the error
     }
   };
 
