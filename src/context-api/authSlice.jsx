@@ -208,6 +208,7 @@ export const loginUser = createAsyncThunk(
   }
 );
 
+
 // Mock Send Registration OTP
 export const sendOTP = createAsyncThunk(
   'auth/sendOTP',
@@ -215,12 +216,17 @@ export const sendOTP = createAsyncThunk(
     try {
       await mockApiDelay();
       console.log(`[MOCK] OTP sent to ${identifier}. Use "${MOCK_OTP}" for verification.`);
+
       return {
         success: true,
         message: "OTP sent successfully",
-        data: { sent: true, identifier, otpSentAt: new Date().toISOString() }
+        data: {
+          sent: true,
+          identifier: identifier,
+          otpSentAt: new Date().toISOString()
+        }
       };
-    } catch {
+    } catch (error) {
       return rejectWithValue('Failed to send OTP');
     }
   }
@@ -233,12 +239,17 @@ export const sendLoginOTP = createAsyncThunk(
     try {
       await mockApiDelay();
       console.log(`[MOCK] Login OTP sent to ${identifier}. Use "${MOCK_OTP}" for verification.`);
+
       return {
         success: true,
         message: "Login OTP sent successfully",
-        data: { sent: true, identifier, otpSentAt: new Date().toISOString() }
+        data: {
+          sent: true,
+          identifier: identifier,
+          otpSentAt: new Date().toISOString()
+        }
       };
-    } catch {
+    } catch (error) {
       return rejectWithValue('Failed to send login OTP');
     }
   }
@@ -250,19 +261,37 @@ export const verifyOTP = createAsyncThunk(
   async ({ identifier, otp, type, registrationData }, { rejectWithValue }) => {
     try {
       await mockApiDelay();
+
       if (otp !== MOCK_OTP) {
         return rejectWithValue(`Invalid OTP. Please use "${MOCK_OTP}" for testing.`);
       }
+
+      // Create mock user data based on registration data
       const isEmail = identifier.includes('@');
-      // Save & Set token
+      const mockUser = {
+        id: `mock-${Math.random().toString(36).substring(2, 9)}`,
+        name: registrationData?.get('name') || "Test User",
+        email: isEmail ? identifier : registrationData?.get('email'),
+        phone: !isEmail ? identifier : registrationData?.get('phone'),
+        role: registrationData?.get('userType')?.toUpperCase() || "USER",
+        userType: registrationData?.get('userType')?.toLowerCase() || "user",
+        token: `mock-token-${Math.random().toString(36).substring(2, 15)}`,
+        isVerified: true,
+        isAuthenticated: true,
+        identifier: identifier
+      };
+
+      // Store in localStorage
       localStorage.setItem('user', JSON.stringify(mockUser));
       localStorage.setItem('token', mockUser.token);
       localStorage.setItem('identifier', identifier);
-      setAuthToken(mockUser.token);
+
       console.log('[MOCK] OTP verification successful. User data:', mockUser);
       return mockUser;
     } catch (error) {
-      return rejectWithValue(error.message || 'OTP verification failed');
+      return rejectWithValue(
+        error.message || 'OTP verification failed'
+      );
     }
   }
 );
@@ -554,6 +583,7 @@ const authSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
+      // Send OTP cases
       .addCase(sendOTP.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -561,12 +591,14 @@ const authSlice = createSlice({
       .addCase(sendOTP.fulfilled, (state) => {
         state.loading = false;
         state.isOTPSent = true;
+        state.error = null;
       })
       .addCase(sendOTP.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
         state.isOTPSent = false;
       })
+      // Send Login OTP cases
       .addCase(sendLoginOTP.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -574,12 +606,14 @@ const authSlice = createSlice({
       .addCase(sendLoginOTP.fulfilled, (state) => {
         state.loading = false;
         state.isOTPSent = true;
+        state.error = null;
       })
       .addCase(sendLoginOTP.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
         state.isOTPSent = false;
       })
+      // Verify OTP cases
       .addCase(verifyOTP.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -592,20 +626,7 @@ const authSlice = createSlice({
         state.isAuthenticated = true;
         state.registrationData = null;
         state.token = action.payload.token;
-        state.patientId = action.payload.patientId;
-        state.doctorId = action.payload.doctorId || null;
-        state.userId = action.payload.userId;
-        state.permissions = action.payload.permissions;
-        state.name = action.payload.name;
-        state.number = action.payload.number;
-        state.address = action.payload.address;
-        state.gender = action.payload.gender;
-        state.dob = action.payload.dob;
-        state.qualification = action.payload.qualification || null;
-        state.practiceType = action.payload.practiceType || null;
-        state.specialization = action.payload.specialization || null;
-        state.hospitalName = action.payload.hospitalName || null;
-        state.clinicName = action.payload.clinicName || null;
+        state.error = null;
       })
       .addCase(verifyOTP.rejected, (state, action) => {
         state.loading = false;

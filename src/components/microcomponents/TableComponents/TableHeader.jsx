@@ -12,11 +12,11 @@ export default function TableHeader({
   filters = [],
   setFilterPanelOpen,
 }) {
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024); // Changed to 1024 to include tablets
 
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
+      setIsMobile(window.innerWidth < 1024); // Match the same breakpoint
     };
 
     window.addEventListener('resize', handleResize);
@@ -33,10 +33,11 @@ export default function TableHeader({
               <button
                 key={tab.value}
                 onClick={() => onTabChange && onTabChange(tab.value)}
-                className={`relative cursor-pointer flex items-center gap-1 px-3 py-1.5 text-sm font-medium ${activeTab === tab.value
+                className={`relative cursor-pointer flex items-center gap-1 px-3 py-1.5 text-sm font-medium ${
+                  activeTab === tab.value
                     ? "text-[var(--primary-color)] after:content-[''] after:absolute after:left-0 after:bottom-0 after:h-[2px] after:w-full after:bg-[var(--primary-color)]"
                     : "text-gray-500 hover:text-[var(--accent-color)]"
-                  }`}
+                }`}
               >
                 {tab.label}
               </button>
@@ -59,41 +60,38 @@ export default function TableHeader({
         {/* Filters */}
         {filters.length > 0 && (
           <button
-            className="p-2 border rounded-lg border border-gray-200 shadow-sm hover:bg-gray-50"
+            className="p-2 border rounded-lg border-gray-200 shadow-sm hover:bg-gray-50"
             onClick={() => setFilterPanelOpen(true)}
           >
             <Filter size={16} className="text-gray-500" />
           </button>
         )}
-        {/* Desktop Actions */}
+        {/* Desktop Actions - Only show on large screens (lg and up) */}
         <div className="hidden lg:flex items-center gap-2">
-          {tabActions.length > 0 &&
-            tabActions.map((action, i) => (
-              <button
-                key={i}
-                onClick={action.onClick}
-                className="px-3 py-2.5 bg-[var(--primary-color)] text-white rounded-lg text-sm"
-              >
-                {action.label}
-              </button>
-            ))}
+          {tabActions.map((action, i) => (
+            <button
+              key={i}
+              onClick={action.onClick}
+              className="px-3 py-2.5 bg-[var(--primary-color)] text-white rounded-lg text-sm whitespace-nowrap"
+            >
+              {action.label}
+            </button>
+          ))}
         </div>
-
       </div>
 
-      {/* Mobile Actions - Only renders on mobile */}
+      {/* Mobile & Tablet Actions - Show on both mobile and tablet */}
       {isMobile && tabActions.length > 0 && (
         <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-2 flex justify-around z-10">
-          {tabActions.length > 0 &&
-            tabActions.map((action, i) => (
-              <button
-                key={i}
-                onClick={action.onClick}
-                className="px-3 py-3 bg-[var(--primary-color)] text-white rounded-lg text-sm flex-1 mx-1"
-              >
-                {action.label}
-              </button>
-            ))}
+          {tabActions.map((action, i) => (
+            <button
+              key={i}
+              onClick={action.onClick}
+              className="px-3 py-3 bg-[var(--primary-color)] text-white rounded-lg text-sm flex-1 mx-1"
+            >
+              {action.label}
+            </button>
+          ))}
         </div>
       )}
     </div>

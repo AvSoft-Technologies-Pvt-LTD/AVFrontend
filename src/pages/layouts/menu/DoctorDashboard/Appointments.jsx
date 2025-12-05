@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
 import { useNavigate } from "react-router-dom";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -100,22 +99,6 @@ const toTimeParts = (value) => {
   return null;
 };
 
-const notify = async (name, phone, message, btn = false, doctorName) => {
-  try {
-    await axios.post('https://67e631656530dbd3110f0322.mockapi.io/notify', {
-      name,
-      phone,
-      message,
-      showPayButton: btn,
-      doctorName,
-      createdAt: new Date().toISOString()
-    });
-  } catch (error) {
-    console.error('Notification error:', error);
-    toast.error('Failed to send notification');
-  }
-};
-
 const splitName = (fullName) => {
   const parts = (fullName || '').trim().split(' ');
   return {
@@ -165,6 +148,7 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
   const [rejectId, setRejectId] = useState(null);
   const [rescheduleId, setRescheduleId] = useState(null);
   const [reasons, setReasons] = useState({});
+  const [newRowIds, setNewRowIds] = useState([]);
   const [reschedule, setReschedule] = useState({
     date: formatDateValue(new Date()),
     time: '',
@@ -459,13 +443,6 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
         console.error('Error confirming appointment:', confirmError);
         throw new Error(`Failed to confirm appointment: ${confirmError.response?.data?.message || confirmError.message}`);
       }
-      await notify(
-        appt.name,
-        appt.phone,
-        `✅ Appointment confirmed with ${doctorName} on ${formattedDate} at ${formattedTime}.`,
-        true,
-        doctorName
-      );
       const { firstName, middleName, lastName } = splitName(appt.name);
       const patientData = {
         name: appt.name,
@@ -508,6 +485,7 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
           fromAppointment: true
         }
       });
+       setNewRowIds(prev => [...prev, id]);
     } catch (error) {
       console.error('Error accepting appointment:', error);
       toast.error(`Failed to accept appointment: ${error.response?.data?.message || error.message}`);
@@ -538,13 +516,6 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
         status: 'REJECTED',
         consultationType: (appointment.consultationType || '').toUpperCase() || 'PHYSICAL'
       });
-      await notify(
-        appointment.name,
-        appointment.phone,
-        `❌ Your appointment has been rejected.\nReason: ${reason}`,
-        false,
-        doctorName
-      );
       toast.success('Appointment rejected successfully');
       setRejectId(null);
       setReasons(prev => {
@@ -586,16 +557,6 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
           rescheduleCount: currentRescheduleCount,
           updatedAt: new Date().toISOString()
         });
-        await notify(
-          appointment.name,
-          appointment.phone,
-          `❌ Your appointment has been automatically rejected as it has been rescheduled the maximum number of times.`,
-          false,
-          doctorName
-        );
-        setRescheduleId(null);
-        setReschedule({ date: formatDateValue(new Date()), time: '', slotId: null });
-        setAvailableSlots([]);
         toast.warning('Appointment automatically rejected - maximum reschedule attempts reached');
         fetchAppointments();
         return;
@@ -628,14 +589,6 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
         consultationType
       };
       updateStatus(id, updates);
-      await notify(
-        appointment.name,
-        appointment.phone,
-        `✅ Your appointment has been rescheduled to ${formatDateValue(date)} at ${formatTimeValue(time)}. ` +
-        `(Reschedule ${newRescheduleCount} of ${MAX_RESCHEDULES})`,
-        false,
-        doctorName
-      );
       setRescheduleId(null);
       setReschedule({ date: formatDateValue(new Date()), time: '', slotId: null });
       setAvailableSlots([]);
@@ -645,7 +598,7 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
         isLoading: false,
         autoClose: 3000
       });
-      fetchAppointments();
+ setNewRowIds(prev => [...prev, id]);      fetchAppointments();
     } catch (error) {
       console.error('Error rescheduling appointment:', error);
       const errorMessage = error.response?.data?.message || 'Failed to reschedule appointment';
@@ -906,6 +859,7 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
           showSearchBar={displaySearchBar}
           rowClassName={getRowClassName}
           showPagination={!isOverview}
+          newRowIds={newRowIds}
         />
       </div>
       <ReusableModal

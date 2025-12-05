@@ -3,19 +3,14 @@ import React from "react";
 export default function MobileCardList({
   columns,
   data,
-  onCellClick,
   newRowIds = [],
   rowClassName,
-    onRemoveNewRowId,
 }) {
-   const handleRowClick = (rowId) => {
-    if (onRemoveNewRowId) {
-      onRemoveNewRowId(rowId); // Call the parent function
-    }
-  };
   // Helper: Get mobile header elements (title, id, status, actions)
   const getMobileHeaderElements = (row) => {
     const elements = [];
+    const rowId = row.recordId || row.id;
+    const isNewRow = newRowIds.includes(rowId);
     const doctorNameColumn = columns.find(
       (col) => col.header === "Doctor Name" || col.accessor === "doctorName"
     );
@@ -128,35 +123,38 @@ export default function MobileCardList({
 
   return (
     <div className="space-y-4 p-2">
-      {data.map((row) => {
+   {data.map((row) => {
+        const rowId = row.recordId || row.id;
+        const isNewRow = newRowIds.includes(rowId);
         const headerElements = getMobileHeaderElements(row);
         const bodyColumns = getBodyColumns(row);
 
         return (
-        <div
-            key={row.recordId}
-            className={`bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 relative overflow-hidden ${
-              newRowIds.includes(row.recordId)
-                ? "border-l-4 border-l-blue-500 bg-blue-50/30"
-                : ""
-            } ${rowClassName ? rowClassName(row) : ""}`}
-            onClick={() => handleRowClick(row.recordId)}
+          <div
+           key={rowId}
+            className={`
+              rounded-xl border border-gray-200 shadow-sm hover:shadow-md 
+              transition-all duration-200 relative overflow-hidden
+              ${isNewRow ? "bg-[var(--accent-color)]/5 border-l-4 border-[var(--accent-color)]" : ""}
+              ${rowClassName?.(row) || ""}
+            `}
           >
             {/* Card Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+            <div className="flex items-center justify-between p-4 border-b border-gray-300">
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 {headerElements
                   .filter((el) => el.type === "title")
                   .map((element, index) => (
                     <h3
                       key={index}
-                      className={`text-lg font-semibold text-gray-900 truncate ${element.column.clickable
+                      className={`text-lg font-semibold text-gray-900 truncate ${
+                        element.column.clickable
                           ? "text-[var(--primary-color)] cursor-pointer hover:text-[var(--primary-color)] hover:underline"
                           : ""
-                        }`}
+                      }`}
                       onClick={
                         element.column.clickable
-                          ? () => onCellClick?.(row, element.column)
+                          ? () => element.column.onClick?.(row)
                           : undefined
                       }
                     >
@@ -196,14 +194,12 @@ export default function MobileCardList({
             </div>
 
             {/* Card Content: Only data columns, 2 per row */}
-      
             <div className="p-4 space-y-3">
               {bodyColumns.length > 0 ? (
                 <div className="grid grid-cols-2 gap-4">
                   {bodyColumns.map((col, i) => {
                     const isLastOdd =
                       bodyColumns.length % 2 !== 0 && i === bodyColumns.length - 1;
-
                     return (
                       <div
                         key={i}
@@ -213,12 +209,13 @@ export default function MobileCardList({
                           {col.header}
                         </div>
                         <div
-                          className={`font-medium text-sm ${col.clickable
+                          className={`font-medium text-sm ${
+                            col.clickable
                               ? "text-[var(--primary-color)] cursor-pointer hover:text-[var(--primary-color)] hover:underline"
                               : "text-gray-900"
-                            }`}
+                          }`}
                           onClick={
-                            col.clickable ? () => onCellClick?.(row, col) : undefined
+                            col.clickable ? () => col.onClick?.(row) : undefined
                           }
                         >
                           {col.cell ? col.cell(row) : row[col.accessor] ?? "-"}
@@ -233,11 +230,17 @@ export default function MobileCardList({
                 </div>
               )}
             </div>
+
             {/* New Badge */}
-            {newRowIds.includes(row.recordId) && (
-              <div className="absolute top-3 right-3 z-10">
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-[var(--accent-color)] border border-green-200">
-                  New
+             {isNewRow && (
+              <div className="absolute top-0 right-0 z-20">
+                <span
+                  className="bg-[var(--accent-color)] text-white text-[10px] font-bold px-3 py-1
+                  rounded-bl-lg shadow-md relative
+                  after:content-[''] after:absolute after:-bottom-2 after:right-0
+                  after:border-t-8 after:border-r-8 after:border-t-[var(--accent-color)] after:border-r-transparent"
+                >
+                  NEW
                 </span>
               </div>
             )}

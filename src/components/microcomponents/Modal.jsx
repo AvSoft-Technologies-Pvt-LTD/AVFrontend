@@ -2,9 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { toast } from "react-toastify";
 import SignatureCanvas from "react-signature-canvas";
-import { Eye, EyeOff, X, Save, ChevronDown, Calendar as CalendarIcon } from "lucide-react";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
+import { Eye, EyeOff, X, Save, ChevronDown } from "lucide-react";
 
 const getColSpanClass = (colSpan = 1) => {
   switch (colSpan) {
@@ -65,11 +63,11 @@ const ReusableModal = ({
   const [doctorSignature, setDoctorSignature] = useState("");
   const [currentFields, setCurrentFields] = useState(fields);
   const [suggestions, setSuggestions] = useState({});
-  const [dropdownStates, setDropdownStates] = useState({});
   const signaturePadRef = useRef();
   const modalRef = useRef();
   const dropdownRefs = useRef({});
 
+  // Helper function to get the label for a selected value
   const getSelectedLabel = (options, value) => {
     if (!value) return null;
     const option = options.find((opt) => String(opt.value) === String(value));
@@ -79,10 +77,16 @@ const ReusableModal = ({
   useEffect(() => {
     const handleClickOutside = (event) => {
       setSuggestions({});
+
+      // Check if click is outside any dropdown
       Object.keys(dropdownRefs.current).forEach((fieldName) => {
         const dropdownElement = dropdownRefs.current[fieldName];
         if (dropdownElement && !dropdownElement.contains(event.target)) {
-          setDropdownStates((prev) => ({ ...prev, [fieldName]: false }));
+          setFormValues((p) => ({
+            ...p,
+            [`${fieldName}Open`]: false,
+            [`${fieldName}Search`]: "",
+          }));
         }
       });
     };
@@ -131,7 +135,7 @@ const ReusableModal = ({
   };
 
   const handleChange = (name, value) => {
-    setFormValues((prev) => ({
+    setFormValues(prev => ({
       ...prev,
       [name]: value,
     }));
@@ -141,10 +145,14 @@ const ReusableModal = ({
 
   const handleInputChange = (e, field) => {
     let value = e.target.value;
+
+    // Special handling for phone field: allow only digits, max 10
     if (field.name === "registerPhone") {
       value = value.replace(/\D/g, "").slice(0, 10);
     }
+
     handleChange(field.name, value);
+
     if (field.suggestions) {
       const filteredSuggestions = field.suggestions.filter((suggestion) =>
         suggestion.toLowerCase().includes(value.toLowerCase())
@@ -156,13 +164,6 @@ const ReusableModal = ({
   const handleSuggestionClick = (fieldName, suggestion) => {
     handleChange(fieldName, suggestion);
     setSuggestions({ ...suggestions, [fieldName]: [] });
-  };
-
-  const toggleDropdown = (fieldName) => {
-    setDropdownStates((prev) => ({
-      ...prev,
-      [fieldName]: !prev[fieldName],
-    }));
   };
 
   const validateFields = () => {
@@ -207,19 +208,18 @@ const ReusableModal = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-2 sm:p-4">
+    <div className="fixed inset-0 z-50 overflow-auto flex items-center justify-center bg-black/40 backdrop-blur-sm p-2 sm:p-4">
       <motion.div
         ref={modalRef}
         initial={{ opacity: 0, y: 100, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 50, scale: 0.95 }}
         transition={{ type: "spring", stiffness: 300, damping: 25 }}
-        className={`flex flex-col relative w-full max-h-[90vh] rounded-xl bg-white shadow-xl overflow-visible ${
-          size === "sm" ? "max-w-md" : size === "md" ? "max-w-3xl" : "max-w-4xl"
-        }`}
+        className={`flex flex-col relative w-full max-h-aut rounded-xl bg-white shadow-xl overflow-visible ${size === "sm" ? "max-w-md" : size === "md" ? "max-w-3xl" : "max-w-4xl"
+          }`}
       >
         {(mode === "add" || mode === "edit" || mode === "viewProfile") && (
-          <div className="sticky top-0 z-20 bg-gradient-to-r from-[#01B07A] to-[#004f3d] rounded-t-xl px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+          <div className="bg-gradient-to-r from-[#01B07A] to-[#004f3d] rounded-t-xl px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
             <h2 className="text-base sm:text-lg font-bold text-white tracking-wide">
               {title}
             </h2>
@@ -231,9 +231,9 @@ const ReusableModal = ({
             </button>
           </div>
         )}
-        <div className="flex flex-col max-h-[90vh] overflow-y-auto bg-gradient-to-br from-[#E6FBF5] to-[#C1F1E8]">
+        <div className="flex flex-col max-h-[90vh] overflow-visible  bg-gradient-to-br from-[#E6FBF5] to-[#C1F1E8]">
           <div className="flex-1 p-2 sm:p-4 relative z-0">
-            <div className="rounded-xl bg-white p-4 sm:p-6 space-y-4 sm:space-y-6">
+            <div className="rounded-xl  bg-white p-4 sm:p-6 space-y-4 sm:space-y-6">
               {extraContentPosition === "top" && extraContent && (
                 <div className="mb-2 sm:mb-4">{extraContent}</div>
               )}
@@ -277,9 +277,7 @@ const ReusableModal = ({
                                 />
                               )}
                               {formErrors[field.inputName] && (
-                                <p className="mt-1 text-[10px] sm:text-xs text-red-600">
-                                  {formErrors[field.inputName]}
-                                </p>
+                                <p className="mt-1 text-[10px] sm:text-xs text-red-600">{formErrors[field.inputName]}</p>
                               )}
                             </div>
                           ) : field.type === "radio" ? (
@@ -308,34 +306,27 @@ const ReusableModal = ({
                           ) : (
                             <div className="floating-input relative" data-placeholder={field.label}>
                               {field.type === "select" || field.type === "multiselect" ? (
-                                <div className="relative">
+                                <div className="relative overflow-visible">
                                   <div
-                                    ref={(el) => (dropdownRefs.current[field.name] = el)}
+                                    ref={(el) => dropdownRefs.current[field.name] = el}
                                     className="relative"
                                   >
-                                    {dropdownStates[field.name] ? (
+                                    {formValues[`${field.name}Open`] ? (
                                       <input
                                         type="text"
-                                        placeholder={
-                                          field.type === "multiselect" &&
-                                          Array.isArray(formValues[field.name]) &&
-                                          formValues[field.name].length > 0
-                                            ? formValues[field.name]
-                                                .map((value) => {
-                                                  const selectedOption = field.options.find(
-                                                    (opt) => opt.value === value
-                                                  );
-                                                  return selectedOption?.label || value;
-                                                })
-                                                .join(", ")
-                                            : `Search ${field.label}...`
-                                        }
+                                        placeholder={field.type === "multiselect" && Array.isArray(formValues[field.name]) && formValues[field.name].length > 0
+                                          ? `${formValues[field.name].map((value) => {
+                                            const selectedOption = field.options.find((opt) => opt.value === value);
+                                            return selectedOption?.label || value;
+                                          }).join(", ")} • Search ${field.label}...`
+                                          : `Search ${field.label}...`}
                                         value={formValues[`${field.name}Search`] || ""}
                                         onChange={(e) => {
+                                          const searchValue = e.target.value;
                                           setFormValues((p) => ({
                                             ...p,
-                                            [`${field.name}Search`]: e.target.value,
-                                            [field.name]: p[field.name],
+                                            [`${field.name}Search`]: searchValue,
+                                            [`${field.name}Open`]: true,
                                           }));
                                         }}
                                         className="input-field peer w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 rounded-md text-left bg-white focus:outline-none focus:ring-2 pr-8 sm:pr-10"
@@ -344,164 +335,265 @@ const ReusableModal = ({
                                     ) : (
                                       <button
                                         type="button"
-                                        onClick={() => toggleDropdown(field.name)}
+                                        onClick={() =>
+                                          setFormValues((p) => ({
+                                            ...p,
+                                            [`${field.name}Open`]: true,
+                                          }))
+                                        }
                                         className="input-field peer w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 rounded-md text-left bg-white focus:outline-none focus:ring-2 flex justify-between items-center"
                                       >
                                         <span className="truncate text-xs sm:text-sm">
                                           {field.type === "multiselect"
-                                            ? Array.isArray(formValues[field.name]) &&
-                                              formValues[field.name].length > 0
-                                              ? formValues[field.name]
-                                                  .map((value) => {
-                                                    const selectedOption = field.options.find(
-                                                      (opt) => opt.value === value
-                                                    );
-                                                    return selectedOption?.label || value;
-                                                  })
-                                                  .join(", ")
+                                            ? Array.isArray(formValues[field.name]) && formValues[field.name].length > 0
+                                              ? formValues[field.name].map((value) => {
+                                                const selectedOption = field.options.find((opt) => opt.value === value);
+                                                return selectedOption?.label || value;
+                                              }).join(", ")
                                               : `Select ${field.label}`
                                             : getSelectedLabel(field.options, formValues[field.name]) || `Select ${field.label}`}
                                         </span>
                                         <ChevronDown size={14} className="sm:size-4" />
                                       </button>
                                     )}
-                                    {dropdownStates[field.name] && (
+                                    {formValues[`${field.name}Open`] && (
                                       <div
                                         id={`dropdown-${field.name}`}
-                                        className="fixed z-[10000] mt-1 w-auto max-h-40 sm:max-h-60 overflow-auto rounded-md bg-white shadow-lg border border-gray-200"
+                                        className="absolute z-[1000] mt-1 w-full max-h-40 sm:max-h-60 overflow-auto rounded-md bg-white shadow-lg border border-gray-200"
                                       >
                                         {field.options
                                           ?.filter((opt) =>
                                             opt.label
                                               .toLowerCase()
-                                              .includes(
-                                                (formValues[`${field.name}Search`] || "").toLowerCase()
-                                              )
+                                              .includes((formValues[`${field.name}Search`] || "").toLowerCase())
                                           )
-                                          .map((opt) =>
-                                            field.type === "select" ? (
-                                              <div
-                                                key={opt.value}
-                                                onClick={() => {
-                                                  handleChange(field.name, opt.value);
-                                                  toggleDropdown(field.name);
-                                                }}
-                                                className="px-3 sm:px-4 py-1.5 sm:py-2 hover:bg-gray-100 cursor-pointer text-xs sm:text-sm transition-colors duration-150"
-                                              >
-                                                {opt.label}
-                                              </div>
-                                            ) : (
-                                              <label
-                                                key={opt.value}
-                                                className="flex items-center px-3 sm:px-4 py-1.5 sm:py-2 hover:bg-gray-100 cursor-pointer text-xs sm:text-sm transition-colors duration-150"
-                                              >
-                                                <input
-                                                  type="checkbox"
-                                                  className="mr-2 sm:mr-3 h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                                                  checked={
-                                                    Array.isArray(formValues[field.name]) &&
-                                                    formValues[field.name].includes(opt.value)
-                                                  }
-                                                  onChange={(e) => {
-                                                    const prev = Array.isArray(formValues[field.name])
-                                                      ? formValues[field.name]
-                                                      : [];
-                                                    const next = e.target.checked
-                                                      ? [...prev, opt.value]
-                                                      : prev.filter((v) => v !== opt.value);
-                                                    handleChange(field.name, next);
-                                                  }}
-                                                />
-                                                <span className="flex-1">{opt.label}</span>
-                                              </label>
+                                          .length > 0 ? (
+                                          field.options
+                                            ?.filter((opt) =>
+                                              opt.label
+                                                .toLowerCase()
+                                                .includes((formValues[`${field.name}Search`] || "").toLowerCase())
                                             )
-                                          )}
+                                            .map((opt) =>
+                                              field.type === "select" ? (
+                                                <div
+                                                  key={opt.value}
+                                                  onClick={() => {
+                                                    handleChange(field.name, opt.value);
+                                                    setFormValues((p) => ({
+                                                      ...p,
+                                                      [`${field.name}Open`]: false,
+                                                      [`${field.name}Search`]: "",
+                                                    }));
+                                                  }}
+                                                  className="px-3 sm:px-4 py-1.5 sm:py-2 hover:bg-gray-100 cursor-pointer text-xs sm:text-sm transition-colors duration-150"
+                                                >
+                                                  {opt.label}
+                                                </div>
+                                              ) : (
+                                                <label
+                                                  key={opt.value}
+                                                  className="flex items-center px-3 sm:px-4 py-1.5 sm:py-2 hover:bg-gray-100 cursor-pointer text-xs sm:text-sm transition-colors duration-150"
+                                                >
+                                                  <input
+                                                    type="checkbox"
+                                                    className="mr-2 sm:mr-3 h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                                    checked={
+                                                      Array.isArray(formValues[field.name]) &&
+                                                      formValues[field.name].includes(opt.value)
+                                                    }
+                                                    onChange={(e) => {
+                                                      const prev = Array.isArray(formValues[field.name])
+                                                        ? formValues[field.name]
+                                                        : [];
+                                                      const next = e.target.checked
+                                                        ? [...prev, opt.value]
+                                                        : prev.filter((v) => v !== opt.value);
+                                                      handleChange(field.name, next);
+                                                    }}
+                                                  />
+                                                  <span className="flex-1">{opt.label}</span>
+                                                </label>
+                                              )
+                                            )
+                                        ) : (
+                                          <div className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-500 text-center">
+                                            No options found
+                                          </div>
+                                        )}
                                       </div>
                                     )}
                                   </div>
+                                  {field.durationField && (() => {
+                                    const selected = formValues[field.name];
+                                    const df = field.durationFor;
+                                    // Show input if a value is selected and it's not empty
+                                    // For multiselect, check if array has items; for select, check if value exists
+                                    const showInput = field.type === "multiselect"
+                                      ? Array.isArray(selected) && selected.length > 0
+                                      : !!selected && selected !== "";
+                                    return showInput ? (
+                                      <div className="mt-2 flex items-center gap-2">
+                                        <input
+                                          type="text"
+                                          name={field.inputName} // Use field.inputName
+                                          value={formValues[field.inputName] || ""}
+                                          onChange={(e) => handleChange(field.inputName, e.target.value)}
+                                          className="text-xs sm:text-sm border p-2 sm:p-2.5 border-gray-300 rounded-md w-full min-w-[80px] placeholder:text-[10px] sm:placeholder:text-xs"
+                                          placeholder={field.inputLabel}
+                                        />
+                                      </div>
+                                    ) : null;
+                                  })()}
                                 </div>
-                              ) : field.type === "date" ? (
+                              ) : field.type === "password" ? (
                                 <div className="relative">
-                                  <DatePicker
-                                    selected={
-                                      formValues[field.name] ? new Date(formValues[field.name]) : null
-                                    }
-                                    onChange={(date) =>
-                                      handleChange(field.name, date ? date.toISOString().split("T")[0] : "")
-                                    }
-                                    dateFormat="yyyy-MM-dd"
-                                    placeholderText=""
-                                    dropdownMode="select"
-                                    className="input-field peer w-full min-w-[220px] px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 pr-8"
-                                    showYearDropdown
-                                    yearDropdownItemNumber={15}
-                                    scrollableYearDropdown
-                                    showMonthDropdown
+                                  <input
+                                    type={formValues[`${field.name}Visible`] ? "text" : "password"}
+                                    name={field.name}
+                                    value={formValues[field.name] || ""}
+                                    onChange={(e) => handleInputChange(e, field)}
+                                    className="input-field peer w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 pr-8 sm:pr-10"
+                                    placeholder=" "
                                   />
-                                  <CalendarIcon className="absolute left-48 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#0e1630] pointer-events-none" />
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setFormValues((p) => ({
+                                        ...p,
+                                        [`${field.name}Visible`]: !p[`${field.name}Visible`],
+                                      }))
+                                    }
+                                    className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                  >
+                                    {formValues[`${field.name}Visible`] ? (
+                                      <EyeOff size={14} className="sm:size-4" />
+                                    ) : (
+                                      <Eye size={14} className="sm:size-4" />
+                                    )}
+                                  </button>
                                   {formErrors[field.name] && (
-                                    <p className="mt-1 text-[10px] sm:text-xs text-red-600">
-                                      {formErrors[field.name]}
-                                    </p>
+                                    <p className="mt-1 text-[10px] sm:text-xs text-red-600">{formErrors[field.name]}</p>
+                                  )}
+                                </div>
+                              ) : field.type === "textarea" ? (
+                                <>
+                                  <textarea
+                                    name={field.name}
+                                    value={formValues[field.name] || ""}
+                                    onChange={(e) => handleChange(field.name, e.target.value)}
+                                    rows={2}
+                                    className="input-field peer w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2"
+                                    placeholder=" "
+                                  />
+                                  {formErrors[field.name] && (
+                                    <p className="mt-1 text-[10px] sm:text-xs text-red-600">{formErrors[field.name]}</p>
+                                  )}
+                                </>
+                              ) : field.type === "date" ? (
+                                <>
+                                  <input
+                                    type="date"
+                                    name={field.name}
+                                    value={
+                                      formValues[field.name]
+                                        ? new Date(formValues[field.name]).toISOString().split("T")[0]
+                                        : ""
+                                    }
+                                    onChange={(e) => handleChange(field.name, e.target.value)}
+                                    className="input-field peer w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2"
+                                  />
+                                  {formErrors[field.name] && (
+                                    <p className="mt-1 text-[10px] sm:text-xs text-red-600">{formErrors[field.name]}</p>
+                                  )}
+                                </>
+                              ) : field.type === "file" ? (
+                                <div className="relative flex items-center">
+                                  <input
+                                    type="file"
+                                    name={field.name}
+                                    multiple={field.multiple}
+                                    onChange={(e) => {
+                                      const files = Array.from(e.target.files);
+                                      handleChange(
+                                        field.name,
+                                        field.multiple ? [...(formValues[field.name] || []), ...files] : files[0]
+                                      );
+                                    }}
+                                    className="input-field peer w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 pr-6 sm:pr-8"
+                                  />
+                                  {!field.multiple && formValues[field.name] && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setPreviewFile(formValues[field.name]);
+                                        setShowPreviewModal(true);
+                                      }}
+                                      className="absolute right-1.5 sm:right-2 text-blue-600"
+                                    >
+                                      <Eye size={14} className="sm:size-4" />
+                                    </button>
+                                  )}
+                                  {formErrors[field.name] && (
+                                    <p className="mt-1 text-[10px] sm:text-xs text-red-600">{formErrors[field.name]}</p>
                                   )}
                                 </div>
                               ) : (
-                                <input
-                                  type={field.type || "text"}
-                                  name={field.name}
-                                  value={formValues[field.name] || ""}
-                                  onChange={(e) => handleInputChange(e, field)}
-                                  readOnly={field.readonly}
-                                  className={`input-field peer px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 ${
-                                    field.isDuration ? "w-16 sm:w-24 text-center" : "w-full"
-                                  }`}
-                                  placeholder=" "
-                                  min={field.min}
-                                  max={field.max}
-                                  step={field.step}
-                                />
-                              )}
-                              {suggestions[field.name]?.length > 0 && (
-                                <ul className="absolute z-10 mt-1 max-h-40 sm:max-h-60 w-full overflow-auto rounded bg-white shadow">
-                                  {suggestions[field.name].map((suggestion, index) => (
-                                    <li
-                                      key={index}
-                                      className="px-3 sm:px-4 py-1.5 sm:py-2 hover:bg-gray-100 cursor-pointer text-xs sm:text-sm"
-                                      onClick={() => handleSuggestionClick(field.name, suggestion)}
-                                    >
-                                      {suggestion}
-                                    </li>
-                                  ))}
-                                </ul>
-                              )}
-                              {field.unit && (
-                                <span className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 text-gray-400 text-[10px] sm:text-xs pointer-events-none">
-                                  {field.unit}
-                                </span>
-                              )}
-                              {field.normalRange && (
-                                <div className="flex items-center gap-1 mt-1 text-[10px] sm:text-xs text-yellow-600">
-                                  <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    strokeWidth={1.5}
-                                    stroke="currentColor"
-                                    className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-500"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      d="M12 9v2.25m0 2.25h.008v.008H12v-.008zm.75-8.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                    />
-                                  </svg>
-                                  <span className="text-[10px] sm:text-xs">Normal Range: {field.normalRange}</span>
-                                </div>
-                              )}
-                              {formErrors[field.name] && (
-                                <p className="mt-1 text-[10px] sm:text-xs text-red-600">
-                                  {formErrors[field.name]}
-                                </p>
+                                <>
+                                  <input
+                                    type={field.type || "text"}
+                                    name={field.name}
+                                    value={formValues[field.name] || ""}
+                                    onChange={(e) => handleInputChange(e, field)}
+                                    readOnly={field.readonly}
+                                    className={`input-field peer px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 ${field.isDuration ? "w-16 sm:w-24 text-center" : "w-full"
+                                      }`}
+                                    placeholder=" "
+                                    min={field.min}
+                                    max={field.max}
+                                    step={field.step}
+                                  />
+                                  {suggestions[field.name]?.length > 0 && (
+                                    <ul className="absolute z-10 mt-1 max-h-40 sm:max-h-60 w-full overflow-auto rounded bg-white shadow">
+                                      {suggestions[field.name].map((suggestion, index) => (
+                                        <li
+                                          key={index}
+                                          className="px-3 sm:px-4 py-1.5 sm:py-2 hover:bg-gray-100 cursor-pointer text-xs sm:text-sm"
+                                          onClick={() => handleSuggestionClick(field.name, suggestion)}
+                                        >
+                                          {suggestion}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  )}
+                                  {field.unit && (
+                                    <span className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 text-gray-400 text-[10px] sm:text-xs pointer-events-none">
+                                      {field.unit}
+                                    </span>
+                                  )}
+                                  {field.normalRange && (
+                                    <div className="flex items-center gap-1 mt-1 text-[10px] sm:text-xs text-yellow-600">
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        strokeWidth={1.5}
+                                        stroke="currentColor"
+                                        className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-500"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          d="M12 9v2.25m0 2.25h.008v.008H12v-.008zm.75-8.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                        />
+                                      </svg>
+                                      <span className="text-[10px] sm:text-xs">Normal Range: {field.normalRange}</span>
+                                    </div>
+                                  )}
+                                  {formErrors[field.name] && (
+                                    <p className="mt-1 text-[10px] sm:text-xs text-red-600">{formErrors[field.name]}</p>
+                                  )}
+                                </>
                               )}
                             </div>
                           )}
@@ -594,9 +686,7 @@ const ReusableModal = ({
                     </div>
                   </div>
                   <div className="rounded-xl p-4 sm:p-6 bg-white">
-                    <h3 className="mb-3 sm:mb-4 border-b pb-2 sm:pb-3 text-base sm:text-lg font-semibold">
-                      Details
-                    </h3>
+                    <h3 className="mb-3 sm:mb-4 border-b pb-2 sm:pb-3 text-base sm:text-lg font-semibold">Details</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
                       {viewFields
                         .filter((f) => !f.initialsKey && !f.titleKey && !f.subtitleKey)
@@ -605,9 +695,7 @@ const ReusableModal = ({
                             key={i}
                             className="flex justify-between border-b border-dashed border-gray-200 pb-1.5 sm:pb-2"
                           >
-                            <span className="text-[10px] sm:text-sm font-medium text-gray-500">
-                              {f.label}
-                            </span>
+                            <span className="text-[10px] sm:text-sm font-medium text-gray-500">{f.label}</span>
                             <span className="ml-2 sm:ml-4 text-[10px] sm:text-sm font-semibold text-gray-800">
                               {data[f.key] || "-"}
                             </span>
@@ -622,60 +710,60 @@ const ReusableModal = ({
               )}
               {extraContentPosition === "bottom" && extraContent && <div className="mt-3 sm:mt-4">{extraContent}</div>}
             </div>
-          </div>
-          <div className="flex justify-end gap-2 sm:gap-3 px-4 sm:px-6 py-3 sm:py-4">
-            {mode !== "viewProfile" && (
-              <button
-                onClick={onCancel || onClose}
-                className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm delete-btn"
-              >
-                {cancelLabel || "Cancel"}
-              </button>
-            )}
-            {["add", "edit"].includes(mode) && (
-              <button
-                onClick={handleSave}
-                className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm view-btn"
-              >
-                {saveLabel || (mode === "edit" ? "Update" : "Save")}
-              </button>
-            )}
-            {mode === "confirmDelete" && (
-              <button
-                onClick={handleDelete}
-                className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm bg-red-600 text-white rounded-md hover:bg-red-700"
-              >
-                {deleteLabel || "Yes, Delete"}
-              </button>
-            )}
-          </div>
-        </div>
-      </motion.div>
-      {showPreviewModal && previewFile && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 p-2 sm:p-4">
-          <div className="bg-white rounded-lg p-4 sm:p-6 max-w-xs sm:max-w-lg w-full shadow-lg">
-            <div className="flex justify-between mb-3 sm:mb-4">
-              <h3 className="text-base sm:text-lg font-bold">File Preview</h3>
-              <button
-                onClick={() => setShowPreviewModal(false)}
-                className="text-gray-700 hover:text-red-500 text-sm sm:text-base"
-              >
-                X
-              </button>
+            <div className="flex justify-end gap-2 sm:gap-3 px-4 sm:px-6 py-3 sm:py-4">
+              {mode !== "viewProfile" && (
+                <button
+                  onClick={onCancel || onClose}
+                  className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm delete-btn"
+                >
+                  {cancelLabel || "Cancel"}
+                </button>
+              )}
+              {["add", "edit"].includes(mode) && (
+                <button
+                  onClick={handleSave}
+                  className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm view-btn"
+                >
+                  {saveLabel || (mode === "edit" ? "Update" : "Save")}
+                </button>
+              )}
+              {mode === "confirmDelete" && (
+                <button
+                  onClick={handleDelete}
+                  className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm bg-red-600 text-white rounded-md hover:bg-red-700"
+                >
+                  {deleteLabel || "Yes, Delete"}
+                </button>
+              )}
             </div>
-            {previewFile.type?.startsWith("image/") ? (
-              <img
-                src={URL.createObjectURL(previewFile)}
-                alt={previewFile.name}
-                className="w-full max-h-[60vh] sm:max-h-[70vh] object-contain"
-                onLoad={() => URL.revokeObjectURL(previewFile)}
-              />
-            ) : (
-              <p className="text-xs sm:text-sm text-gray-800">File: {previewFile.name}</p>
-            )}
           </div>
         </div>
-      )}
+        {showPreviewModal && previewFile && (
+          <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 p-2 sm:p-4">
+            <div className="bg-white rounded-lg p-4 sm:p-6 max-w-xs sm:max-w-lg w-full shadow-lg">
+              <div className="flex justify-between mb-3 sm:mb-4">
+                <h3 className="text-base sm:text-lg font-bold">File Preview</h3>
+                <button
+                  onClick={() => setShowPreviewModal(false)}
+                  className="text-gray-700 hover:text-red-500 text-sm sm:text-base"
+                >
+                  X
+                </button>
+              </div>
+              {previewFile.type?.startsWith("image/") ? (
+                <img
+                  src={URL.createObjectURL(previewFile)}
+                  alt={previewFile.name}
+                  className="w-full max-h-[60vh] sm:max-h-[70vh] object-contain"
+                  onLoad={() => URL.revokeObjectURL(previewFile)}
+                />
+              ) : (
+                <p className="text-xs sm:text-sm text-gray-800">File: {previewFile.name}</p>
+              )}
+            </div>
+          </div>
+        )}
+      </motion.div>
     </div>
   );
 };

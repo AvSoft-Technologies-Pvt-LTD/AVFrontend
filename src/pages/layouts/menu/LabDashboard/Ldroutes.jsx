@@ -7,8 +7,7 @@ import TestBookings from "./TestBookings";
 import LabTechnicians from "./LabTechnicians";
 import Inventory from "./Inventory";
 import Payments from "./Payments";
-import TestCatalogs from "./TestCatalogs";
-
+import ReportsModule from "./ReportsModule/Reports";
 const LabRoutes = () => (
     <Routes>
           <Route path="/" element={<Dashboard />} />
@@ -17,7 +16,7 @@ const LabRoutes = () => (
           <Route path="/lab-technicians" element={<LabTechnicians />} />
           <Route path="/inventory" element={<Inventory />} />
           <Route path="/payments" element={<Payments />} />
-          <Route path="/test-catalogs" element={<TestCatalogs />} />
+          <Route path="/reports" element={<ReportsModule />} />
           <Route path="/settings" element={<Settings />} />
 
         </Routes>

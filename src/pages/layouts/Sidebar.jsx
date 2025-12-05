@@ -27,7 +27,7 @@ export const menuItemsMap = {
     { icon: UserCog, label: "Lab Technicians", path: "/labdashboard/lab-technicians" },
     { icon: Package, label: "Inventory", path: "/labdashboard/inventory" },
     { icon: CreditCard, label: "Payments", path: "/labdashboard/payments" },
-    // { icon: ClipboardList, label: "Test Catalogs", path: "/labdashboard/test-catalogs" },
+    { icon: ClipboardList, label: "Reports", path: "/labdashboard/reports" },
     { icon: Settings, label: "Settings", path: "/labdashboard/settings" },
   ],
   hospital: [

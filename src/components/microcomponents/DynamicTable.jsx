@@ -18,7 +18,6 @@ export default function DynamicTable({
   noDataMessage = "No records found.",
   itemsPerPage = 9,
   newRowIds = [],
-  onRemoveNewRowId,
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilters, setActiveFilters] = useState({});
@@ -37,23 +36,35 @@ export default function DynamicTable({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Sort new rows to the top
+  const sortedData = useMemo(() => {
+    return [...data].sort((a, b) => {
+      const aIsNew = newRowIds.includes(a.recordId || a.id);
+      const bIsNew = newRowIds.includes(b.recordId || b.id);
+      if (aIsNew && !bIsNew) return -1;
+      if (!aIsNew && bIsNew) return 1;
+      return 0;
+    });
+  }, [data, newRowIds]);
+
   const filteredData = useMemo(() => {
-    return data.filter((row) => {
+    return sortedData.filter((row) => {
       const matchesSearch = Object.values(row)
         .join(" ")
         .toLowerCase()
         .includes(searchQuery.toLowerCase());
+      
       const matchesFilters = Object.entries(activeFilters).every(([key, val]) => {
         if (!val || val.length === 0) return true;
         return val.includes(row[key]);
       });
+      
       return matchesSearch && matchesFilters;
     });
-  }, [data, searchQuery, activeFilters]);
+  }, [sortedData, searchQuery, activeFilters]);
 
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
 
-  // Pagination logic for desktop
   const paginatedData = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return filteredData.slice(start, start + itemsPerPage);
@@ -72,19 +83,20 @@ export default function DynamicTable({
   return (
     <div className="bg-white shadow-sm rounded-xl border border-gray-200 relative">
       {showSearchBar && (
-      <TableHeader
-        title={title}
-        tabs={tabs}
-        activeTab={activeTab}
-        onTabChange={onTabChange}
-        tabActions={tabActions}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        filters={filters}
-        filterButtonRef={filterButtonRef}
-        setFilterPanelOpen={setIsFilterPanelOpen}
-      />
-)}
+        <TableHeader
+          title={title}
+          tabs={tabs}
+          activeTab={activeTab}
+          onTabChange={onTabChange}
+          tabActions={tabActions}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          filters={filters}
+          filterButtonRef={filterButtonRef}
+          setFilterPanelOpen={setIsFilterPanelOpen}
+        />
+      )}
+
       {isFilterPanelOpen && filters.length > 0 && (
         <div
           ref={filterButtonRef}
@@ -147,7 +159,7 @@ export default function DynamicTable({
         </div>
       )}
 
-      {/* Desktop Table (with pagination) */}
+      {/* Desktop Table */}
       <div className="hidden md:block overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200" role="table">
           <thead className="bg-gray-50">
@@ -163,23 +175,32 @@ export default function DynamicTable({
               ))}
             </tr>
           </thead>
-          <TableBody columns={columns} data={paginatedData}  newRowIds={newRowIds} onRemoveNewRowId={onRemoveNewRowId} />
+          <TableBody 
+            columns={columns} 
+            data={paginatedData} 
+            newRowIds={newRowIds} 
+          />
         </table>
       </div>
 
-      {/* Mobile Cards (with scrolling) */}
-      <div className="block md:hidden overflow-y-auto  ">
-        <MobileCardList columns={columns} data={filteredData} newRowIds={newRowIds} onRemoveNewRowId={onRemoveNewRowId} />
+      {/* Mobile Cards */}
+      <div className="block md:hidden overflow-y-auto">
+        <MobileCardList 
+          columns={columns} 
+          data={filteredData} 
+          newRowIds={newRowIds} 
+        />
       </div>
 
-      {/* Pagination (hidden on mobile/tablet) */}
+      {/* Pagination */}
       {showPagination && (
-      <Pagination
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPageChange={setCurrentPage}
-      />
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+        />
       )}
+
       {/* Empty State */}
       {filteredData.length === 0 && (
         <div className="text-center text-gray-500 py-6">{noDataMessage}</div>

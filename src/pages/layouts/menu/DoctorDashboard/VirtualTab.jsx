@@ -210,7 +210,10 @@ const fetchAvailability = async (dateArrayOrString) => {
     scheduledDate: dateStr,
     scheduledTime: p.slotId ? Number(p.slotId) : null,
     duration: p.duration || 30,
-    symptoms: [],
+     symptoms: (p.symptomIds || []).map(id => ({
+    value: String(id), // Match the format expected by the multiselect component
+    label: symptoms.find(s => s.value === String(id))?.label || "Unknown",
+  })),
     notes: p.consultationNotes || "",
   });
   closeModal("viewPatient");

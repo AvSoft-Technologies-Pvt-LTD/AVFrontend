@@ -26,9 +26,9 @@ import { CheckCircle } from "lucide-react";
 const MedicalRecords = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const [newRowIds, setNewRowIds] = useState([]);
 const { recordTab: contextRecordTab, setRecordTab, setClickedRecord } = useMedicalRecords();
   const patientId = useSelector((state) => state.auth.patientId);
-const [newRowIds, setNewRowIds] = useState([]);
   const [state, setState] = useState({
     activeTab: "OPD",
     showAddModal: false,
@@ -185,10 +185,6 @@ useEffect(() => {
   }
 }, [setRecordTab]);
 
-const handleRemoveNewRowId = (rowId) => {
-  setNewRowIds((prev) => prev.filter((id) => id !== rowId));
-};
-
   // Toggle active state
   const handleToggleActive = async (recordId, type) => {
     try {
@@ -304,7 +300,7 @@ const handleRemoveNewRowId = (rowId) => {
         ...prev,
         [state.activeTab]: [...prev[state.activeTab], mappedResponse],
       }));
-   setNewRowIds((prev) => [...prev, response.data.recordId]);
+    setNewRowIds(prev => [...prev, mappedResponse.recordId]);
       setState((prev) => ({ ...prev, showAddModal: false }));
     } catch (error) {
       console.error("Error adding record:", error);
@@ -452,8 +448,7 @@ const handleTabChange = (tab) => {
             className: "edit-btn",
           },
         ]}
-        newRowIds={newRowIds}
-        onRemoveNewRowId={handleRemoveNewRowId}
+       newRowIds={newRowIds}
       />
       <ReusableModal
         isOpen={state.showAddModal}
