@@ -1,3 +1,4 @@
+
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -102,12 +103,9 @@ const mapDoctorAppointment = (appointment) => {
     .toUpperCase();
 
   // Normalize to match backend enum values
-  if (consultationType === "VIDEO" || consultationType === "Virtual") {
-    consultationType = "Virtual";
-  } else {
-    consultationType = "Physical"; // Default to Physical for any other value
-  }
-
+  if (consultationType === "VIDEO" || consultationType === "VIRTUAL") {
+    consultationType = "VIRTUAL";
+  } 
   const rawStatus =
     appointment?.status || appointment?.appointmentStatus || appointment?.state;
   const location =
@@ -154,7 +152,7 @@ const mapDoctorAppointment = (appointment) => {
     consultationType: consultationType, // Use the normalized consultation type
     status: normalizedStatus,
     location:
-      consultationType.toLowerCase() === "Virtual" ? "Online" : location || "-", // Show 'Online' for Virtual appointments
+      consultationType === "VIRTUAL" ? "Online" : location || "-", // Show 'Online' for Virtual appointments
     fees: fees ?? "-",
     symptoms: symptoms || "-",
     rejectReason: rejectReason || undefined,
