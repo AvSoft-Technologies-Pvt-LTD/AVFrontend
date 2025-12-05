@@ -11,12 +11,17 @@ import {
   Badge,
   FileText,
   Phone,
-  Car as IdCard,
 } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import ReusableModal from "../../../../components/microcomponents/Modal";
 import AVLogo from "../../../../assets/AV.png";
-import { getVisitingTimeSlots, getIdProofTypes, getGatepassByPatientId } from "../../../../utils/masterService";
+import {
+  getVisitingTimeSlots,
+  getIdProofTypes,
+  getGatepassByPatientId,
+  getRelations,
+} from "../../../../utils/masterService";
 import { createGatepass } from "../../../../utils/CrudService";
 import { usePatientContext } from "../../../../context-api/PatientContext";
 import DynamicTable from "../../../../components/microcomponents/DynamicTable";
@@ -33,6 +38,10 @@ const GatePass = () => {
   const [selectedTimeSlot, setSelectedTimeSlot] = useState("");
   const [gatePasses, setGatePasses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("visitor");
+  const [isPassModalOpen, setIsPassModalOpen] = useState(false);
+  const [selectedPass, setSelectedPass] = useState(null);
+  const [relations, setRelations] = useState([]);
   const [formData, setFormData] = useState({
     patientName: "",
     patientId: "",
@@ -92,33 +101,46 @@ const GatePass = () => {
     }));
   }, [patient, isIPD]);
 
-  // Fetch gate passes for the current patient
+  useEffect(() => {
+    const fetchRelations = async () => {
+      try {
+        const response = await getRelations();
+        if (response?.data) {
+          setRelations(Array.isArray(response.data) ? response.data : []);
+        }
+      } catch (error) {
+        console.error("Error fetching relations:", error);
+        toast.error("Failed to load relation data");
+      }
+    };
+    fetchRelations();
+  }, []);
+
   useEffect(() => {
     const fetchGatePasses = async () => {
       if (!patient?.id) return;
-      
       try {
         setLoading(true);
         const response = await getGatepassByPatientId(patient.patientId);
         if (response?.data) {
           const passes = Array.isArray(response.data) ? response.data : [response.data];
-          // Format the data for the DynamicTable
-          const formattedPasses = passes.map(pass => ({
-            ...pass,
-            visitTime: `${pass.inTime || ''} - ${pass.outTime || ''}`,
-            wardDetails: pass.wardDetails || patient.ward || 'N/A',
-            status: pass.status || 'PENDING'
-          }));
+          const formattedPasses = passes
+            .map((pass) => ({
+              ...pass,
+              visitTime: `${pass.inTime || ""} - ${pass.outTime || ""}`,
+              wardDetails: pass.wardDetails || patient.ward || "N/A",
+              status: pass.status || "PENDING",
+            }))
+            .sort((a, b) => b.id - a.id); // Sort by `id` in descending order
           setGatePasses(formattedPasses);
         }
       } catch (error) {
-        console.error('Error fetching gate passes:', error);
-        toast.error('Failed to load gate pass data');
+        console.error("Error fetching gate passes:", error);
+        toast.error("Failed to load gate pass data");
       } finally {
         setLoading(false);
       }
     };
-
     fetchGatePasses();
   }, [patient?.id]);
 
@@ -174,10 +196,9 @@ const GatePass = () => {
         toast.error("Please select a visiting time slot");
         return;
       }
-
       const payload = {
         ipdrowaid: patient?.id || 0,
-        passType: type === "visitor" ? "VISITOR" : "ATTENDANT", // <-- Fixed: Maps "stay" to "ATTENDANT"
+        passType: type === "visitor" ? "VISITOR" : "ATTENDANT",
         relation: formData.relationToPatient,
         purpose: formData.purposeOfVisit,
         idProofType: selectedIdProof,
@@ -193,9 +214,17 @@ const GatePass = () => {
         visitorName: type === "visitor" ? formData.visitorName : "",
         attendantName: type === "stay" ? formData.visitorName : "",
       };
-
       const response = await createGatepass(payload);
       toast.success("Gatepass created successfully!");
+
+      // Add the new record to the top of the list
+      const newPass = {
+        ...response.data,
+        visitTime: `${formData.inTime || ""} - ${formData.outTime || ""}`,
+        wardDetails: formData.ward || "N/A",
+        status: "PENDING",
+      };
+      setGatePasses((prev) => [newPass, ...prev]);
     } catch (error) {
       console.error("Error creating gatepass:", error);
       toast.error(error.response?.data?.message || "Failed to create gatepass");
@@ -206,7 +235,6 @@ const GatePass = () => {
     if (printWindowRef.current && !printWindowRef.current.closed) {
       printWindowRef.current.close();
     }
-
     const gatePassHTML = `
       <!DOCTYPE html>
       <html lang="en">
@@ -471,13 +499,11 @@ const GatePass = () => {
         </body>
       </html>
     `;
-
     printWindowRef.current = window.open(
       "",
       "gatepass_print",
       "width=800,height=600,scrollbars=no,resizable=no,toolbar=no,menubar=no,location=no,status=no"
     );
-
     if (printWindowRef.current) {
       printWindowRef.current.document.write(gatePassHTML);
       printWindowRef.current.document.close();
@@ -492,13 +518,133 @@ const GatePass = () => {
     navigate(-1);
   };
 
+  const handlePassNumberClick = (pass) => {
+    const formattedPass = {
+      ...pass,
+      visitorName: pass.visitorName || pass.attendantName || "",
+      relation: pass.relation || pass.relationToPatient || "",
+      purpose: pass.purpose || pass.purposeOfVisit || "",
+      idProofType: pass.idProofType || "",
+      idProofNumber: pass.idProofNumber || "",
+      inTime: pass.inTime || "",
+      outTime: pass.outTime || "",
+      status: pass.status || "PENDING",
+      validUntil: pass.validUntil || pass.validity || "",
+      wardDetails: pass.wardDetails || pass.ward || "",
+      shift: pass.shift || "",
+    };
+    setSelectedPass(formattedPass);
+    setIsPassModalOpen(true);
+  };
+
+  const tabs = [
+    { label: "Visitor", value: "visitor" },
+    { label: "Attendant", value: "attendant" },
+  ];
+
+  const visitorColumns = [
+    {
+      header: "Pass Number",
+      accessor: "passNumber",
+      cell: (row) => (
+        <button
+          className="cursor-pointer text-[var(--primary-color)] hover:text-[var(--accent-color)]"
+          onClick={() => handlePassNumberClick(row)}
+        >
+          {row.passNumber || "N/A"}
+        </button>
+      ),
+    },
+    {
+      header: "Visitor Name",
+      accessor: "visitorName",
+      Cell: ({ row }) => (
+        <button
+          onClick={() => handlePassNumberClick(row.original)}
+          className="text-blue-600 hover:text-blue-800 font-medium underline focus:outline-none"
+        >
+          {row.original.visitorName || "N/A"}
+        </button>
+      ),
+    },
+    {
+      header: "Relation",
+      accessor: "relation",
+      Cell: ({ value }) => value || "N/A",
+    },
+    {
+      header: "Purpose",
+      accessor: "purpose",
+      Cell: ({ value }) => <span className="text-sm">{value || "N/A"}</span>,
+    },
+    {
+      header: "ID Proof",
+      accessor: "idProofNumber",
+      Cell: ({ row }) => (
+        <div className="text-sm">
+          <div>Type: {row.original.idProofType || "N/A"}</div>
+          <div>Number: {row.original.idProofNumber || "N/A"}</div>
+        </div>
+      ),
+    },
+  ];
+
+  const attendantColumns = [
+    {
+      header: "Pass Number",
+      accessor: "passNumber",
+      cell: (row) => (
+        <button
+          onClick={() => handlePassNumberClick(row)}
+          className="cursor-pointer text-[var(--primary-color)] hover:text-[var(--accent-color)]"
+        >
+          {row.passNumber || "N/A"}
+        </button>
+      ),
+    },
+    {
+      header: "Attendant Name",
+      accessor: "attendantName",
+      Cell: ({ row }) => (
+        <button
+          onClick={() => handlePassNumberClick(row.original)}
+          className="text-blue-600 hover:text-blue-800 font-medium underline focus:outline-none"
+        >
+          {row.original.attendantName || "N/A"}
+        </button>
+      ),
+    },
+    {
+      header: "Relation",
+      accessor: "relation",
+      Cell: ({ value }) => value || "N/A",
+    },
+    {
+      header: "Purpose",
+      accessor: "purpose",
+      Cell: ({ value }) => <span className="text-sm">{value || "N/A"}</span>,
+    },
+    {
+      header: "ID Proof",
+      accessor: "idProofNumber",
+      Cell: ({ row }) => (
+        <div className="text-sm">
+          <div>Type: {row.original.idProofType || "N/A"}</div>
+          <div>Number: {row.original.idProofNumber || "N/A"}</div>
+        </div>
+      ),
+    },
+  ];
+
+  const filteredGatePasses = gatePasses.filter((pass) =>
+    activeTab === "visitor" ? pass.passType === "VISITOR" : pass.passType === "ATTENDANT"
+  );
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-6 max-w-6xl">
         <div className="flex items-center justify-between mb-6 bg-white rounded-xl shadow-sm p-4">
-          <h1 className="text-xl font-bold text-[var(--primary-color)]">
-            Hospital Gate Pass
-          </h1>
+          <h1 className="text-xl font-bold text-[var(--primary-color)]">Hospital Gate Pass</h1>
           <button
             onClick={handlePrint}
             className="flex items-center gap-2 px-4 py-2 bg-[var(--primary-color)] text-white rounded-lg hover:bg-[var(--accent-color)] transition-colors"
@@ -552,7 +698,7 @@ const GatePass = () => {
               <div className="relative floating-input" data-placeholder="Patient ID">
                 <input
                   type="text"
-                  value={formData.patientId}
+                  value={patient?.patientId}
                   onChange={(e) => handleInputChange("patientId", e.target.value)}
                   className="peer input-field"
                   placeholder=" "
@@ -573,14 +719,19 @@ const GatePass = () => {
                 />
               </div>
               <div className="relative floating-input" data-placeholder="Relation to Patient">
-                <input
-                  type="text"
+                <select
                   value={formData.relationToPatient}
                   onChange={(e) => handleInputChange("relationToPatient", e.target.value)}
                   className="peer input-field"
-                  placeholder=" "
                   required
-                />
+                >
+                  <option value="">Select Relation</option>
+                  {relations.map((relation) => (
+                    <option key={relation.id} value={relation.value || relation.relationName}>
+                      {relation.label || relation.relationName}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="relative floating-input" data-placeholder="Purpose of Visit">
                 <input
@@ -608,11 +759,11 @@ const GatePass = () => {
                   required
                 >
                   <option value="">Select ID Type</option>
-                {idProofTypes.map((type) => (
-  <option key={type.id} value={type.id}>
-    {type.typeName || type.name || 'Unnamed ID Type'}
-  </option>
-))}
+                  {idProofTypes.map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {type.typeName}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="relative floating-input" data-placeholder="ID Proof Number">
@@ -658,11 +809,11 @@ const GatePass = () => {
                     required
                   >
                     <option value="">Select Time Slot</option>
-                   {visitingTimeSlots.map((slot) => (
-  <option key={slot.id} value={slot.id}>
-    {slot.timeSlot || `${slot.startTime || ''} - ${slot.endTime || ''} ${slot.name ? `(${slot.name})` : ''}`.trim()}
-  </option>
-))}
+                    {visitingTimeSlots.map((slot) => (
+                      <option key={slot.id} value={slot.id}>
+                        {slot.timeSlot}
+                      </option>
+                    ))}
                   </select>
                 </div>
               )}
@@ -701,119 +852,56 @@ const GatePass = () => {
             </div>
           </form>
         </div>
-
-      {/* Gate Pass History Table */}
-      <div className="mt-8 bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-        <h2 className="text-lg font-semibold mb-4 text-gray-800">Gate Pass History</h2>
-        <DynamicTable
-          columns={[
-            {
-              header: 'Pass Number',
-              accessor: 'passNumber',
-              Cell: ({ value }) => <span className="font-medium">{value || 'N/A'}</span>,
-            },
-            {
-              header: 'Type',
-              accessor: 'passType',
-              Cell: ({ value }) => (
-                <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                  value === 'VISITOR' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
-                }`}>
-                  {value || 'N/A'}
-                </span>
-              ),
-            },
-            {
-              header: 'Patient Name',
-              accessor: 'patientName',
-              Cell: ({ value }) => <span className="font-medium">{value || 'N/A'}</span>,
-            },
-            {
-              header: 'Visitor/Attendant',
-              accessor: 'visitorName',
-              Cell: ({ value, row }) => (
-                <div className="text-sm">
-                  <div>{value || row.original.attendantName || 'N/A'}</div>
-                  <div className="text-xs text-gray-500">
-                    {row.original.passType === 'VISITOR' ? 'Visitor' : 'Attendant'}
-                  </div>
-                </div>
-              ),
-            },
-            {
-              header: 'Relation',
-              accessor: 'relation',
-              Cell: ({ value }) => value || 'N/A',
-            },
-            {
-              header: 'Purpose',
-              accessor: 'purpose',
-              Cell: ({ value }) => <span className="text-sm">{value || 'N/A'}</span>,
-            },
-            {
-              header: 'ID Proof',
-              accessor: 'idProofNumber',
-              Cell: ({ row }) => (
-                <div className="text-sm">
-                  <div>Type: {row.original.idProofType || 'N/A'}</div>
-                  <div>Number: {row.original.idProofNumber || 'N/A'}</div>
-                </div>
-              ),
-            },
-            {
-              header: 'Visit Time',
-              accessor: 'visitTime',
-              Cell: ({ row }) => (
-                <div className="text-sm">
-                  <div>In: {row.original.inTime || 'N/A'}</div>
-                  <div>Out: {row.original.outTime || 'N/A'}</div>
-                  {row.original.visitingTimeSlotId && (
-                    <div className="text-xs text-gray-500">
-                      Slot: {row.original.visitingTimeSlotId}
-                    </div>
-                  )}
-                </div>
-              ),
-            },
-            {
-              header: 'Shift',
-              accessor: 'shift',
-              Cell: ({ value }) => (
-                <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                  value ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
-                }`}>
-                  {value || 'Not specified'}
-                </span>
-              ),
-            },
-            {
-              header: 'Ward Details',
-              accessor: 'wardDetails',
-              Cell: ({ value }) => <span className="text-sm">{value || 'N/A'}</span>,
-            },
-            {
-              header: 'Validity',
-              accessor: 'validUntil',
-              Cell: ({ value }) => (
-                <div className="text-sm">
-                  {value ? new Date(value).toLocaleDateString() : 'N/A'}
-                </div>
-              ),
-            },
-          
-          ]}
-          data={gatePasses}
-          noDataMessage={
-            <div className="text-center py-8">
-              <FileText className="mx-auto h-10 w-10 text-gray-400 mb-2" />
-              <p className="text-gray-500">No gate pass records found</p>
-            </div>
-          }
-          showSearchBar={true}
-          itemsPerPage={5}
-        />
+        <div className="mt-8 bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+          <h2 className="text-lg font-semibold mb-4 text-gray-800">Gate Pass History</h2>
+          <DynamicTable
+            tabs={tabs}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            columns={activeTab === "visitor" ? visitorColumns : attendantColumns}
+            data={filteredGatePasses}
+            noDataMessage={
+              <div className="text-center py-8">
+                <FileText className="mx-auto h-10 w-10 text-gray-400 mb-2" />
+                <p className="text-gray-500">No gate pass records found</p>
+              </div>
+            }
+            showSearchBar={true}
+            itemsPerPage={5}
+          />
+        </div>
       </div>
-    </div>
+      <ReusableModal
+        isOpen={isPassModalOpen}
+        onClose={() => setIsPassModalOpen(false)}
+        title="Pass Details"
+        mode="viewProfile"
+        data={selectedPass || {}}
+        viewFields={[
+          { key: "passNumber", label: "Pass Number", subtitleKey: true },
+          {
+            key: type === "visitor" ? "visitorName" : "attendantName",
+            label: type === "visitor" ? "Visitor Name" : "Attendant Name",
+            titleKey: true,
+            initialsKey: true,
+          },
+          { key: "relation", label: "Relation" },
+          { key: "purpose", label: "Purpose" },
+          { key: "idProofType", label: "ID Proof Type" },
+          { key: "idProofNumber", label: "ID Proof Number" },
+          {
+            key: "timeSlot",
+            label: "Visit Time Slot",
+            render: (value, record) => record.timeSlot || record.visitingTimeSlotId || "N/A",
+          },
+          { key: "inTime", label: "In Time" },
+          { key: "outTime", label: "Out Time" },
+          { key: "status", label: "Status" },
+          { key: "validUntil", label: "Valid Until" },
+          { key: "wardDetails", label: "Ward Details" },
+          { key: "shift", label: "Shift" },
+        ]}
+      />
       <ToastContainer
         position="top-right"
         autoClose={3000}

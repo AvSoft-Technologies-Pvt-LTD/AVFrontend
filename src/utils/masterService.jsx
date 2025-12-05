@@ -245,14 +245,15 @@ export const getIpdVitals = (context, contextId, doctorId, patientId) =>
 
 // digital signature api in dr dashboard
 export const getDoctorSignatures = () => axiosInstance.get("/v1/doctor-signature");
-export const uploadDoctorSignature = data => axiosInstance.post("/v1/doctor-signature", data);
+export const uploadDoctorSignature = data => axiosInstance.post("/doctor/signature-actions", data);
 
-
+export const getSignatureActionsByContextId = (patientId, doctorId, context, contextId) =>
+  axiosInstance.get(`/doctor/signature-actions/by-context-id`, {
+    params: { patientId, doctorId, context, contextId }
+  });
 // dental exam api
-export const createDentalActions = (patientId, doctorId, context, data) =>
-  axiosInstance.post(`/dental-actions/bulk/${patientId}/${doctorId}/${context}`, data);
-
-
+export const createDentalActions = (patientId, doctorId, context, contextId, data) =>
+  axiosInstance.post(`/dental-actions/${patientId}/${doctorId}/${context}/${contextId}`, data);
 // ✅ GET ALL queue tokens
 export const getQueueTokens = () => axiosInstance.get("/queue-tokens");
 // ✅ CREATE a new queue token
@@ -361,6 +362,10 @@ export const getPatientNotifications = ({ patientId, page = 1, size = 20 }) =>
 export const getPatientUnreadNotificationCount = (patientId) =>
   axiosInstance.get(`/patient/notifications/unread/count`, { params: { patientId } });
 
+// Get IPD nursing records by patient ID
+export const getIpdNursingByPatient = (patientId) => 
+  axiosInstance.get(`/ipd/nursing/patient/${patientId}`);
+
 // GET latest N notifications
 export const getLatestPatientNotifications = (patientId, limit = 5) =>
   axiosInstance.get(`/patient/notifications/latest`, { params: { patientId, limit } });
@@ -433,9 +438,6 @@ export const getVideos = (patientId, virtualRecordId) =>
 
 
 
-
-  export const searchMedicineByName = (query, page = 0, size = 100) =>
-  axiosInstance.get(`/medicines/searchByName?query=${query}&page=${page}&size=${size}`);
 
 
   // get getpass  by patient

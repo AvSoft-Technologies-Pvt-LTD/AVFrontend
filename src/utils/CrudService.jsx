@@ -694,15 +694,18 @@ export const createGatepass = (data) =>
 // POST create new IPD nursing record
 export const createIpdNursingRecord = (data) =>
   axiosInstance.post("/ipd/nursing", data);
+export const updateIpdNursing = (nurseId, data) =>
+  axiosInstance.put(`/ipd/nursing/${nurseId}`, data);
 
+
+export const deleteIpdNursingRecord = (nurseRecordId) =>
+  axiosInstance.delete(`/ipd/nursing/${nurseRecordId}`);
 
 // POST: Get lab available tests
 export const getLabAvailableTests = (requestData) =>
   axiosInstance.post('/lab-available-tests', requestData);
-
 // Get upcoming availability schedules for a doctor
 export const getUpcomingAvailabilitySchedules = (doctorId, fromDate) =>
   axiosInstance.get(`/availability-schedules/upcoming/doctor/${doctorId}`, {
     params: { fromDate }
   });
-

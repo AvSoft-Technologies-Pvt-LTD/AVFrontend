@@ -5,9 +5,9 @@ import {
   getDentalProblems,
   getTreatmentActionPlans,
   getJawPositions,
+  createDentalActions,
 } from "../../../../../utils/masterService";
 import { usePatientContext } from "../../../../../context-api/PatientContext";
-import { createDentalActions } from "../../../../../utils/masterService"; // Import the API function
 
 const DENTAL_TEETH_NUMBERS = Array.from({ length: 32 }, (_, i) => i + 1);
 
@@ -144,53 +144,56 @@ const DentalForm = ({ data, onSave, onPrint }) => {
   };
 
   const handleSave = async () => {
-    const patientId = patient?.patientId || patient?.id || 1;
-    const doctorId = patient?.doctorId || 1; // Replace with actual doctor ID if available
-    const context = activeTab?.toUpperCase() || "OPD";
+    const patientId = patient?.patientId || patient?.id;
+    const doctorId = patient?.doctorId || 1;
+    const context = activeTab?.toUpperCase();
+    const contextId = patient?.id;
 
-    const formattedPlans = plans.map((plan) => ({
-      referenceTeethNumbers: plan.teeth,
-      dentalProblemIds: plan.problems.map((problemName) => {
-        const problem = dentalProblems.find((p) => p.name === problemName);
-        return problem ? problem.id : 0;
-      }),
-      treatmentActionPlanIds: plan.actions.map((actionName) => {
-        const action = treatmentActionPlans.find((a) => a.name === actionName);
-        return action ? action.id : 0;
-      }),
-      jawPositionIds: plan.positions.map((posName) => {
-        const pos = jawPositions.find((p) => p.name === posName);
-        return pos ? pos.id : 0;
-      }),
-    }));
-
-    const payload = {
-      patientId,
-      doctorId,
-      context,
-      data: formattedPlans,
-    };
-
-    try {
-      const response = await createDentalActions(
+    for (const plan of plans) {
+      const payload = {
+        referenceTeethNumbers: plan.teeth,
+        dentalProblemIds: plan.problems.map((problemName) => {
+          const problem = dentalProblems.find((p) => p.name === problemName);
+          return problem ? problem.id : 0;
+        }),
+        treatmentActionPlanIds: plan.actions.map((actionName) => {
+          const action = treatmentActionPlans.find((a) => a.name === actionName);
+          return action ? action.id : 0;
+        }),
+        jawPositionIds: plan.positions.map((posName) => {
+          const pos = jawPositions.find((p) => p.name === posName);
+          return pos ? pos.id : 0;
+        }),
         patientId,
         doctorId,
         context,
-        payload.data
-      );
-      console.log("💾 Dental Plan Saved:", response.data);
-      toast.success("Dental problem action plan saved successfully!", {
-        position: "top-right",
-        autoClose: 2000,
-      });
-      onSave('dental', { plans });
-    } catch (error) {
-      console.error("Failed to save dental plan:", error);
-      toast.error("Failed to save dental plan. Please try again later.", {
-        position: "top-right",
-        autoClose: 2000,
-      });
+        contextId,
+      };
+
+      try {
+        const response = await createDentalActions(
+          patientId,
+          doctorId,
+          context,
+          contextId,
+          payload
+        );
+        console.log("💾 Dental Plan Saved:", response.data);
+      } catch (error) {
+        console.error("Failed to save dental plan:", error);
+        toast.error("Failed to save dental plan. Please try again later.", {
+          position: "top-right",
+          autoClose: 2000,
+        });
+        return;
+      }
     }
+
+    toast.success("Dental problem action plans saved successfully!", {
+      position: "top-right",
+      autoClose: 2000,
+    });
+    onSave("dental", { plans });
   };
 
   return (
@@ -215,7 +218,7 @@ const DentalForm = ({ data, onSave, onPrint }) => {
           </button>
         </div>
       </div>
-      <div className="p-6 bg-gray-50">
+       <div className="p-6 bg-gray-50">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           <div>
             <div className="font-medium mb-3 text-[var(--primary-color)]">
@@ -305,7 +308,10 @@ const DentalForm = ({ data, onSave, onPrint }) => {
           </div>
         </div>
         <div className="mt-6">
-          <button onClick={handleAddPlan} className="btn btn-primary get-details-animate">
+          <button
+            onClick={handleAddPlan}
+            className="btn btn-primary get-details-animate"
+          >
             <Plus className="w-4 h-4" /> Add Dental Plan
           </button>
         </div>
@@ -334,10 +340,18 @@ const DentalForm = ({ data, onSave, onPrint }) => {
                 <tbody>
                   {plans.map((plan, idx) => (
                     <tr key={idx} className="border-b border-gray-200">
-                      <td className="px-2 py-2 text-xs">{plan.teeth.join(", ") || "None"}</td>
-                      <td className="px-2 py-2 text-xs">{plan.problems.join(", ") || "None"}</td>
-                      <td className="px-2 py-2 text-xs">{plan.actions.join(", ") || "None"}</td>
-                      <td className="px-2 py-2 text-xs">{plan.positions.join(", ") || "None"}</td>
+                      <td className="px-2 py-2 text-xs">
+                        {plan.teeth.join(", ") || "None"}
+                      </td>
+                      <td className="px-2 py-2 text-xs">
+                        {plan.problems.join(", ") || "None"}
+                      </td>
+                      <td className="px-2 py-2 text-xs">
+                        {plan.actions.join(", ") || "None"}
+                      </td>
+                      <td className="px-2 py-2 text-xs">
+                        {plan.positions.join(", ") || "None"}
+                      </td>
                       <td className="px-2 py-2 text-center">
                         <button
                           onClick={() => handleRemovePlan(idx)}

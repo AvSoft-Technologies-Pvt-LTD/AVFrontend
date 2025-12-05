@@ -1,7 +1,10 @@
-// File: Form.jsx
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useContext } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Printer } from "lucide-react";
+import { usePatientContext } from "../../../../../context-api/PatientContext";
+import { getSignatureActionsByContextId } from "../../../../../utils/masterService";
+import { toast } from "react-toastify";
+import { getDoctorById } from "../../../../../utils/masterService";
+import DefaultLogo from "../../../../../assets/logo.png";
 import VitalsForm from "./VitalsForm";
 import ClinicalNotesForm from "./ClinicalNotesForm";
 import LabTestsForm from "./LabResultsForm";
@@ -20,14 +23,46 @@ import {
   getEyeTestTemplate,
   getPrescriptionTemplate,
 } from "./templates";
-import AVLogo from "../../../../../assets/AV.png";
 
-const getStyledPrescriptionHTML = (doctor = {}, patient = {}, signature = null, logoUrl = "", formContent = "") => {
-  const safeLogo = logoUrl || "";
+import { useSelector } from 'react-redux';
+
+const getStyledPrescriptionHTML = (doctor = {}, patient = {}, signature = null, logoUrl = null, formContent = "") => {
   const patientName = patient?.firstName || patient?.name || "N/A";
-  const patientAge = patient?.age || "N/A";
-  const patientGender = patient?.gender || "N/A";
-  const patientContact = patient?.phone || "N/A";
+  const patientGender = patient?.patientGender || patient?.gender || "N/A";
+  const patientContact = patient?.patientPhoneNumber || patient?.phone || "N/A";
+  const patientDOB = patient?.patientDateOfBirth || patient?.dateOfBirth || patient?.dob || "N/A";
+
+  const formatAddress = (doc) => {
+    if (!doc) return '';
+    const parts = [
+      doc.city && doc.city.trim() ? doc.city.trim() : null,
+      doc.district && doc.district.trim() ? doc.district.trim() : null,
+      doc.state && doc.state.trim() ? doc.state.trim() : null,
+      doc.pincode && doc.pincode.trim() ? doc.pincode.trim() : null
+    ].filter(Boolean);
+    return parts.join(', ');
+  };
+
+  const doctorAddress = formatAddress(doctor);
+
+  const calculateAge = (dob) => {
+    if (!dob) return "N/A";
+    try {
+      const birthDate = new Date(dob);
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      return age > 0 ? `${age} years` : "N/A";
+    } catch (e) {
+      return "N/A";
+    }
+  };
+
+  const patientAge = patient?.age ? `${patient.age} years` : calculateAge(patientDOB);
+
   return `<!doctype html>
 <html>
   <head>
@@ -43,16 +78,16 @@ const getStyledPrescriptionHTML = (doctor = {}, patient = {}, signature = null, 
       .header { display:flex; justify-content:space-between; align-items:center; gap:20px; }
       .doc-info h1 { margin:0; font-size:24px; color:#0e1630; border-bottom:3px solid #01D48C; padding-bottom:4px; }
       .doc-info p { margin:3px 0; font-size:13px; color:#0e1630; }
-      .logo { width:80px; height:80px; object-fit:cover; border-radius:8px; }
+      .logo { width:150px; height:150px; object-fit:contain; border-radius:6px; }
       .patient-box { margin-top:18px; padding:12px 16px; background:linear-gradient(to right,#f9f9f9,#f1f1f1); border-radius:6px; display:flex; justify-content:space-between; gap:12px; font-size:14px; color:#0e1630; }
       table { width:100%; border-collapse:collapse; margin-top:12px; font-size:13px; }
       th, td { border:1px solid #ddd; padding:8px; text-align:left; vertical-align:top; }
       th { background:#f8f9fa; font-weight:600; }
       .footer { margin-top:28px; display:flex; justify-content:space-between; align-items:center; gap:20px; padding:14px; background:linear-gradient(to right,#f9f9f9,#f1f1f1); border-top:3px solid #0e1630; }
       .footer .left { display:flex; align-items:center; gap:16px; }
-      .footer .left .logo-small { width:80px; height:80px; border-radius:8px; object-fit:cover; }
+      .footer .left .logo-small { width:120px; height:120px; object-fit:contain; border-radius:4px; }
       .signature { text-align:right; }
-      .signature img { height:48px; display:block; margin:0 0 6px auto; }
+      .signature img { height:44px; display:block; margin:0 0 6px auto; }
       .section-title { font-size:16px; color:#0E1630; margin:8px 0; font-weight:600; }
       @media print {
         body { padding:0; }
@@ -70,37 +105,48 @@ const getStyledPrescriptionHTML = (doctor = {}, patient = {}, signature = null, 
             <p>${doctor.qualifications || ""}</p>
             <p>${doctor.specialization || ""}</p>
           </div>
-          <div>
-            ${safeLogo ? `<img src="${safeLogo}" class="logo" alt="logo" />` : ''}
+          <div style="display: flex; align-items: center; margin-left: 10px;">
+            <img src="${DefaultLogo}" class="logo" alt="logo" style="max-width: 100%; height: auto;" />
           </div>
         </div>
         <div class="patient-box" style="margin-top:18px;">
-          <div><strong>Name:</strong> ${patientName}</div>
-          <div><strong>Age:</strong> ${patientAge}</div>
-          <div><strong>Gender:</strong> ${patientGender}</div>
-          <div><strong>Contact:</strong> ${patientContact}</div>
+          <div>
+            <span style="margin-right: 20px;"><strong>Name:</strong> ${patientName}</span>
+            <span style="margin-right: 20px;"><strong>Age:</strong> ${patientAge}</span>
+            <span style="margin-right: 20px;"><strong>Gender:</strong> ${patientGender}</span>
+            <span><strong>Contact:</strong> ${patientContact}</span>
+          </div>
         </div>
         <div class="content" style="margin-top:18px;">
           ${formContent || '<p>No content available</p>'}
         </div>
         <div class="footer">
-          <div class="left">
-            ${safeLogo ? `<img src="${safeLogo}" class="logo-small" alt="logo" />` : ''}
-            <div style="font-size:14px;color:#0e1630;line-height:1.3;">
-              <div>Dharwad, Karnataka, 580001</div>
-              <div>+12-345 678 9012</div>
+          <div class="left" style="display: flex; align-items: center; gap: 16px;">
+            <img src="${DefaultLogo}" class="logo-small" alt="logo" style="align-self: flex-start;" />
+            <div style="font-size:14px;color:#0e1630;line-height:1.3; margin-top: 8px;">
+              ${doctorAddress ? `<div>${doctorAddress}</div>` : ''}
+              ${doctor.phone ? `<div>${doctor.phone}</div>` : ''}
+              ${doctor.qualification ? `<div>${doctor.qualification}</div>` : ''}
             </div>
           </div>
-          <div class="signature">
-            ${signature ? `<img src="${signature}" alt="signature" />` : '<div style="height:48px;"></div>'}
-            <div style="margin-top:6px;border-top:2px solid #0e1630;padding-top:6px;width:160px;margin-left:auto;font-size:16px;color:#444;">Doctor's Signature</div>
+          <div class="signature" style="display: flex; flex-direction: column; align-items: flex-end;">
+            ${signature ? `
+              <div style="margin-bottom: 4px; text-align: right;">
+                <img
+                  src="${signature}"
+                  alt="Doctor's Signature"
+                  style="height: 60px; width: auto; margin-right:40px"
+                  onerror="console.error('Error loading signature image'); this.style.display='none';"
+                />
+              </div>
+            ` : '<div style="height: 48px; color: #999; display: flex; align-items: center; justify-content: flex-end;">No signature available</div>'}
+            <div style="border-top: 2px solid #0e1630; padding-top: 6px; width: 160px; text-align: center; font-size: 16px; color: #444;">Doctor's Signature</div>
           </div>
         </div>
       </div>
     </div>
   </body>
-</html>
-`;
+</html>`;
 };
 
 const makeAbsoluteUrl = (p) => {
@@ -129,28 +175,110 @@ const formTypes = {
 const Form = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const patient = location.state?.patient || {
-    name: "Unknown Patient",
-    email: "unknown@example.com",
-    phone: "N/A",
-    age: "N/A",
-    gender: "N/A",
-    diagnosis: "N/A",
-    wardType: "N/A",
-  };
+  const { patient ,activeTab} = usePatientContext();
+
+  const doctorId = JSON.parse(localStorage.getItem("user"))?.id;
   const [annotatedImages, setAnnotatedImages] = useState(location.state?.annotatedImages || []);
   const [activeForm, setActiveForm] = useState("all");
   const [formsData, setFormsData] = useState({});
   const [doctorSignature, setDoctorSignature] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [showPatientDetails, setShowPatientDetails] = useState(true);
-  const [isChartOpen, setIsChartOpen] = useState(false);
-  const [chartVital, setChartVital] = useState(null);
   const [showShareModal, setShowShareModal] = useState(false);
-  const [showMoreForms, setShowMoreForms] = useState(false);
+  const [isChartOpen, setIsChartOpen] = useState(false);
+  const [chartVital, setChartVital] = useState({ name: "", unit: "" });
   const signaturePadRef = useRef();
   const printWindowRef = useRef(null);
   const isIPDPatient = (patient?.type || "").toLowerCase() === "ipd";
+  const { user } = useSelector((state) => state.auth);
+  const [doctorInfo, setDoctorInfo] = useState(null);
+  const [showPatientDetails, setShowPatientDetails] = useState(true);
+
+  useEffect(() => {
+    const fetchDoctorInfo = async () => {
+      if (user?.doctorId) {
+        try {
+          const response = await getDoctorById(user.doctorId);
+          if (response.data) {
+            setDoctorInfo({
+              ...response.data,
+              firstName: response.data.firstName,
+              lastName: response.data.lastName,
+              specialization: response.data.specialization,
+              qualification: response.data.qualification,
+              phone: response.data.phone,
+              city: response.data.city,
+              district: response.data.district,
+              state: response.data.state,
+              pincode: response.data.pincode,
+              registrationNumber: response.data.registrationNumber
+            });
+          }
+        } catch (error) {
+          console.error("Error fetching doctor info:", error);
+        }
+      }
+    };
+    fetchDoctorInfo();
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!location.state?.formData) return;
+    setFormsData(location.state.formData);
+  }, [location.state]);
+
+useEffect(() => {
+  const fetchSignature = async () => {
+    try {
+      const response = await getSignatureActionsByContextId(
+        patient?.patientId ,
+        user?.doctorId,
+         activeTab.toUpperCase(),
+        patient?.id 
+      );
+
+      console.log("API RESPONSE:", JSON.stringify(response.data));
+
+      const rawSig =
+        response?.data?.digitalSignature ||
+        response?.digitalSignature ||
+        response?.data?.data?.digitalSignature ||
+        (Array.isArray(response?.data) && response.data[0]?.digitalSignature) ||
+        null;
+
+      if (!rawSig) {
+        console.log("No digital signature found");
+        return;
+      }
+
+      const isBase64 = (str) =>
+        /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(str);
+
+      if (!isBase64(rawSig)) {
+        console.error("API returned invalid Base64!");
+        return;
+      }
+
+      let signatureUrl = rawSig.startsWith("data:")
+        ? rawSig
+        : `data:image/png;base64,${rawSig}`;
+
+      const testImg = new Image();
+      testImg.onload = () => {
+        console.log("Signature image is valid");
+        setDoctorSignature(signatureUrl);
+      };
+      testImg.onerror = () => {
+        console.error("Base64 is NOT a valid image!");
+      };
+      testImg.src = signatureUrl;
+    } catch (error) {
+      console.error("Error fetching doctor signature:", error);
+    }
+  };
+
+  fetchSignature();
+}, [patient?.id, doctorId]);
+
 
   const calculateAge = (dob) => {
     if (!dob) return "N/A";
@@ -159,20 +287,28 @@ const Form = () => {
       const birthDate = new Date(dob);
       let age = today.getFullYear() - birthDate.getFullYear();
       const monthDiff = today.getMonth() - birthDate.getMonth();
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) age--;
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
       return age;
     } catch {
       return "N/A";
     }
   };
 
-  const getPatientName = () =>
-    patient.name ||
-    `${patient.firstName || ""} ${patient.middleName || ""} ${patient.lastName || ""}`.trim() ||
-    "Unknown Patient";
+  const getPatientName = () => {
+    if (!patient) return "Unknown Patient";
+    return (
+      patient.name ||
+      `${patient.firstName || ""} ${patient.middleName || ""} ${patient.lastName || ""}`.trim() ||
+      "Unknown Patient"
+    );
+  };
 
-  const getPatientAge = () => (patient.age && patient.age !== "N/A" ? patient.age : calculateAge(patient.dob));
-
+const getPatientAge = () => {
+  if (!patient) return "N/A";
+  return (patient.age && patient.age !== "N/A") ? patient.age : calculateAge(patient.dob);
+};
   const getCombinedWardInfo = () => {
     if (!isIPDPatient) return "N/A";
     const wardType = patient?.wardType || "";
@@ -184,6 +320,10 @@ const Form = () => {
   };
 
   const handleBackToPatients = () => navigate("/doctordashboard/patients");
+
+  const handleFormTypeClick = (formType) => {
+    setActiveForm(formType);
+  };
 
   const handleSignatureUpload = (e) => {
     const file = e.target.files?.[0];
@@ -202,6 +342,13 @@ const Form = () => {
     setDoctorSignature(null);
   };
 
+  const handleSaveForm = (formType, data) => {
+    setFormsData(prev => ({
+      ...prev,
+      [formType]: data
+    }));
+  };
+
   const handleSaveSignature = () => {
     if (signaturePadRef.current) {
       const signatureData = signaturePadRef.current.toDataURL();
@@ -209,26 +356,19 @@ const Form = () => {
     }
   };
 
-  const handleSaveForm = (formType, data) => {
-    setFormsData((prev) => ({ ...prev, [formType]: data }));
-  };
-
-  const handleFormTypeClick = (formType) => {
-    if (formType === "template") {
-      navigate("/doctordashboard/template", { state: { patient, annotatedImages, from: "form" } });
-    } else {
-      setActiveForm(formType);
-    }
-  };
-
   const handlePrintForm = (formType, overrideData) => {
     const data = overrideData || formsData[formType];
     if (!data) return;
     const doctor = {
-      name: "Dr. Sheetal S. Shelke",
-      specialization: "Neurologist",
-      regNo: "MH123456",
-      qualifications: "MBBS, MD",
+      name: doctorInfo ? `Dr. ${doctorInfo.firstName} ${doctorInfo.lastName}` : 'Doctor',
+      specialization: doctorInfo?.specialization || '',
+      regNo: doctorInfo?.registrationNumber || '',
+      qualifications: doctorInfo?.qualification || '',
+      phone: doctorInfo?.phone || '',
+      city: doctorInfo?.city || '',
+      district: doctorInfo?.district || '',
+      state: doctorInfo?.state || '',
+      pincode: doctorInfo?.pincode || ''
     };
     let formContent = "";
     switch (formType) {
@@ -253,8 +393,31 @@ const Form = () => {
       default:
         formContent = "<p>No content available for this form.</p>";
     }
-    const logoUrl = makeAbsoluteUrl(AVLogo);
+    const logoUrl = doctorInfo?.photo ? makeAbsoluteUrl(doctorInfo.photo) : null;
     const html = getStyledPrescriptionHTML(doctor, patient, doctorSignature, logoUrl, formContent);
+    if (printWindowRef.current && !printWindowRef.current.closed) printWindowRef.current.close();
+    printWindowRef.current = window.open("", "_blank", "width=900,height=700,scrollbars=yes");
+    if (!printWindowRef.current) return;
+    try {
+      printWindowRef.current.document.open();
+      printWindowRef.current.document.write(html);
+      printWindowRef.current.document.close();
+      printWindowRef.current.focus();
+      setTimeout(() => {
+        try {
+          printWindowRef.current.print();
+        } catch (e) {
+          console.error("Print error:", e);
+        }
+      }, 500);
+    } catch (e) {
+      console.error("Print popup write error", e);
+    }
+  };
+
+  const printForm = (formContent) => {
+    const logoUrl = doctorInfo?.photo ? makeAbsoluteUrl(doctorInfo.photo) : null;
+    const html = getStyledPrescriptionHTML(doctorInfo, patient, doctorSignature, logoUrl, formContent);
     if (printWindowRef.current && !printWindowRef.current.closed) printWindowRef.current.close();
     printWindowRef.current = window.open("", "_blank", "width=900,height=700,scrollbars=yes");
     if (!printWindowRef.current) return;
@@ -275,10 +438,15 @@ const Form = () => {
 
   const printAllForms = () => {
     const doctor = {
-      name: "Dr. Sheetal S. Shelke",
-      specialization: "Neurologist",
-      regNo: "MH123456",
-      qualifications: "MBBS, MD",
+      name: doctorInfo ? `Dr. ${doctorInfo.firstName} ${doctorInfo.lastName}` : 'Doctor',
+      specialization: doctorInfo?.specialization || '',
+      regNo: doctorInfo?.registrationNumber || '',
+      qualifications: doctorInfo?.qualification || '',
+      phone: doctorInfo?.phone || '',
+      city: doctorInfo?.city || '',
+      district: doctorInfo?.district || '',
+      state: doctorInfo?.state || '',
+      pincode: doctorInfo?.pincode || ''
     };
     const formsHtml = Object.keys(formsData || {})
       .filter((formType) => formsData[formType] && Object.keys(formsData[formType]).length > 0)
@@ -303,7 +471,7 @@ const Form = () => {
       })
       .join("<div style='page-break-after: always;'></div>");
     if (!formsHtml) return;
-    const logoUrl = makeAbsoluteUrl(AVLogo);
+    const logoUrl = doctorInfo?.photo ? makeAbsoluteUrl(doctorInfo.photo) : null;
     const html = getStyledPrescriptionHTML(doctor, patient, doctorSignature, logoUrl, formsHtml);
     if (printWindowRef.current && !printWindowRef.current.closed) printWindowRef.current.close();
     printWindowRef.current = window.open("", "_blank", "width=1000,height=800,scrollbars=yes");
@@ -332,13 +500,29 @@ const Form = () => {
   };
 
   const renderActiveForm = () => {
+    if (!patient) return <div>No patient data available</div>;
+    
+    const patientEmail = patient?.email || '';
+    const patientDiagnosis = patient?.diagnosis || 'N/A';
+    const patientType = patient?.type || 'N/A';
+    
     if (activeForm === "all") {
       return (
         <div className="space-y-8 animate-slideIn">
-          <VitalsForm data={formsData.vitals} {...commonProps} hospitalName="AV Hospital" ptemail={patient.email} />
+          <VitalsForm data={formsData.vitals} {...commonProps} hospitalName="AV Hospital" ptemail={patientEmail} />
           <PrescriptionForm data={formsData.prescription} {...commonProps} setShowShareModal={setShowShareModal} doctorName="Dr. Kavya Patil" />
-          <ClinicalNotesForm data={formsData.clinical} {...commonProps} ptemail={patient.email} hospitalname="AV Hospital" drEmail="dr.sheetal@example.com" drname="Dr. Sheetal S. Shelke" patientname={getPatientName()} diagnosis={patient.diagnosis} type={patient.type} />
-          <LabTestsForm data={formsData.lab} {...commonProps} hospitalName="AV Hospital" ptemail={patient.email} />
+          <ClinicalNotesForm 
+            data={formsData.clinical} 
+            {...commonProps} 
+            ptemail={patientEmail} 
+            hospitalname="AV Hospital" 
+            drEmail="dr.sheetal@example.com" 
+            drname="Dr. Sheetal S. Shelke" 
+            patientname={getPatientName()} 
+            diagnosis={patientDiagnosis} 
+            type={patientType} 
+          />
+          <LabTestsForm data={formsData.lab} {...commonProps} hospitalName="AV Hospital" ptemail={patientEmail} />
           <EyeTestForm data={formsData.eye} {...commonProps} />
           <DentalForm data={formsData.dental} {...commonProps} />
         </div>
@@ -347,10 +531,20 @@ const Form = () => {
     return (
       <div className="space-y-8 animate-slideIn">
         {{
-          vitals: <VitalsForm data={formsData.vitals} {...commonProps} hospitalName="AV Hospital" ptemail={patient.email} />,
+          vitals: <VitalsForm data={formsData.vitals} {...commonProps} hospitalName="AV Hospital" ptemail={patientEmail} />,
           prescription: <PrescriptionForm data={formsData.prescription} {...commonProps} setShowShareModal={setShowShareModal} doctorName="Dr. Kavya Patil" />,
-          clinical: <ClinicalNotesForm data={formsData.clinical} {...commonProps} ptemail={patient.email} hospitalname="AV Hospital" drEmail="dr.sheetal@example.com" drname="Dr. Sheetal S. Shelke" patientname={getPatientName()} diagnosis={patient.diagnosis} type={patient.type} />,
-          lab: <LabTestsForm data={formsData.lab} {...commonProps} hospitalName="AV Hospital" ptemail={patient.email} />,
+          clinical: <ClinicalNotesForm 
+            data={formsData.clinical} 
+            {...commonProps} 
+            ptemail={patientEmail} 
+            hospitalname="AV Hospital" 
+            drEmail="dr.sheetal@example.com" 
+            drname="Dr. Sheetal S. Shelke" 
+            patientname={getPatientName()} 
+            diagnosis={patientDiagnosis} 
+            type={patientType} 
+          />,
+          lab: <LabTestsForm data={formsData.lab} {...commonProps} hospitalName="AV Hospital" ptemail={patientEmail} />,
           eye: <EyeTestForm data={formsData.eye} {...commonProps} />,
           dental: <DentalForm data={formsData.dental} {...commonProps} />,
         }[activeForm] || null}

@@ -1,3 +1,5 @@
+
+
 import React from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { Save, X } from "lucide-react";
@@ -40,12 +42,20 @@ const SignatureArea = ({ signaturePadRef, doctorSignature, setDoctorSignature, d
 
   const uploadNow = async (file) => {
     try {
-      const formData = new FormData();
-      formData.append("patientId", patient?.patientId );
-      formData.append("doctorId", doctorId);
-      formData.append("context", activeTab?.toUpperCase() );
-      formData.append("doctor_signature", file);
-      const res = await uploadDoctorSignature(formData);
+      // Convert file to base64
+      const base64Signature = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(",")[1]);
+        reader.readAsDataURL(file);
+      });
+      const payload = {
+        contextId:patient?.id,
+        patientId: patient?.patientId || 0,
+        doctorId: doctorId,
+        context: activeTab?.toUpperCase() || "IPD", // Use 'context' as per backend
+        digitalSignature: base64Signature,
+      };
+      const res = await uploadDoctorSignature(payload);
       console.log("✅ Uploaded successfully:", res.data);
       toast.success("✅ Signature uploaded successfully!");
     } catch (error) {
@@ -81,9 +91,7 @@ const SignatureArea = ({ signaturePadRef, doctorSignature, setDoctorSignature, d
           />
           {doctorSignature && (
             <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-              <span className="text-sm font-medium text-blue-800">
-                Preview:
-              </span>
+              <span className="text-sm font-medium text-blue-800">Preview:</span>
               <img
                 src={
                   typeof doctorSignature === "string"
@@ -132,6 +140,3 @@ const SignatureArea = ({ signaturePadRef, doctorSignature, setDoctorSignature, d
 };
 
 export default SignatureArea;
-
-
-

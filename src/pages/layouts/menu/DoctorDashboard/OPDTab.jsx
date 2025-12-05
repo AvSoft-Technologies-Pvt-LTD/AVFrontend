@@ -14,14 +14,14 @@ const getCurrentDate = () => new Date().toISOString().slice(0, 10);
 const getCurrentTime = () => new Date().toTimeString().slice(0, 5);
 
 const OPD_APPOINTMENT_VIEW_FIELDS = [
-  { key: "appointmentId", label: "Appointment ID" },
+  { key: "appointmentId", label: "Appointment ID"  },
   { key: "email", label: "Email" },
   { key: "phone", label: "Phone" },
   { key: "name", label: "Patient Name", titleKey: true, initialsKey: true },
   { key: "consultationType", label: "Consultation Type" },
   { key: "date", label: "Date" },
   { key: "time", label: "Time" },
-  { key: "diagnosis", label: "Diagnosis" },
+  { key: "diagnosis", label: "Symptoms" },
   { key: "reasonOfVisit", label: "Reason of Visit" },
 ];
 
@@ -603,7 +603,7 @@ const OpdTab = forwardRef(
       },
       { header: "Date", accessor: "appointmentDate" },
       { header: "Time", accessor: "appointmentTime" },
-      { header: "Diagnosis", accessor: "diagnosis" },
+      { header: "Symptoms", accessor: "diagnosis" },
       {
         header: "Actions",
         cell: (row) => (
