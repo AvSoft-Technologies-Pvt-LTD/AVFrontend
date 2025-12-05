@@ -185,6 +185,7 @@ const PaymentGateway = ({
     try {
       const response = await axios.post(`${API_BASE_URL}/razorpay/verify`, verificationData);
       console.log("Payment verified:", response.data);
+      
       console.log("Now Create Billing")
       return response.data;
     } catch (error) {

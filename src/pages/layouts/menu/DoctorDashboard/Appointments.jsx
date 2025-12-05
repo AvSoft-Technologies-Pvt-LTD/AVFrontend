@@ -500,13 +500,8 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
         type: 'success',
         autoClose: 3000
       });
-      localStorage.setItem("highlightPatientId", response.data.id.toString());
-      localStorage.setItem("targetPatientTab", targetTab);
-      localStorage.setItem("appointmentAccepted", "true");
-      localStorage.setItem("acceptedAppointmentType", consultationType);
       navigate('/doctordashboard/patients', {
         state: {
-          highlightId: response.data.id,
           tab: targetTab,
           autoNavigated: true,
           appointmentType: consultationType,
@@ -710,7 +705,7 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
     },
     ...(tab !== 'rejected' && tab !== 'rescheduled'
       ? [{
-          header: 'Reason',
+          header: 'Symptoms',
           accessor: 'reason',
           cell: row => (
             <div className="max-w-xs truncate" title={row.reason}>
@@ -720,7 +715,7 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
         }]
       : []),
     {
-      header: tab === 'rejected' ? 'Rejection Reason' : tab === 'rescheduled' ? 'Reschedule Count' : 'Type',
+      header: tab === 'rejected' ? 'Rejection Symptoms' : tab === 'rescheduled' ? 'Reschedule Count' : 'Type',
       accessor: tab === 'rejected' ? 'rejectReason' : tab === 'rescheduled' ? 'rescheduleCount' : 'type',
       cell: row => {
         if (tab === 'rejected') {
@@ -887,9 +882,9 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
     { key: 'time', label: 'Appointment Time' },
     { key: 'consultationType', label: 'Consultation Type' },
     { key: 'specialty', label: 'Specialty' },
-    { key: 'reason', label: 'Notes / Reason' },
+    { key: 'reason', label: 'Notes / Symptoms' },
     { key: 'status', label: 'Status' },
-    ...(tab === 'rejected' ? [{ key: 'rejectReason', label: 'Rejection Reason' }] : [])
+    ...(tab === 'rejected' ? [{ key: 'rejectReason', label: 'Rejection Symptoms' }] : [])
   ];
 
   if (loading) {
@@ -933,7 +928,7 @@ const DoctorAppointments = ({ showOnlyPending = false, isOverview = false }) => 
                 <textarea
                   className="input-field w-full p-2 border rounded"
                   rows={3}
-                  placeholder="Reason for rejection"
+                  placeholder="Symptoms for rejection"
                   value={reasons[rejectId] || ''}
                   onChange={e => setReasons(p => ({ ...p, [rejectId]: e.target.value }))}
                 />
