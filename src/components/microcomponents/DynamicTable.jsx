@@ -12,6 +12,8 @@ export default function DynamicTable({
   tabs = [],
   activeTab,
   onTabChange,
+  showSearchBar = true,
+  showPagination = true,
   tabActions = [],
   noDataMessage = "No records found.",
   itemsPerPage = 9,

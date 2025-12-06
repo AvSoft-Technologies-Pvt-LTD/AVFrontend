@@ -141,8 +141,7 @@ const WardStep = ({
         ).length;
 
         const displayBase = wardType.typeName || wardType.name || "Ward";
-        const displayName = `${displayBase} ${sameTypeCount + 1}`;
-
+const displayName = displayBase;
         const payload = {
           name: displayName,
           wardName: displayName,

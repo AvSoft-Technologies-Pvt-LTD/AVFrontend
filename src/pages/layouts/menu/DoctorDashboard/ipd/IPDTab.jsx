@@ -651,79 +651,100 @@ const handleRoomSelection = useCallback((roomNumber, roomId) => {
     );
 
     // Edit Patient
-   const handleEditPatient = useCallback(
+ const handleEditPatient = useCallback(
   (patient) => {
     const updatedPatient = {
       ...patient,
       id: patient.id,
       admissionId: patient.admissionId || patient.id,
     };
-
-    // Set selected values based on API data
     setSelectedWardName(patient.wardType || patient.wardName || "");
     setSelectedRoomNumber(patient.roomNo || patient.roomNumber || "");
     setSelectedBedNumber(patient.bedNo || patient.bedNumber || "");
-        setIpdWizardData(prev => ({
-          ...prev,
-          patientId: patient.patientId,
-          name: patient.name || [patient.firstName, patient.middleName, patient.lastName].filter(Boolean).join(" ") || "",
-          firstName: patient.firstName || "",
-          middleName: patient.middleName || "",
-          lastName: patient.lastName || "",
-          phone: patient.phone || patient.phoneNumber || patient.mobileNo || "",
-          email: patient.email || patient.patientEmail || "",
-          gender: patient.gender || patient.sex || "",
-          age: patient.age || "",
-          bloodGroup: patient.bloodGroup || patient.bloodType || "",
-          dob: patient.dob || "",
-          address: patient.address || patient.temporaryAddress || patient.addressTemp || "",
-          city: patient.city || "",
-          state: patient.state || "",
-          pincode: patient.pincode || "",
-          admissionDate: patient.admissionDate || getCurrentDate(),
-          admissionTime: patient.admissionTime || getCurrentTime(),
-          status: patient.status || "Admitted",
-          symptoms: patient.symptoms || patient.symptomNames || [],
-          diagnosis: patient.diagnosis || "",
-          insuranceType: patient.insuranceType || "None",
-          surgeryRequired: patient.surgeryRequired || "No",
-          reasonForAdmission: patient.reasonForAdmission || "",
-          doctorId: patient.doctorId || doctorId,
-          wardId: patient.wardId || "",
-          wardType: patient.wardType || patient.wardName || "",
-          wardNumber: patient.wardNo || patient.wardNumber || "",
-          roomId: patient.roomId || "",
-          roomNumber: patient.roomNo || patient.roomNumber || "",
-          bedId: patient.bedId || "",
-          bedNumber: patient.bedNo || patient.bedNumber || "",
-          specializationId: patient.specializationId || "",
-        }));
-
-        if (patient.photo) {
-          setPhotoPreview(patient.photo);
-        }
-
-        closeModal("viewPatient");
-        setModals(prev => ({ ...prev, ipdWizard: true }));
-        setIpdWizardStep(2);
-        setSelectedPatient(updatedPatient);
-      },
-      [closeModal, doctorId]
-    );
+    setIpdWizardData(prev => ({
+      ...prev,
+      patientId: patient.patientId,
+      name: patient.name || [patient.firstName, patient.middleName, patient.lastName].filter(Boolean).join(" ") || "",
+      firstName: patient.firstName || "",
+      middleName: patient.middleName || "",
+      lastName: patient.lastName || "",
+      phone: patient.phone || patient.phoneNumber || patient.mobileNo || "",
+      email: patient.email || patient.patientEmail || "",
+      gender: patient.gender || patient.sex || "",
+      age: patient.age || "",
+      bloodGroup: patient.bloodGroup || patient.bloodType || "",
+      dob: patient.dob || "",
+      address: patient.address || patient.temporaryAddress || patient.addressTemp || "",
+      city: patient.city || "",
+      state: patient.state || "",
+      pincode: patient.pincode || "",
+      admissionDate: patient.admissionDate || getCurrentDate(),
+      admissionTime: patient.admissionTime || getCurrentTime(),
+      status: patient.status || 1,
+      symptoms: patient.symptomIds || patient.symptoms || [],
+      diagnosis: patient.diagnosis || "",
+      insuranceType: patient.insuranceType || "None", // Ensure insuranceType is set
+      surgeryRequired: patient.surgeryReq || patient.surgeryRequired || "No",
+      reasonForAdmission: patient.reasonForAdmission || "",
+      doctorId: patient.doctorId || doctorId,
+      wardId: patient.wardId || "",
+      wardType: patient.wardType || patient.wardName || "",
+      wardNumber: patient.wardNo || patient.wardNumber || "",
+      roomId: patient.roomId || "",
+      roomNumber: patient.roomNo || patient.roomNumber || "",
+      bedId: patient.bedId || "",
+      bedNumber: patient.bedNo || patient.bedNumber || "",
+      specializationId: patient.specializationId || "",
+    }));
+    if (patient.photo) {
+      setPhotoPreview(patient.photo);
+    }
+    closeModal("viewPatient");
+    setModals(prev => ({ ...prev, ipdWizard: true }));
+    setIpdWizardStep(2);
+    setSelectedPatient(updatedPatient);
+  },
+  [closeModal, doctorId]
+);
 
     // Edit Admission
+// const handleEditAdmission = useCallback(async (id) => {
+//   try {
+//     setLoading(true);
+//     const { data } = await fetchIPDAdmission(id);
+
+//     // Set the selected ward, room, and bed based on API data
+//     setSelectedWardName(data.wardName); // Use the exact ward name from API
+//     setSelectedRoomNumber(data.roomNumber); // Use the exact room number from API
+//     setSelectedBedNumber(data.bedNumber); // Use the exact bed number from API
+
+//     // Update the form data
+//     handleEditPatient(data);
+//   } catch (err) {
+//     toast.error("Failed to load admission details");
+//     console.error("Error:", err);
+//   } finally {
+//     setLoading(false);
+//   }
+// }, [handleEditPatient]);
+
 const handleEditAdmission = useCallback(async (id) => {
   try {
     setLoading(true);
     const { data } = await fetchIPDAdmission(id);
-
-    // Set the selected ward, room, and bed based on API data
-    setSelectedWardName(data.wardName); // Use the exact ward name from API
-    setSelectedRoomNumber(data.roomNumber); // Use the exact room number from API
-    setSelectedBedNumber(data.bedNumber); // Use the exact bed number from API
-
-    // Update the form data
-    handleEditPatient(data);
+    console.log('API Response:', data);
+    setSelectedWardName(data.wardName);
+    setSelectedRoomNumber(data.roomNumber);
+    setSelectedBedNumber(data.bedNumber);
+    const patientData = {
+      ...data,
+      status: data.statusId || (data.status === "Admitted" ? 1 : 2),
+      surgeryRequired: data.surgeryReq ? "Yes" : "No",
+      insuranceType: data.insuranceType || "None",
+      dischargeDate: data.dischargeDate || getCurrentDate(), // Ensure dischargeDate is included
+      symptomIds: data.symptomIds || data.symptoms?.map(s => s.id || s) || []
+    };
+    handleEditPatient(patientData);
   } catch (err) {
     toast.error("Failed to load admission details");
     console.error("Error:", err);
@@ -731,6 +752,8 @@ const handleEditAdmission = useCallback(async (id) => {
     setLoading(false);
   }
 }, [handleEditPatient]);
+
+
 
 
     // Wizard Data Handling
@@ -1300,11 +1323,7 @@ const columns = useMemo(
           tabActions={tabActionsToUse}
           activeTab={activeTab}
           onTabChange={onTabChange}
-          rowClassName={(row) =>
-            row.sequentialId === newPatientId || row.sequentialId === location?.state?.highlightId
-              ? "font-bold bg-yellow-100 hover:bg-yellow-200 transition-colors duration-150"
-              : ""
-          }
+        
         />
         <QuickLinksPanel
           isOpen={quickLinksOpen}

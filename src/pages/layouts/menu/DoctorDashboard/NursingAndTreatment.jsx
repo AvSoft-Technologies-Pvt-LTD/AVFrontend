@@ -56,7 +56,7 @@ const NursingAndTreatment = () => {
 
   useEffect(() => {
     const fetchNursingRecords = async () => {
-      setIsLoading(true);
+      
       try {
         const response = await getIpdNursingByPatient(patient?.patientId);
         if (response.data) {
@@ -318,9 +318,6 @@ const NursingAndTreatment = () => {
     return `${wardType}-${wardNo}-${bedNo}`;
   };
 
-  if (isLoading || apiData.frequencies.length === 0 || apiData.intakes.length === 0) {
-    return <div>Loading...</div>;
-  }
 
   const tableColumns = [
     {
