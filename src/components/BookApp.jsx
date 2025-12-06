@@ -51,7 +51,7 @@ const MultiStepForm = () => {
   // Initial state (fresh start)
   const getInitialState = () => {
     return {
-      consultationType: "Physical",
+      consultationType: "PHYSICAL",
       symptoms: "",
       specialty: "",
       specialtyId: "",
@@ -164,7 +164,7 @@ const MultiStepForm = () => {
       if (state.minPrice !== "" && parseInt(d.fees) < parseInt(state.minPrice)) return false;
       if (state.maxPrice !== "" && parseInt(d.fees) > parseInt(state.maxPrice)) return false;
       if (state.hospitalName !== "" && d.hospital && !d.hospital.toLowerCase().includes(state.hospitalName.toLowerCase())) return false;
-      if (state.consultationType === "Physical" && state.location && d.city !== state.location) return false;
+      if (state.consultationType === "PHYSICAL" && state.location && d.city !== state.location) return false;
       return true;
     });
     updateState({ filteredDoctors: filtered });
@@ -363,9 +363,9 @@ const MultiStepForm = () => {
       appointmentTime = `${hours.toString().padStart(2, '0')}:${minutes}`;
     }
 
-    // Ensure consultationType is exactly 'PHYSICAL' or 'VIRTUAL' as required by backend
-    const consultationType = String(state.consultationType).trim().toUpperCase() === 'Virtual' ? 'Virtual' : 'Physical';
-    const isVirtual = consultationType === 'Virtual';
+    // // Ensure consultationType is exactly 'PHYSICAL' or 'VIRTUAL' as required by backend
+    const consultationType = String(state.consultationType).trim().toUpperCase() === 'VIRTUAL' ? 'VIRTUAL' : 'Physical';
+    const isVIRTUAL = consultationType === 'VIRTUAL';
     
     const basePayload = {
       patientId: patientId,
@@ -388,7 +388,7 @@ const MultiStepForm = () => {
     });
 
     try {
-      const bookingResponse = isVirtual 
+      const bookingResponse = isVIRTUAL 
         ? await createvirtualAppointments(basePayload)
         : await createAppointments(basePayload);
       console.log("Booking successful:", bookingResponse);
@@ -406,7 +406,7 @@ const MultiStepForm = () => {
           specialtyId: "",
           specialties: [],
           selectedDoctor: null,
-          consultationType: isVirtual ? "VIRTUAL" : "PHYSICAL",
+          consultationType: "",
           cities: [],
           pincodeError: "",
           isCurrentLocation: false,
@@ -566,9 +566,9 @@ const MultiStepForm = () => {
     fetchData();
   }, []);
 
-  // Reset location fields for virtual consultation
+  // Reset location fields for VIRTUAL consultation
   useEffect(() => {
-    if (state.consultationType === "Virtual") {
+    if (state.consultationType === "VIRTUAL") {
       updateState({
         selectedState: "",
         location: "",
@@ -601,7 +601,7 @@ const MultiStepForm = () => {
             Consultation Type
           </p>
           <div className="flex gap-4">
-            {["Physical", "Virtual"].map(type => (
+            {["PHYSICAL", "VIRTUAL"].map(type => (
               <button
                 key={type}
                 onClick={() => updateState({ consultationType: type })}
@@ -616,8 +616,8 @@ const MultiStepForm = () => {
           </div>
         </div>
 
-        {/* Location Fields (Physical Consultation) */}
-        {state.consultationType === "Physical" && (
+        {/* Location Fields (PHYSICAL Consultation) */}
+        {state.consultationType === "PHYSICAL" && (
           <div className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
@@ -715,8 +715,8 @@ const MultiStepForm = () => {
           </div>
         )}
 
-        {/* Virtual Consultation Notice */}
-        {state.consultationType === "Virtual" && (
+        {/* VIRTUAL Consultation Notice */}
+        {state.consultationType === "VIRTUAL" && (
           <div className="bg-gradient-to-r from-green-50 to-indigo-50 border border-green-200 rounded-xl p-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
@@ -725,7 +725,7 @@ const MultiStepForm = () => {
                 </svg>
               </div>
               <div>
-                <h4 className="font-semibold text-green-800">Virtual Consultation Selected</h4>
+                <h4 className="font-semibold text-green-800">VIRTUAL Consultation Selected</h4>
                 <p className="text-sm text-green-600">You'll receive a video call link after booking confirmation</p>
               </div>
             </div>
@@ -734,7 +734,7 @@ const MultiStepForm = () => {
 
         {/* Hospital and Symptoms */}
         <div className="flex flex-col md:flex-row gap-4 w-full">
-          {state.consultationType === "Physical" && (
+          {state.consultationType === "PHYSICAL" && (
             <div className="space-y-2 w-full md:w-1/2">
               <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
                 <FaHospital className="text-emerald-500 text-xs" />
@@ -827,7 +827,7 @@ const MultiStepForm = () => {
               </div>
             </div>
           )}
-          <div className={`space-y-2 w-full ${state.consultationType === "Physical" ? "md:w-1/2" : ""}`}>
+          <div className={`space-y-2 w-full ${state.consultationType === "PHYSICAL" ? "md:w-1/2" : ""}`}>
             <label className="text-sm font-medium text-slate-700">Symptoms</label>
             <div className="relative">
               <div className="relative">
@@ -989,7 +989,7 @@ const MultiStepForm = () => {
                           <p className="text-slate-800 font-bold text-lg">₹{doc.fees}</p>
                           <p className="text-slate-500 text-xs flex items-center gap-1">
                             <FaMapMarkerAlt className="text-xs" />
-                            {state.consultationType === "Virtual" ? "Online" : doc.city || doc.location || "N/A"}
+                            {state.consultationType === "VIRTUAL" ? "Online" : doc.city || doc.location || "N/A"}
                           </p>
                           <p className="text-slate-500 text-xs">{doc.doctorPanelName || doc.doctorType}</p>
                           <p className="text-slate-400 text-xs">{doc.experience} years exp</p>
@@ -1035,7 +1035,7 @@ const MultiStepForm = () => {
               <p className="text-slate-600 text-sm">
                 {!state.specialtyId
                   ? "Please select symptoms and specialty to see available doctors"
-                  : state.consultationType === "Physical" && !state.location
+                  : state.consultationType === "PHYSICAL" && !state.location
                     ? "Please select a city to see available doctors"
                     : "Try adjusting your search criteria"}
               </p>
@@ -1071,11 +1071,11 @@ const MultiStepForm = () => {
                 <span className="text-2xl font-bold text-emerald-600">₹{state.selectedDoctor.fees}</span>
               </div>
               <div className="mt-3">
-                <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${state.consultationType === "Virtual"
+                <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${state.consultationType === "VIRTUAL"
                   ? "bg-blue-100 text-blue-700"
                   : "bg-emerald-100 text-emerald-700"
                   }`}>
-                  {state.consultationType === "Virtual" ? (
+                  {state.consultationType === "VIRTUAL" ? (
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 002 2v8a2 2 0 002 2z" />
                     </svg>

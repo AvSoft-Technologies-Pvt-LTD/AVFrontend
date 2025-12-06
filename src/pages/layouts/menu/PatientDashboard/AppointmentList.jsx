@@ -92,11 +92,7 @@ const mapDoctorAppointment = (appointment) => {
     appointment?.slotTime ||
     appointment?.scheduleTime;
   let consultationType = (
-    appointment?.consultationType ||
-    appointment?.consultationMode ||
-    appointment?.appointmentType ||
-    appointment?.type ||
-    "Physical"
+    appointment?.consultationType 
   ) // Default to Physical if not specified
     .toString()
     .trim()
