@@ -1,4 +1,3 @@
-// File: BedRoomList.jsx
 import React, { useEffect, useState } from "react";
 import { FaPlus, FaEdit, FaTrash, FaExclamationTriangle } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
@@ -58,12 +57,11 @@ const BedRoomList = () => {
       : Number(item.available ?? Math.max(0, total - Number(item.occupied ?? 0)));
     const occupied = Number(item.occupied ?? (total - available));
     
-    // ✅ FIXED: Use backend ID (not generated)
     const id = item.id ?? item.wardId ?? `${specialization.replace(/\s+/g, "_")}-${wardName.replace(/\s+/g, "_")}-${idx}`;
     
     return {
       id,
-      wardId: item.id ?? item.wardId, // ✅ Preserve backend ward ID
+      wardId: item.id ?? item.wardId,
       department: specialization,
       ward: wardName,
       totalBeds: total,
@@ -224,7 +222,6 @@ const BedRoomList = () => {
   };
 
   const handleEdit = async (row) => {
-    // ✅ FIXED: Use backend ward ID (not random ID)
     const candidateId = row?.wardId ?? row?.raw?.wardId ?? row?.raw?.id ?? row?.id ?? null;
     if (!candidateId) {
       navigate("/doctordashboard/bedroom-management/bedmaster", { state: { editData: row } });

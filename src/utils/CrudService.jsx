@@ -293,11 +293,13 @@ export const deleteBedStatus = (id) =>
 export const getSpecializationsWithWards = () =>
   axiosInstance.get("/specializations/wards");
 
-export const createSpecializationWards = (data) =>
-  axiosInstance.post(
-    '/specializations/wards',
-    Array.isArray(data) ? data : [data]
-  );
+export const createSpecializationWards = (data) => {
+  // Ensure we're sending an array
+  const payload = Array.isArray(data) ? data : [data];
+  console.log("Creating specialization wards with payload:", JSON.stringify(payload, null, 2));
+  return axiosInstance.post('/specializations/wards', payload);
+};
+
 
 
 // PUT: Update ward hierarchy for a specific specialization

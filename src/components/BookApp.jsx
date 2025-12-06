@@ -364,8 +364,8 @@ const MultiStepForm = () => {
     }
 
     // Ensure consultationType is exactly 'PHYSICAL' or 'VIRTUAL' as required by backend
-    const consultationType = String(state.consultationType).trim().toUpperCase() === 'VIRTUAL' ? 'VIRTUAL' : 'PHYSICAL';
-    const isVirtual = consultationType === 'VIRTUAL';
+    const consultationType = String(state.consultationType).trim().toUpperCase() === 'Virtual' ? 'Virtual' : 'Physical';
+    const isVirtual = consultationType === 'Virtual';
     
     const basePayload = {
       patientId: patientId,

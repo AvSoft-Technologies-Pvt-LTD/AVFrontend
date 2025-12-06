@@ -53,6 +53,7 @@ const AvailabilityPage = () => {
   const [generatedSlots, setGeneratedSlots] = useState([]);
   const [loading, setLoading] = useState(false);
   const [hasConflict, setHasConflict] = useState(false);
+const [shiftType, setShiftType] = React.useState(""); // default empty
 
   // --- Simple Consultation Fee (one amount for selected dates) ---
   const [feeAmount, setFeeAmount] = useState(""); // store as string for input; convert to number on save
@@ -541,6 +542,21 @@ const renderCalendar = () => {
                   <label className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wide mb-3 block">
                     Working Hours
                   </label>
+                    <div className="mb-4">
+                      <label className="text-xs font-semibold text-slate-600 mb-2 block">
+                        Shift Type
+                      </label>
+                      <select
+                        value={shiftType}
+                        onChange={(e) => setShiftType(e.target.value)}
+                        className="w-full px-3 py-2 border-2 border-slate-200 rounded-lg bg-white text-sm font-semibold text-slate-800 hover:border-emerald-400 transition-colors"
+                      >
+                        <option value="">Select Shift</option>
+                        <option value="morning">Morning</option>
+                        <option value="evening">Evening</option>
+                        <option value="general">General Shift</option>
+                      </select>
+                    </div>
                   <div className="space-y-4">
                     <div>
                       <label className="text-xs font-semibold text-slate-600 mb-2 block">
@@ -560,6 +576,7 @@ const renderCalendar = () => {
                         />
                       </div>
                     </div>
+
                     <div>
                       <label className="text-xs font-semibold text-slate-600 mb-2 block">
                         End Time
@@ -578,6 +595,23 @@ const renderCalendar = () => {
                         />
                       </div>
                     </div>
+
+                    {/* Shift Type Dropdown */}
+                    {/* <div>
+                      <label className="text-xs font-semibold text-slate-600 mb-2 block">
+                        Shift Type
+                      </label>
+                      <select
+                        value={shiftType}
+                        onChange={(e) => setShiftType(e.target.value)}
+                        className="w-full px-3 py-2 border-2 border-slate-200 rounded-lg bg-white text-sm font-semibold text-slate-800 hover:border-emerald-400 transition-colors"
+                      >
+                        <option value="">Select Shift</option>
+                        <option value="morning">Morning</option>
+                        <option value="evening">Evening</option>
+                        <option value="general">General Shift</option>
+                      </select>
+                    </div> */}
                   </div>
 
                   {/* Simple Fee Field */}
@@ -601,6 +635,10 @@ const renderCalendar = () => {
                     </div>
                   </div>
                 </div>
+
+
+
+                
               </div>
             </div>
           ) : (
